@@ -1,0 +1,291 @@
+/**
+ *------
+ * BGA framework: © Gregory Isabelli <gisabelli@boardgamearena.com> & Emmanuel Colin <ecolin@boardgamearena.com>
+ * GalaxyTrucker implementation : © <Your name here> <Your email address here>
+ *
+ * This code has been produced on the BGA studio platform for use on http://boardgamearena.com.
+ * See http://en.boardgamearena.com/#!doc/Studio for more information.
+ * -----
+ *
+ * galaxytrucker.css
+ *
+ * GalaxyTrucker stylesheet
+ *
+ */
+
+/*
+    This is the CSS stylesheet of your game User Interface.
+    
+    Styles defined on this file will be applied to the HTML elements you define in your
+    HTML template (galaxytrucker_galaxytrucker.tpl), and to HTML elements you create dynamically
+    (in galaxytrucker.js).
+    
+    Usually, you are using CSS to:
+    
+    1°) define the overall layout of your game
+        (ex: place the board on the top left, place player's hand beside, place the deck on the right, ...).
+
+    2°) create your CSS-sprites:
+        All images of your games should be gathered into a small number of image files. Then, using
+        background-image and background-position CSS properties, you create HTML blocks that can 
+        display these images correctly (see example below).
+    
+    3°) ... anything else:
+        It is really easy to add and remove CSS classes dynamically from your Javascript with
+        dojo.addClass and dojo.removeClass. It is also easy to check if an element has a class
+        (dojo.hasClass) or to get all elements with a specific class (dojo.query). This is why,
+        very often, using CSS classes for the logic of your user interface allow you to do complex
+        thing easily.
+        
+        
+     Note: on the production platform, this file will be compressed and comments will be removed.
+           Consequently, don't hesitate to put as many comments as necessary.
+*/
+
+@import url(../../../css/csslayer.css); /* Note: you must not use any @import directive other than this one */
+
+/********* You can start writing your CSS below this line: **********/
+
+
+/*
+    Example of CSS sprites (a black token and a white token, 20x20px each, embedded in the same "tokens.png" 40x20px image):
+
+    .white_token {
+        background-image: url('img/tokens.png');
+        background-position: 0px 0px;
+    }
+    .black_token {
+        background-image: url('img/tokens.png');
+        background-position: -20px 0px;
+    }
+    .token {
+        width: 20px;
+        height: 20px;
+        background-repeat: none;
+    }
+*/
+
+#scpf {
+    width: 746px;
+    margin-right: 10px;
+    float: left;
+}
+
+#ship_div {
+    float: left; 
+    margin-right: 10px;   
+}
+.ship {
+    width: 474px;
+    height: 322px;
+    background-image: url('img/ships.png');
+    background-position: 66.66% 0%;
+}
+
+.square {
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    /* opacity: 0.2; */
+    /* background-color: red; */
+}
+
+.available:hover {
+    opacity: 0.2;
+    background-color: blue;
+}
+
+#cards_div {
+    height: 351px;
+    float: left;
+    position: relative;
+}
+#cards {
+    width: 220px;
+    height: 82px;
+    background-image: url('img/cards_board.png');
+    background-position: 0% 0%;
+}
+.card_pile {
+    position: absolute;
+    width: 165px;
+    /* height: 253px; */
+    top: 100px;
+    /* opacity:.2; */
+    /* background-color: red; */
+    transform: scale(.3);
+    -ms-transform: scale(.3);
+    -webkit-transform: scale(.3);
+    -moz-transform: scale(.3);
+    -o-transform: scale(.3);
+    transform-origin: 0 0;
+    -ms-transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+    -moz-transform-origin: 0 0;
+    -o-transform-origin: 0 0;
+}
+.card_pile .stockitem,
+.cards_reveal .stockitem {
+    border-width: 0px;
+    border-radius: 14px;
+}
+
+#cards_reveal_wrap {
+    display: none;
+}
+#cards_reveal_shadow {
+    position: absolute;
+    background-color: #333333;
+    opacity: .4;
+    width: 100%;
+    height: 100%;
+}
+.cards_reveal {
+    display: none;
+    position: absolute;
+    width: 720px;
+    height: 300px;
+    left: 25px;
+    top: 75px;
+}
+
+#pile {
+    width: 395px;
+    min-height: 310px;
+    clear: both;
+    float: left;
+    margin-right: 10px;   
+}
+
+#turns {
+    width: 173px;
+    height: 52px;
+    /* margin-top: 5px; */
+    /* top:0px; */
+    /* margin-right: 8px; */
+    position: absolute;
+    /* background-color:blue; */
+}
+.turn {
+    width: 50px;
+    height: 50px;
+    position: absolute;
+    background-image: url('img/misc.png');
+    border: 1px solid grey;
+}
+#turn_left {
+    background-position: -50px 0px;
+    border: 1px solid grey;
+    left: 30px;
+}
+#turn_right {
+    background-position: -100px 0px;
+    border: 1px solid grey;
+    left: 93px;
+}
+
+#basic_pile {
+    width: 173px;
+    height: 225px;
+    /* margin-top: 5px; */
+    /* top:55px; */
+    margin-top:60px;
+    margin-right: 8px;
+    position: absolute;
+    /* background-color:blue; */
+}
+#clickable_pile {
+    width: 173px;
+    height: 225px;
+    /* margin-top: 5px; */
+    margin-top:60px;
+    margin-right: 8px;
+    position: absolute;
+    /* background-color:blue; */
+}
+#revealed_pile {
+    width: 215px;
+    min-height: 285px;
+    /* position: absolute; */
+    left: 181px;
+    /* background-color:blue; */
+    /* margin-top: 5px; */
+}
+
+.tile {
+    background-image: url('img/tiles.png');
+    width: 50px;
+    height: 50px;
+    left: 0px;
+    top: 0px;
+    display:none;
+    position:absolute;
+}
+.hidden_tile {
+    background-image: url('img/misc.png');
+    width: 50px;
+    height: 50px;
+    background-position: 0px 0px;
+    position:absolute;
+    border: 1px solid grey;
+}
+
+#flight_div {
+    float: left;
+}
+#flight {
+    width: 300px;
+    height: 129px;
+    background-image: url('img/flight.png');
+    background-position: 0% 0%;
+    margin-bottom:10px;
+}
+#dangers {
+    width: 300px;
+    height: 136px;
+    background-image: url('img/dangers.png');
+    background-position: 0% 0%;
+    background-size:contain;
+}
+
+
+.opponent {
+    width: 250px;
+    height: 199px;
+    margin-right: 8px;
+    float: left;
+}
+
+.opponent .ship {
+    transform: scale(.527);
+    -ms-transform: scale(.527);
+    -webkit-transform: scale(.527);
+    -moz-transform: scale(.527);
+    -o-transform: scale(.527);
+    transform-origin: 0 0;
+    -ms-transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+    -moz-transform-origin: 0 0;
+    -o-transform-origin: 0 0;
+}
+
+/* .miniship { */
+/*     width: 250px; */
+/*     height: 170px; */
+/*     background-image: url('img/ships.png'); */
+/*     background-position: 66.66% 0%; */
+/*     background-size:cover; */
+/* } */
+/* .minisquare { */
+/*     width: 26px; */
+/*     height: 26px; */
+/*     position: absolute; */
+/*     /\* opacity: 0.2; *\/ */
+/*     /\* background-color: red; *\/ */
+/* } */
+
+#opponents {
+    /* width: 770px; */
+    /* height: 160px; */
+    /* float: left; */
+}

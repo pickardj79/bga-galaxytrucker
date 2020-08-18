@@ -1,0 +1,12 @@
+.DS_Store
+*.swp
+.idea
+
+# composer (PHP dependency management)
+vendor/
+
+# backup files
+*.php~
+*.sql~
+*.tpl~
+*.js~

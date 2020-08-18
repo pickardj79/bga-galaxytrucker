@@ -1,0 +1,620 @@
+/**
+ *------
+ * BGA framework: © Gregory Isabelli <gisabelli@boardgamearena.com> & Emmanuel Colin <ecolin@boardgamearena.com>
+ * GalaxyTrucker implementation : © <Your name here> <Your email address here>
+ *
+ * This code has been produced on the BGA studio platform for use on http://boardgamearena.com.
+ * See http://en.boardgamearena.com/#!doc/Studio for more information.
+ * -----
+ *
+ * galaxytrucker.css
+ *
+ * GalaxyTrucker stylesheet
+ *
+ */
+
+@import url(../../../css/csslayer.css); /* Note: you must not use any @import directive other than this one */
+
+/********* You can start writing your CSS below this line: **********/
+
+
+html {
+    background: url('img/gtbg.jpg');
+}
+.darkblock {
+    border: 1px solid #b0c4de;
+    border-radius: 5px;
+    padding: 5px;
+    color: white;
+    margin: 8px 2px;
+}
+
+#build_message {
+    display: none;
+}
+#build_message h6 {
+    display: table-cell;
+    vertical-align: top;
+}
+#close_buildMessage_container {
+    display: table-cell;
+    width: 40px;
+}
+#close_buildMessage {
+    border: 1px solid white;
+    border-radius: 4px;
+    margin: 5px;
+    padding: 4px;
+    font-family: sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    text-align: center;
+    cursor: pointer;
+}
+#flight_wrap {
+    text-align: center;
+}
+#flight {
+    display: inline-block; /* so that this div's width matches it's content
+        size, to display a border close to its content */
+}
+.flight_row {
+    white-space: nowrap;
+}
+.flight_pos {
+    display: inline-block;
+    position: relative;
+}
+.flight_pos,
+.ship_marker {
+    background-image: url('img/misc.png');
+    width: 30px;
+    height: 30px;
+    background-size: auto 45px; /* Because the original height of misc.png is 75px and the triangles
+    (flight_pos) height is 50px, we must set bg height to 45 if we want the triangles to be 30px.
+    I think it'll be better to change misc.png to have real 30px triangles, to avoid resizing
+    background, when we're sure 30px is the definitive size. */
+}
+#flight_row2 .flight_pos { background-position: -330px 0px; }
+#flight_row1 .flight_pos { background-position: -360px 0px; } /* left to right */
+#flight_pos_0 { background-position: -390px 0px !important; } /* red triangle for starting position */
+.ship_marker.clr0000ff { background-position: -90px 0px; }
+.ship_marker.clr008000 { background-position: -120px 0px; }
+.ship_marker.clrffff00 { background-position: -150px 0px; }
+.ship_marker.clrff0000 { background-position: -180px 0px; }
+#flight_row1 .ship_marker.clr0000ff { background-position: -210px 0px; } /* left to right */
+#flight_row1 .ship_marker.clr008000 { background-position: -240px 0px; } /* left to right */
+#flight_row1 .ship_marker.clrffff00 { background-position: -270px 0px; } /* left to right */
+#flight_row1 .ship_marker.clrff0000 { background-position: -300px 0px; } /* left to right */
+
+#timer_cards_order {
+    display: none;
+    min-height: 85px;
+}
+
+#timer_board {
+    display: inline-block;
+    vertical-align: top;
+    position: relative;
+    margin: 4px;
+    width: 220px;
+    height: 56px;
+    background-image: url('img/timer_board.png');
+    background-repeat: no-repeat;
+}
+#sandTimer {
+    display: none;
+    vertical-align: middle;
+    font-size: 15px;
+    font-weight: 900;
+    color: white;
+    cursor: pointer;
+}
+.timerPlace {
+    text-align: center;
+    width: 28px;
+    height: 20px;
+    position: absolute;
+    top: 19px;
+}
+#timerPlace_4 { left: 13px; }
+#timerPlace_3 { left: 54px; }
+#timerPlace_2 { left: 95px; }
+#timerPlace_1 { left: 136px; }
+#timerPlace_0 { left: 178px; }
+
+#in_hand_div {
+    position: relative;
+    display: inline-block;
+    margin: 4px;
+    vertical-align: top;
+}
+#in_hand_inside {
+    width: 68px;
+    height: 75px;
+    background-image: url('img/misc.png');
+    background-position: -920px 0px;
+}
+.notouch-device:not(.replay_running) #in_hand_inside {
+    display: none;
+}
+
+#cards {
+    display: inline-block;
+    margin: 4px;
+    vertical-align: top;
+    position: relative;
+    width: 129px;
+    height: 19px;
+    background-image: url('img/cards_board.png');
+    background-repeat: no-repeat;
+}
+.card_pile {
+    position: absolute;
+    width: 33px;
+    top: 7px;
+    background-image: url('img/card_piles.png');
+}
+#card_pile_1 { left: 7px; }
+#card_pile_2 { left: 48px; }
+#card_pile_3 { left: 89px; }
+.card_pile.round_1 {
+    background-position: 0px 0px;
+    height: 60px;
+}
+.card_pile.round_2 {
+    background-position: -33px 0px;
+    height: 69px;
+}
+.card_pile.round_3 {
+    background-position: -66px 0px;
+    height: 78px;
+}
+
+.order_tile_slot {
+    display: inline-block;
+    margin: 4px;
+    vertical-align: top;
+    width: 44px;
+    height: 26px;
+}
+.order_tile {
+    background-image: url('img/misc.png');
+    width: 44px;
+    height: 26px;
+}
+#order_tile_1 { background-position: -700px 0px; }
+#order_tile_2 { background-position: -744px 0px; }
+#order_tile_3 { background-position: -788px 0px; }
+#order_tile_4 { background-position: -832px 0px; }
+
+#scpf {
+    position: relative;
+    display: table;
+}
+
+#left_col {
+    display: table-cell;
+    vertical-align: top;
+}
+#right_col {
+    display: table-cell;
+    vertical-align: top;
+}
+
+#ship_div {
+    margin-left: auto;
+}
+.spectatorMode #ship_div {
+  display: none;
+}
+.ship {
+    background-image: url('img/ships.jpg');
+    position: relative;
+}
+.ship .order_tile_slot {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+}
+.ship_class_I, .ship_class_II, .ship_class_III {
+    width: 474px;
+    height: 322px;
+}
+.ship_class_I {
+    background-position: 0px 0%;
+}
+.ship_class_II {
+    background-position: -474px 0%;
+}
+.ship_class_III {
+    background-position: -948px 0%;
+}
+.ship_class_IIIa {
+    background-position: -1422px 0%;
+    width: 322px;
+    height: 473px;
+}
+
+.square {
+    width: 50px;
+    height: 50px;
+    position: absolute;
+}
+
+.notouch-device .square.available:hover {
+    cursor: pointer;
+    opacity: 0.2;
+    background-color: blue;
+}
+
+#info_box {
+    display: none;
+    /* width: 175px; */
+    margin: 9px;
+}
+#current_card {
+    display: none;
+    position: relative;
+    margin: 10px;
+}
+.card, #current_card {
+    background-image:  url('img/cards.jpg');
+    width: 165px;
+    height: 253px;
+    border-width: 0px;
+    border-radius: 12px;
+}
+.card {
+    display: inline-block;
+    margin: 20px;
+}
+
+#pile {
+    display: none;
+    position: relative;
+}
+#pile_blocks {
+    position: relative;
+}
+
+#turns {
+    width: 50px;
+    height: 104px;
+}
+.turn {
+    width: 50px;
+    height: 50px;
+    background-image: url('img/misc.png');
+    border: 1px solid grey;
+}
+#turn_left {
+    background-position: -50px 0px;
+}
+#turn_right {
+    background-position: -100px 0px;
+}
+.notouch-device .turn.clickable:hover,
+.notouch-device .tile.available:hover,
+.notouch-device .card_pile.clickable:hover,
+.notouch-device #timer_cards_order .order_tile:hover {
+    cursor: pointer;
+    opacity: 0.7;
+    filter: alpha(opacity=70);
+    /* for IE8 and earlier */
+}
+
+#basic_pile {
+    width: 160px;
+    height: 104px;
+    position: absolute;
+    top:0px;
+    left: 53px;
+}
+#clickable_pile {
+    width: 160px;
+    height: 104px;
+    border-radius: 8px;
+    position: absolute;
+    top: 0px;
+    left: 53px;
+}
+#revealed_pile_wrap {
+    min-height: 285px; /* needed? already a min-height in revealed_pile */
+    border-radius: 8px;
+    position: relative;
+    margin: 2px;
+    padding-top: 15px;
+}
+#revealed_pile {
+    min-width: 224px;
+    min-height: 270px;
+    position: relative;
+}
+.rev_space {
+    display: inline-block;
+    position: relative;
+    width: 50px;
+    height: 50px;
+    margin: 3px;
+}
+.notouch-device #clickable_pile.clickable:hover,
+.notouch-device #revealed_pile_wrap.clickable:hover {
+    cursor: pointer;
+    background-color: rgba(63, 0, 255, 0.1);
+}
+
+.tile {
+    background-image: url('img/tiles.jpg');
+    width: 50px;
+    height: 50px;
+    left: 0px;
+    top: 0px;
+    visibility: hidden;
+    position:absolute;
+}
+.notouch-device:not(.replay_running) #in_hand_div .tile {
+    z-index: 30;
+    visibility: visible;
+    position: fixed;
+}
+.touch-device #in_hand_div .tile,
+.replay_running #in_hand_div .tile {
+    visibility: visible;
+    top: 0px;
+    left:18px
+}
+.square .tile,
+#revealed_pile .tile {
+    visibility: visible;
+}
+#revealed_pile .tile {
+    position: relative;
+    visibility: visible;
+}
+.overlay_tile {
+    width: 50px;
+    height: 50px;
+    left: 0px;
+    top: 0px;
+    position:absolute;
+}
+.hidden_tile {
+    background-image: url('img/misc.png');
+    width: 50px;
+    height: 50px;
+    background-position: 0px 0px;
+    position:absolute;
+    border: 1px solid gray;
+}
+
+#flight_div {
+    width: 300px;
+}
+
+#dangers {
+    width: 300px;
+    height: 136px;
+    background-image: url('img/dangers.png');
+    background-position: 0% 0%;
+    background-size: contain;
+}
+
+.content {
+    background-image: url('img/content.png');
+}
+.square .content {
+    position: absolute;
+}
+.log .content {
+    display: inline-block;
+}
+
+.notouch-device .content.available:hover,
+.notouch-device .content.selected:hover {
+    cursor: pointer;
+    -moz-filter:brightness(1.5);
+    -webkit-filter:brightness(1.5);
+    -o-filter:brightness(1.5);
+    -ms-filter:brightness(1.5);
+    filter:brightness(1.5);
+}
+.content.selected {
+    border: 2px solid blueviolet;
+    border-radius: 3px;
+}
+
+.cell {
+    width: 10px;
+    height: 15px;
+    background-position: -15px -2px;
+}
+.square .cell {
+    top: 18px;
+}
+.human {
+    width: 15px;
+    height: 20px;
+    background-position: 0px 0px;
+}
+.square .human {
+    top: 15px;
+}
+.alien, .alien_choice {
+    height: 22px;
+}
+.alien {
+    width: 19px;
+}
+.square .alien {
+    left: 15px;
+    top: 14px;
+}
+.alien_choice {
+    width: 23px; /* this one has a slash, so it's wider */
+    top: 1px;
+    /* .alien_choice left position is set below, depending on the number of available aliens (p1on2, p1on3, etc.) */
+}
+.alien_choice.available,
+.alien_choice.unavailable,
+.alien_choice.chosen {
+    width: 19px;
+}
+.alien.purple,
+.notouch-device .alien_choice.purple.available:hover,
+.alien_choice.purple.chosen {
+    background-position: -25px 0px;
+}
+.alien.brown,
+.notouch-device .alien_choice.brown.available:hover,
+.alien_choice.brown.chosen {
+    background-position: -44px 0px;
+}
+.human_choice {
+    width: 29px;
+    height: 22px;
+    background-position: -185px 0px;
+    top: 27px;
+    left: 10px;
+}
+/* .alien_choice_clickdiv {
+    position: absolute;
+    width: 14px;
+    height: 22px;
+    top: 0px;
+    left: 2px;
+} */
+.alien_choice.purple { background-position: -139px 0px; }
+.alien_choice.brown { background-position: -162px 0px; }
+/* available aliens have a question mark, and no slash (this class is only used when player is active) */
+.alien_choice.purple.available { background-position: -63px 0px; }
+.alien_choice.brown.available { background-position: -82px 0px; }
+.alien_choice.purple.unavailable { background-position: -101px 0px; }
+.alien_choice.brown.unavailable { background-position: -120px 0px; }
+/* Should we set background-position inline with our JS instead of having all those classes? */
+.notouch-device .alien_choice.available:hover {
+    cursor: pointer;
+    /* ? transform: scale(1.2); ? */
+}
+
+.cell.p1on2 { left: 14px; }
+.cell.p2on2 { left: 26px; }
+.cell.p1on3 { left: 10px; }
+.cell.p2on3 { left: 20px; }
+.cell.p3on3 { left: 30px; }
+.human.p1on2 { left: 10px; }
+.human.p2on2 { left: 25px; }
+.alien_choice.p1on3 { left: 4px; } /* on3: includes human_choice */
+.alien_choice.p2on3 { left: 27px; }
+.alien_choice.p1on2 { left: 14px; }
+
+.opponent {
+    width: 223px;
+    height: 280px;
+    display: inline-block;
+}
+
+.opponent .ship {
+    transform: scale(.47);
+    -ms-transform: scale(.47);
+    -webkit-transform: scale(.47);
+    -moz-transform: scale(.47);
+    -o-transform: scale(.47);
+    transform-origin: 0 0;
+    -ms-transform-origin: 0 0;
+    -webkit-transform-origin: 0 0;
+    -moz-transform-origin: 0 0;
+    -o-transform-origin: 0 0;
+}
+
+#opponents {
+    margin-left: auto;
+}
+
+#cards_reveal_wrap {
+    display: none;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+}
+#cards_reveal_shadow {
+    position: absolute;
+    background-color: #333333;
+    opacity: .4;
+    width: 100%;
+    height: 100%;
+}
+.cards_reveal {
+    display: none;
+    position: relative; /* need to be positionned to be above cards_reveal_shadow */
+}
+
+.ship_part_nb {
+    position: absolute;
+    z-index: 100;
+    top: 10px;
+    left: 10px;
+    width:30px;
+    text-align: center;
+    font-size: 28px;
+    font-weight: 900;
+    color: rgb(0,0,255,0.7);
+}
+.tile_error {
+    position: absolute;
+    z-index: 100;
+    background-color: rgb(255,0,0,0.4);
+    border-radius: 40%;
+}
+.tile_error.error90 {
+    top: 0px;
+    left: 45px;
+    width: 10px;
+    height: 50px;
+}
+.tile_error.error180 {
+    top: 45px;
+    left: 0px;
+    width: 50px;
+    height: 10px;
+}
+
+.plBoardItem {
+    display: inline-block;
+    white-space: nowrap;
+    min-width: 40px;
+    margin-right: 5px;
+}
+.plBoardIcon {
+    display: inline-block;
+    height: 23px;
+    background-image: url(img/plBoardItems.png);
+    margin-right: 2px;
+    vertical-align: text-bottom;
+}
+.plBoardSpan {
+    vertical-align: middle;
+}
+.icon_minMaxEng { 
+    width: 16px;
+    background-position: 0px 0px;
+}
+.icon_minMaxCann { 
+    width: 13px;
+   background-position: -16px 0px;
+}
+.icon_expConn { 
+    width: 18px;
+    background-position: -29px 0px;
+}
+.icon_nbCrew { 
+    width: 15px;
+    background-position: -47px 0px;
+}
+.icon_cell { 
+    width: 16px;
+    background-position: -62px 0px;
+}
+
