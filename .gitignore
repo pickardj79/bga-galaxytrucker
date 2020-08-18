@@ -10,3 +10,4 @@ vendor/
 *.sql~
 *.tpl~
 *.js~
+*.css~
