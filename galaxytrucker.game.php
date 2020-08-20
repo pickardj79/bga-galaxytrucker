@@ -18,6 +18,7 @@
 
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
+require_once('modules/GT_PlayerBoard.php');
 
 
 class GalaxyTrucker extends Table {
@@ -45,13 +46,9 @@ class GalaxyTrucker extends Table {
                 "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
                                     // must place overlay tiles in case of a page reload
 
+                // flight_variants is a game option (gameoptions.inc.php)
+                // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
                 "flight_variants" => 100,
-            //    "my_first_global_variable" => 10,
-            //    "my_second_global_variable" => 11,
-            //      ...
-            //    "my_first_game_variant" => 100,
-            //    "my_second_game_variant" => 101,
-            //      ...
         ) );
 
         }
@@ -95,6 +92,7 @@ class GalaxyTrucker extends Table {
     $players = self::loadPlayersBasicInfos();
 
     /************ Start the game initialization *****/
+    self::log("Initializing new game");
 
     // Init global values with their initial values
     //self::setGameStateInitialValue( 'my_first_global_variable', 0 );
@@ -144,6 +142,7 @@ class GalaxyTrucker extends Table {
     $sql .= implode( ',', $values );
     self::DbQuery( $sql );
 
+    self::log("Game initialized");
     // $this->gamestate->setAllPlayersMultiactive();
 
     /************ End of the game initialization *****/
@@ -159,7 +158,7 @@ class GalaxyTrucker extends Table {
         _ when a player refreshes the game page (F5)
     */
   protected function getAllDatas() {
-    self::trace( "############ Starting getAllDatas()" );
+    self::log("Starting getAllDatas()");
     $result = array();
     $state = $this->gamestate->state();
 
@@ -311,6 +310,14 @@ class GalaxyTrucker extends Table {
 //////////// Utility functions
 ////////////
 
+  function log( $msg ) {
+    self::trace("##### $msg");
+  }
+
+  function dump_var($msg, $var) {
+    self::dump("##### $msg", $var);
+  }
+
   function traceExportVar( $varToExport, $varName, $functionStr ) {
     self::trace( "###### $functionStr(): $varName is ".var_export( $varToExport, true)." " );
   }
@@ -331,6 +338,10 @@ class GalaxyTrucker extends Table {
 
   function getPlContent( $plId ) {
     return self::getCollectionFromDB( "SELECT * FROM content WHERE player_id=$plId" );
+  }
+
+  function newPlayerBoard( $player_id ) {
+    return new GT_PlayerBoard($this, getPlayerBoard($player_id));
   }
 
   function resetUndoPossible( $plId, $action="" ) {
@@ -640,84 +651,6 @@ class GalaxyTrucker extends Table {
       }
     }
     return $errors;
-  }
-
-  function checkShipIntegrity( $plBoard ) {
-    // We scan each tile in this ship to see if it is connected to adjacent tiles
-    // (only right and bottom, because connections to the top and left have already
-    // been checked). If they're connected, we gather them tile by tile into ship
-    // parts, that are merged when we see that they are connected. Eventually, we'll
-    // see if all tiles are in a single ship part, or in different parts, that will be
-    // sent (if more than one is valid) to the unfortunate player who will have to
-    // choose which part to keep
-    $shipParts = array(); // key=>ship part id beginning with 1, because we'll use
-            // it in UI, value=> array of tiles in this part (whole tiles indexed
-            // with ids, not only ids, because we'll use x and y in stRepairShips
-            // to remove tiles from $plBoard if needed)
-    $tilesPart = array(); // key=>tile id, value=> ship part this tile is belonging to
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        // 1. Check if this tile is already in a ship part. It's the case if it was
-        // attached to a ship part in a previous tile scan because it was found
-        // (see 2. below) to be connected to this previous tile.
-        if ( !isset( $tilesPart[ $tile['id'] ] ) ) {
-            // This tile's not in a ship part yet, so we create a new one, and include
-            // the tile (by updating $shipParts and $tilesPart).
-            if ( $shipParts ) {
-                $partNumber = max(array_keys($shipParts))+1;
-            }
-            else {
-                $partNumber = 0;
-            }
-            // self::trace( "###### checkShipIntegrity: creating ship part $partNumber for tile ".
-            //        $tile['id'] ); // temp test
-            $shipParts[$partNumber] = array(); // new ship part array to fill
-            $tilesPart[ $tile['id'] ] = $partNumber;
-            $shipParts[$partNumber][$tile['id']] = $tile;
-        }
-        $thisPart = $tilesPart[ $tile['id'] ];
-        self::trace( "###### checkShipIntegrity: tile ".$tile['id']." is ".
-                        "in ship part ".$thisPart ); // temp test
-
-        // 2. Check adjacent tiles (right and bottom) to see if we must include them in
-        // this ship part, or merge the ship part they belong to to this ship part
-        foreach ( array(90,180) as $side ) {
-            $adjTile = self::getAdjacentTile( $plBoard, $tile, $side );
-            if ( $adjTile &&
-                    self::tileConnectionOnThisSide( $plBoard, $tile, $side, $adjTile ) > 0 )
-            {
-                // The tile on this side is connected, so we check if it's already
-                // included in a ship part
-                if ( isset( $tilesPart[ $adjTile['id'] ] ) ) {
-                    //self::trace( "###### checkShipIntegrity: tile on side $side ".$adjTile['id'].
-                    //    " already in ship part ".$tilesPart[ $adjTile['id'] ] ); // temp test
-                    $adjPart = $tilesPart[ $adjTile['id'] ];
-                    if ( $adjPart != $thisPart ) {
-                        // We merge the two ship parts into a single one. We don't use
-                        // array_merge() because we have to run through $shipParts[$adjPart]
-                        // anyway, to modify corresponding $tilesPart values (ship part id)
-                        // self::trace( "###### checkShipIntegrity: merging part $adjPart ".
-                        //  "into part $thisPart " ); // temp test
-                        foreach ( $shipParts[$adjPart] as $ttmId => $tileToMerge ) {
-                            $tilesPart[$ttmId] = $thisPart;
-                            $shipParts[$thisPart][$ttmId] = $tileToMerge;
-                        }
-                        // Then we destroy the ship part that has been merged
-                        unset( $shipParts[$adjPart] );
-                    }
-                }
-                else {
-                    // include it now in the ship part
-                    $tilesPart[ $adjTile['id'] ] = $thisPart;
-                    $shipParts[$thisPart][$adjTile['id']] = $adjTile;
-                    //self::trace( "###### checkShipIntegrity: including adjacent tile ".
-                    //    $adjTile['id']." to ship part ".$thisPart." " ); // temp test
-                }
-            }
-        }
-      }
-    }
-    return $shipParts;
   }
 
   function getLine ( $plBoard, $rowOrCol, $side )
@@ -1790,6 +1723,7 @@ class GalaxyTrucker extends Table {
     // Are globals 'flight' and 'round' updated here or in stJourneysEnd()?
     // flight in stJourneysEnd(), but 'round' must be set here, since for the
     // first round it can't be set in setupNewGame()
+    self::log("Starting stPrepareRound");
     $players = self::loadPlayersBasicInfos();
     $nbPlayers = count( $players );
     $flight = self::getGameStateValue( 'flight' );
@@ -1957,7 +1891,9 @@ class GalaxyTrucker extends Table {
 
         // 2nd step: check if this ship holds together, taking into account
         // illegal connections
-        $shipParts = self::checkShipIntegrity( $plBoard ); // Info: $plBoard has been
+        $brd = new GT_PlayerBoard($this, $plBoard);
+        $shipParts = $brd->checkShipIntegrity();
+//         $shipParts = self::checkShipIntegrity( $plBoard ); // Info: $plBoard has been
                     // updated since DB query if a badly oriented engine has been removed
         // Check if these ship parts are valid (at least one cabin), only needed if
         // more than one part OR with ship classes without starting component
