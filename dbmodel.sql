@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS `component` (
   `aside_discard` TINYINT DEFAULT NULL,
   PRIMARY KEY (`component_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;
+-- component_id is the tile_id (from material.inc.php)
 -- component_player IS NULL if tile is in the pile
 -- component_player = -1 if tile is revealed next to the pile (component_x MUST be null)
 -- component_player = 0 if not used this round (component_x MUST be null)

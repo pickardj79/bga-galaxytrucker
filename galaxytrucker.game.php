@@ -18,7 +18,7 @@
 
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
-
+require_once( 'modules/GT_GameStates.php');
 
 class GalaxyTrucker extends Table {
         function __construct( ) {
@@ -1317,11 +1317,12 @@ class GalaxyTrucker extends Table {
     $this->gamestate->nextState( 'timeFinished' );
   }
 
-  function finishShip( $orderTile ) {
+  function finishShip( $orderTile, $player_id=Null ) {
       // Many things in galaxy trucker's code are based on the asumption that this
       // function is ALWAYS executed for each player each round.
       self::checkAction( 'finishShip' );
-      $player_id = self::getCurrentPlayerId();
+      if (!$player_id)
+          $player_id = self::getCurrentPlayerId();
       $players = self::loadPlayersBasicInfos(); // TODO load ONCE all the columns
           // we need in the player table, to minimize the number of SQL requests
       $round = self::getGameStateValue('round');
@@ -1839,10 +1840,9 @@ class GalaxyTrucker extends Table {
     self::DbQuery( "UPDATE revealed_pile SET tile_id=NULL" );
 
     // Starting crew components
-    $default_colors = array( 31 => "0000ff", 32 => "008000", 33 => "ffff00", 34 => "ff0000" );
     $startingTiles = array();
     foreach( $players as $player_id => $player ) {
-        $id = array_search( $player['player_color'], $default_colors );
+        $id = array_search( $player['player_color'], $this->start_tiles );
         self::DbQuery( "UPDATE component SET component_x=7, component_y=7, ".
                         "component_player=$player_id WHERE component_id=$id" );
                         // Expansions: need to be changed for expansions' ship classes
@@ -1890,9 +1890,15 @@ class GalaxyTrucker extends Table {
     // Images may take some time to load, so for the first flight, when
     // the page is loading, we wait for players to announce they're ready,
     // using a waitForPlayers multipleactiveplayer gamestate
-    $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
-    $this->gamestate->setAllPlayersMultiactive();
-    $this->gamestate->nextState( $nextState );
+
+    // Setup a test game state
+    $gt_state = new GT_GameState($this, $players);
+    $gt_state->setState();
+
+//     $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
+//     $this->gamestate->setAllPlayersMultiactive();
+//     $this->gamestate->nextState( $nextState );
+
   }
 
   function stActivatePlayersForBuildPhase() {
