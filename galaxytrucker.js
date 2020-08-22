@@ -1360,6 +1360,7 @@ function (dojo, declare) {
     setupNotifications: function() {
         console.log( 'notifications subscriptions setup' );
 
+        dojo.subscribe( 'consoleLog', this, "notif_consoleLog");
         dojo.subscribe( 'onlyLogMessage', this, "notif_onlyLogMessage" );
         dojo.subscribe( 'replay_has_ended', this, "notif_GT_replay_has_ended" );
         dojo.subscribe( 'startTimer', this, "notif_startTimer" );
@@ -1400,6 +1401,10 @@ function (dojo, declare) {
         // dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
         // this.notifqueue.setSynchronous( 'cardPlayed', 3000 );
         //
+    },
+
+    notif_consoleLog: function(notif) {
+        console.log("NOTIF: " + notif.args.msg);
     },
 
     notif_onlyLogMessage: function( ) {

@@ -25,7 +25,8 @@ class GT_GameState {
 
         $order = 1;
         foreach( array_keys($this->players) as $player_id ) {
-            $this->game->finishShip($order, $player_id);
+            if ($order == 2) 
+                $this->game->finishShip($order, $player_id);
             $order++;
         }
         // All players finishShip ends the multipleactiveplayer, through stTakeOrderTiles, into repairShips
@@ -73,6 +74,20 @@ class GT_GameState {
         return $tiles;
     }
 
+    function repairShip($color, $variant) {
+        // start with basicShip
+        $tiles = $this->basicShip($color, $variant);
+
+        // some "bad" parts (at least for $variant 1)
+        array_push($tiles, self::newTile(66, 6, 6, 90)); // side-ways engine to west of cargo
+        array_push($tiles, self::newTile(108, 8, 7, 0)); // cannon to east of main cabin, pointing north into battery
+        array_push($tiles, self::newTile(37, 8, 8, 270)); // wrong connector (crew) east of southern engine
+        array_push($tiles, self::newTile(10, 6, 8, 180) ); // wrong connector (battery) west side of southern engine
+        array_push($tiles, self::newTile(6, 5, 8, 0)); // good connector (battery) west side of wrong connector
+
+        return $tiles;
+    }
+
     function getComponents() {
         // Return array of Tiles ready for inserting into component db
 
@@ -80,7 +95,10 @@ class GT_GameState {
         $all_tiles = array();
         $i = 1;
         foreach( $this->players as $player_id => $player ) {
-            $tiles = $this->basicShip($player['player_color'], $i);
+            if ($i == 1)
+                $tiles = $this->repairShip($player['player_color'], $i);
+            else
+                $tiles = $this->basicShip($player['player_color'], $i); 
             $i++;
             foreach( $tiles as &$tile ) {
                 $tile['component_player'] = $player_id;
