@@ -145,7 +145,7 @@ class GalaxyTrucker extends Table {
     $sql .= implode( ',', $values );
     self::DbQuery( $sql );
 
-    self::setGameStateInitialValue( 'testGameState', 1 ); 
+    self::setGameStateInitialValue( 'testGameState', 0 ); 
 
     // $this->gamestate->setAllPlayersMultiactive();
 
@@ -2088,7 +2088,7 @@ class GalaxyTrucker extends Table {
                                           "FROM card WHERE card_pile IS NOT NULL" );
     do {
       shuffle ($cardsInAdvDeck);
-    } while ( intval($cardsInAdvDeck[0]['round']) != intval($round) ); // rules : keep shuffling until
+    } while ( $cardsInAdvDeck[0]['round'] != $round ); // rules : keep shuffling until
                                         // the top card matches the number of the round.
     $sql = "REPLACE INTO card (card_round, card_id, card_order) VALUES ";
                         // REPLACE so that we remove card_pile information and 
