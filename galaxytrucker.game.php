@@ -44,6 +44,7 @@ class GalaxyTrucker extends Table {
                 "currentCard" => 16,
                 "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
                                     // must place overlay tiles in case of a page reload
+                "testGameState" => 99, // use a test scenario from GT_GameStates 
 
                 "flight_variants" => 100,
             //    "my_first_global_variable" => 10,
@@ -143,6 +144,8 @@ class GalaxyTrucker extends Table {
     }
     $sql .= implode( ',', $values );
     self::DbQuery( $sql );
+
+    self::setGameStateInitialValue( 'testGameState', 1 ); 
 
     // $this->gamestate->setAllPlayersMultiactive();
 
@@ -1320,9 +1323,12 @@ class GalaxyTrucker extends Table {
   function finishShip( $orderTile, $player_id=Null ) {
       // Many things in galaxy trucker's code are based on the asumption that this
       // function is ALWAYS executed for each player each round.
-      self::checkAction( 'finishShip' );
-      if (!$player_id)
+
+      if (!$player_id) {
+          self::checkAction( 'finishShip' );
           $player_id = self::getCurrentPlayerId();
+      }
+
       $players = self::loadPlayersBasicInfos(); // TODO load ONCE all the columns
           // we need in the player table, to minimize the number of SQL requests
       $round = self::getGameStateValue('round');
@@ -1832,6 +1838,9 @@ class GalaxyTrucker extends Table {
         self::cardsIntoPile( 2, 1 );
         self::cardsIntoPile( 3, 2 );
         break;
+      
+      default:
+        throw new BgaVisibleSystemException("Invalid round `$round` in stPrepareRound");
     }
 
     // Prepare ships
@@ -1892,13 +1901,15 @@ class GalaxyTrucker extends Table {
     // using a waitForPlayers multipleactiveplayer gamestate
 
     // Setup a test game state
-    $gt_state = new GT_GameState($this, $players);
-    $gt_state->setState();
-
-//     $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
-//     $this->gamestate->setAllPlayersMultiactive();
-//     $this->gamestate->nextState( $nextState );
-
+    if ( self::getGameStateValue( 'testGameState' ) ) {
+      $gt_state = new GT_GameState($this, $players);
+      $gt_state->setState();
+    }
+    else {
+      $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
+      $this->gamestate->setAllPlayersMultiactive();
+      $this->gamestate->nextState( $nextState );
+    }
   }
 
   function stActivatePlayersForBuildPhase() {
@@ -2077,7 +2088,7 @@ class GalaxyTrucker extends Table {
                                           "FROM card WHERE card_pile IS NOT NULL" );
     do {
       shuffle ($cardsInAdvDeck);
-    } while ( $cardsInAdvDeck[0]['round'] !== $round ); // rules : keep shuffling until
+    } while ( intval($cardsInAdvDeck[0]['round']) != intval($round) ); // rules : keep shuffling until
                                         // the top card matches the number of the round.
     $sql = "REPLACE INTO card (card_round, card_id, card_order) VALUES ";
                         // REPLACE so that we remove card_pile information and 

@@ -12,18 +12,9 @@ class GT_GameState {
     }
 
     function setState() {
-        // runs $game functions to set appropriate gamestate
-        // setGameStateValues
-        // set state machine to correct state
-
-//         $this->game->gamestate->nextState();
-
-        // set state to repairPhase
-//         $this->game->stPrepareRound(); # ends in either waitForPlayers or buildPhase
-//         if ( ($this->game->gamestate->state())['name'] == 'waitForPlayers' )
-//             $this->game->gamestate->nextState('readyGo');
-
-        // Should be in buildPhase now with timer counting down
+        // runs at the end of stPrepareRound if testGameState GameStateValue is tru-ish (set at end of setupNewGame)
+        // setupNewGame moves state to prepareRound
+        //    which ends with allPlayersMultiactive going to buildPhase
 
         $tiles = $this->getComponents();
         $sql = GT_DBComponent::updateTilesSql($tiles);
@@ -34,10 +25,17 @@ class GT_GameState {
 
         $order = 1;
         foreach( array_keys($this->players) as $player_id ) {
-//             $this->game->finishShip($order, $player_id);
+            $this->game->finishShip($order, $player_id);
             $order++;
-//             $this->game->gamestate->setPlayerNonMultiactive( $player_id, "shipsDone" );
         }
+        // All players finishShip ends the multipleactiveplayer, through stTakeOrderTiles, into repairShips
+        // repairShips will move onto prepareFlight if no ships need to be repaired
+        
+        // stPrepareFlight will shuffle cards if the top card is not for the current round
+
+        // prepareFlight will move to drawCard if no aliens need to be placed (via 'crewsDone')
+
+        // so here we end in stDrawCard
     }
 
     function newTile($id, $x, $y, $o) {
