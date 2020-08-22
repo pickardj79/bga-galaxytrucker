@@ -19,7 +19,7 @@
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
 require_once('modules/GT_PlayerBoard.php');
-
+require_once('modules/GT_GameStates.php');
 
 class GalaxyTrucker extends Table {
         function __construct( ) {
@@ -45,6 +45,7 @@ class GalaxyTrucker extends Table {
                 "currentCard" => 16,
                 "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
                                     // must place overlay tiles in case of a page reload
+                "testGameState" => 99, // use a test scenario from GT_GameStates 
 
                 // flight_variants is a game option (gameoptions.inc.php)
                 // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
@@ -143,6 +144,7 @@ class GalaxyTrucker extends Table {
     self::DbQuery( $sql );
 
     self::log("Game initialized");
+    self::setGameStateInitialValue( 'testGameState', 0 ); 
     // $this->gamestate->setAllPlayersMultiactive();
 
     /************ End of the game initialization *****/
@@ -1250,11 +1252,15 @@ class GalaxyTrucker extends Table {
     $this->gamestate->nextState( 'timeFinished' );
   }
 
-  function finishShip( $orderTile ) {
+  function finishShip( $orderTile, $player_id=Null ) {
       // Many things in galaxy trucker's code are based on the asumption that this
       // function is ALWAYS executed for each player each round.
-      self::checkAction( 'finishShip' );
-      $player_id = self::getCurrentPlayerId();
+
+      if (!$player_id) {
+          self::checkAction( 'finishShip' );
+          $player_id = self::getCurrentPlayerId();
+      }
+
       $players = self::loadPlayersBasicInfos(); // TODO load ONCE all the columns
           // we need in the player table, to minimize the number of SQL requests
       $round = self::getGameStateValue('round');
@@ -1765,6 +1771,9 @@ class GalaxyTrucker extends Table {
         self::cardsIntoPile( 2, 1 );
         self::cardsIntoPile( 3, 2 );
         break;
+      
+      default:
+        throw new BgaVisibleSystemException("Invalid round `$round` in stPrepareRound");
     }
 
     // Prepare ships
@@ -1773,10 +1782,9 @@ class GalaxyTrucker extends Table {
     self::DbQuery( "UPDATE revealed_pile SET tile_id=NULL" );
 
     // Starting crew components
-    $default_colors = array( 31 => "0000ff", 32 => "008000", 33 => "ffff00", 34 => "ff0000" );
     $startingTiles = array();
     foreach( $players as $player_id => $player ) {
-        $id = array_search( $player['player_color'], $default_colors );
+        $id = array_search( $player['player_color'], $this->start_tiles );
         self::DbQuery( "UPDATE component SET component_x=7, component_y=7, ".
                         "component_player=$player_id WHERE component_id=$id" );
                         // Expansions: need to be changed for expansions' ship classes
@@ -1824,9 +1832,17 @@ class GalaxyTrucker extends Table {
     // Images may take some time to load, so for the first flight, when
     // the page is loading, we wait for players to announce they're ready,
     // using a waitForPlayers multipleactiveplayer gamestate
-    $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
-    $this->gamestate->setAllPlayersMultiactive();
-    $this->gamestate->nextState( $nextState );
+
+    // Setup a test game state
+    if ( self::getGameStateValue( 'testGameState' ) ) {
+      $gt_state = new GT_GameState($this, $players);
+      $gt_state->setState();
+    }
+    else {
+      $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
+      $this->gamestate->setAllPlayersMultiactive();
+      $this->gamestate->nextState( $nextState );
+    }
   }
 
   function stActivatePlayersForBuildPhase() {
@@ -2007,7 +2023,7 @@ class GalaxyTrucker extends Table {
                                           "FROM card WHERE card_pile IS NOT NULL" );
     do {
       shuffle ($cardsInAdvDeck);
-    } while ( $cardsInAdvDeck[0]['round'] !== $round ); // rules : keep shuffling until
+    } while ( $cardsInAdvDeck[0]['round'] != $round ); // rules : keep shuffling until
                                         // the top card matches the number of the round.
     $sql = "REPLACE INTO card (card_round, card_id, card_order) VALUES ";
                         // REPLACE so that we remove card_pile information and 

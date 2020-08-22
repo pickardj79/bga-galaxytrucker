@@ -65,6 +65,7 @@ $this->flightVariant = array (
 );
 
 $this->orient = array( 0 => 'n', 90 => 'e', 180 => 's', 270 => 'w');
+$this->start_tiles = array( 31 => "0000ff", 32 => "008000", 33 => "ffff00", 34 => "ff0000" );
 
 $this->tiles = array();
 for( $i=1 ; $i<=144 ; $i++)
