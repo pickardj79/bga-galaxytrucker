@@ -18,7 +18,9 @@
 
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
-require_once( 'modules/GT_GameStates.php');
+require_once('modules/GT_PlayerBoard.php');
+require_once('modules/GT_PlayerContent.php');
+require_once('modules/GT_GameStates.php');
 
 class GalaxyTrucker extends Table {
         function __construct( ) {
@@ -46,13 +48,9 @@ class GalaxyTrucker extends Table {
                                     // must place overlay tiles in case of a page reload
                 "testGameState" => 99, // use a test scenario from GT_GameStates 
 
+                // flight_variants is a game option (gameoptions.inc.php)
+                // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
                 "flight_variants" => 100,
-            //    "my_first_global_variable" => 10,
-            //    "my_second_global_variable" => 11,
-            //      ...
-            //    "my_first_game_variant" => 100,
-            //    "my_second_game_variant" => 101,
-            //      ...
         ) );
 
         }
@@ -96,6 +94,7 @@ class GalaxyTrucker extends Table {
     $players = self::loadPlayersBasicInfos();
 
     /************ Start the game initialization *****/
+    self::log("Initializing new game");
 
     // Init global values with their initial values
     //self::setGameStateInitialValue( 'my_first_global_variable', 0 );
@@ -145,8 +144,8 @@ class GalaxyTrucker extends Table {
     $sql .= implode( ',', $values );
     self::DbQuery( $sql );
 
+    self::log("Game initialized");
     self::setGameStateInitialValue( 'testGameState', 0 ); 
-
     // $this->gamestate->setAllPlayersMultiactive();
 
     /************ End of the game initialization *****/
@@ -162,7 +161,7 @@ class GalaxyTrucker extends Table {
         _ when a player refreshes the game page (F5)
     */
   protected function getAllDatas() {
-    self::trace( "############ Starting getAllDatas()" );
+    self::log("Starting getAllDatas()");
     $result = array();
     $state = $this->gamestate->state();
 
@@ -314,6 +313,18 @@ class GalaxyTrucker extends Table {
 //////////// Utility functions
 ////////////
 
+  function log( $msg ) {
+    self::trace("##### $msg");
+  }
+
+  function log_console( $msg ) {
+    self::notifyAllPlayers( "consoleLog", '', array( 'msg' => $msg ) );
+  }
+
+  function dump_var($msg, $var) {
+    self::trace("##### $msg :: " . var_export($var,TRUE));
+  }
+
   function traceExportVar( $varToExport, $varName, $functionStr ) {
     self::trace( "###### $functionStr(): $varName is ".var_export( $varToExport, true)." " );
   }
@@ -334,6 +345,20 @@ class GalaxyTrucker extends Table {
 
   function getPlContent( $plId ) {
     return self::getCollectionFromDB( "SELECT * FROM content WHERE player_id=$plId" );
+  }
+
+  function newPlayerBoard( $player_id, $plBoard=null ) {
+    if ( $plBoard )
+      return new GT_PlayerBoard($this, $plBoard, $player_id);
+    else
+      return new GT_PlayerBoard($this, self::getPlayerBoard($player_id), $player_id);
+  }
+
+  function newPlayerContent( $player_id, $plContent=null ) {
+    if ($plContent )
+      return new GT_PlayerContent($this, $plContent, $player_id );
+    else
+      return new GT_PlayerContent($this, self::getPlContent($player_id), $player_id );
   }
 
   function resetUndoPossible( $plId, $action="" ) {
@@ -404,8 +429,12 @@ class GalaxyTrucker extends Table {
     // informations in BGA's side player boards.
     if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
     if ( $plContent == null ) { $plContent = self::getPlContent( $plId ); }
-    $minMaxCann = self::getMinMaxStrengthX2 ( $plBoard, $plContent, 'cannon' );
-    $minMaxEng = self::getMinMaxStrengthX2 ( $plBoard, $plContent, 'engine' );
+    
+    $brd = $this->newPlayerBoard($plId, $plBoard);
+    $plyrContent = $this->newPlayerContent($plId, $plContent);
+
+    $minMaxCann = $brd->getMinMaxStrengthX2 ( $plyrContent, 'cannon' );
+    $minMaxEng = $brd->getMinMaxStrengthX2 ( $plyrContent, 'engine' );
     $items = array ( array (
                         'type' => 'minMaxCann',
                         'value' => ($minMaxCann['min']/2)."/".($minMaxCann['max']/2),
@@ -416,15 +445,13 @@ class GalaxyTrucker extends Table {
                          ),
                     );
     $sql = "UPDATE player SET ";
-    if ( $bNbCrew )
-    {
-      $nbCrewMembers = self::nbOfCrewMembers( $plId, $plContent );
+    if ( $bNbCrew ) {
+      $nbCrewMembers = $plyrContent->nbOfCrewMembers();
       $sql .= "nb_crew=".$nbCrewMembers.", ";
       $items[] = array ( 'type' => "nbCrew", 'value' => $nbCrewMembers );
     }
-    if ( $bExpConn )
-    {
-      $nbExp = self::nbOfExposedConnectors ( $plBoard );
+    if ( $bExpConn ) {
+      $nbExp = $brd->nbOfExposedConnectors();
       $sql .= "exp_conn=".$nbExp.", ";
       $items[] = array ( 'type' => "expConn", 'value' => $nbExp );
     }
@@ -527,32 +554,6 @@ class GalaxyTrucker extends Table {
                   'content_icons' => $contentHtml) );
   }
 
-  function getAdjacentTile( $plBoard, $tile, $side ) {
-    $x = (int)$tile['x'];
-    $y = (int)$tile['y'];
-    switch ( $side ) {
-      case '0':
-        $y -= 1;
-        break;
-      case '90':
-        $x += 1;
-        break;
-      case '180':
-        $y += 1;
-        break;
-      case '270':
-        $x -= 1;
-        break;
-    }
-    if ( isset ($plBoard[$x][$y]) ) {
-        $ret = $plBoard[$x][$y];
-    }
-    else {
-        $ret = false;
-    }
-    return $ret;
-  }
-
   function getConnectorType( $tile, $side ) {
     // compute side presented by this tile
     $tileSide = ( 360 + $side - $tile['o'] ) % 360; // we add 360 so that it can't be negative
@@ -561,427 +562,9 @@ class GalaxyTrucker extends Table {
     // $this->orient[0] is 'n', $this->orient[90] is 'e', etc.
   }
 
-  function tileConnectionOnThisSide ( $plBoard, $tileToCheck, $side, $adjTile=null ) {
-    // Is there an adjacent tile on this side ?
-    if ( $adjTile // in this case $adjTile has been passed by checkTile() so no need to get it
-          // Otherwise we try to get it and if it exists, execute the block
-            || $adjTile = self::getAdjacentTile ($plBoard, $tileToCheck, $side) ) {
-        // There is one, so let's check how tiles are connected
-        $conn1 = self::getConnectorType( $tileToCheck, $side );
-        $conn2 = self::getConnectorType( $adjTile, ($side+180)%360 );
-        if ( $conn1 === $conn2 ) {
-            if ( $conn1 === 0 )
-                { return 0; } // Both are smooth sides, so not connected but no error
-            else
-                { return 2; } // Identical connectors, so connected and no error AND no 
-                          // problem with Defective Connectors (Rough Road card)
-        }
-        elseif ( $conn1 == 0 || $conn2 == 0 )
-            { return -1; } // smooth side vs connector: error, but might or
-                        // might not be prevented during building, we'll see
-        elseif ( $conn1 === 3 || $conn2 === 3 )
-            { return 1; }// Correctly connected, but different connectors (might be needed)
-        else
-            { return -2; } // simple vs double connector: error
-    }
-    return 0; // No adjacent tile on this side
-  }
-
-  // used only during ship building, not when checking ship at the end of building or when a component is destroyed
-  function checkIfTileConnected ( $plBoard, $tileToCheck ) {
-    for ( $side=0 ; $side<=270 ; $side+=90 ) {
-        $tileConn = self::tileConnectionOnThisSide( $plBoard, $tileToCheck, $side );
-        if ( $tileConn !== 0 && $tileConn !== -1 ) {
-            return true;
-        }
-    }
-    return false;
-  }
-
-  // checkTile is used when checking ships at the end of building
-  function checkTile( $plBoard, $tileToCheck, $player_id ) {
-    $errors = array();
-    $tileId = $tileToCheck['id'];
-    $tileToCheckType = $this->tiles[ $tileId ][ 'type' ];
-
-    // For two sides (9O=right, 180=bottom) of this tile, we want to check if rules are
-    // respected (cannon, engine and connectors restrictions).
-    // Top and left sides have already been checked when checking top and left adjacent tiles
-    foreach ( array(90,180) as $side ) {
-      // Is there an adjacent tile on this side ?
-      if ( $adjTile = self::getAdjacentTile ($plBoard, $tileToCheck, $side) ) {
-        // There is one, so let's check a few things
-        $adjTileType = $this->tiles[ $adjTile['id'] ][ 'type' ];
-        // check engine placement restrictions
-        // Note: not enough for Somersault Rough Road card
-        if ( $side == 180 && $tileToCheckType == 'engine' ) {
-            // Wrong tile placement: no component can sit on the square behind an engine
-            //$errors[] = 'engine_adjtile_180';
-            $errors[] = array( 'tileId' => $tileId, 'side' => '180',
-                'errType' => 'engine', 'plId' => $player_id,
-                'x' => $tileToCheck['x'], 'y' => $tileToCheck['y'] );
-        }
-        // If this tile is a cannon that points to an adjacent tile, or if adjacent tile
-        // is a cannon that points to this tile, it's a rule error so we record it
-        if ( ($tileToCheckType == 'cannon' && $tileToCheck['o'] == $side) 
-                || ($adjTileType == 'cannon' && $side == ($adjTile['o']+180)%360) ) {
-            //$errors[] = 'cannon_adjtile_'.$side;
-            $errors[] = array( 'tileId' => $tileId, 'side' => $side,
-                'errType' => 'cannon', 'plId' => $player_id,
-                'x' => $tileToCheck['x'], 'y' => $tileToCheck['y'] );
-        }
-        // Connectors restrictions
-        $ret = self::tileConnectionOnThisSide( $plBoard, $tileToCheck, $side, $adjTile );
-        if ( $ret < 0 ) {
-            //$errors[] = 'connector_adjtile_'.$side;
-            $errors[] = array( 'tileId' => $tileId, 'side' => $side,
-                'errType' => 'connection', 'plId' => $player_id,
-                'x' => $tileToCheck['x'], 'y' => $tileToCheck['y'] );
-        }
-        // Expansions: if implementing Rough Roads, if $ret==1 $defConnMalus++
-        // here? (to store in player table)
-      }
-    }
-    return $errors;
-  }
-
-  function checkShipIntegrity( $plBoard ) {
-    // We scan each tile in this ship to see if it is connected to adjacent tiles
-    // (only right and bottom, because connections to the top and left have already
-    // been checked). If they're connected, we gather them tile by tile into ship
-    // parts, that are merged when we see that they are connected. Eventually, we'll
-    // see if all tiles are in a single ship part, or in different parts, that will be
-    // sent (if more than one is valid) to the unfortunate player who will have to
-    // choose which part to keep
-    $shipParts = array(); // key=>ship part id beginning with 1, because we'll use
-            // it in UI, value=> array of tiles in this part (whole tiles indexed
-            // with ids, not only ids, because we'll use x and y in stRepairShips
-            // to remove tiles from $plBoard if needed)
-    $tilesPart = array(); // key=>tile id, value=> ship part this tile is belonging to
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        // 1. Check if this tile is already in a ship part. It's the case if it was
-        // attached to a ship part in a previous tile scan because it was found
-        // (see 2. below) to be connected to this previous tile.
-        if ( !isset( $tilesPart[ $tile['id'] ] ) ) {
-            // This tile's not in a ship part yet, so we create a new one, and include
-            // the tile (by updating $shipParts and $tilesPart).
-            if ( $shipParts ) {
-                $partNumber = max(array_keys($shipParts))+1;
-            }
-            else {
-                $partNumber = 0;
-            }
-            // self::trace( "###### checkShipIntegrity: creating ship part $partNumber for tile ".
-            //        $tile['id'] ); // temp test
-            $shipParts[$partNumber] = array(); // new ship part array to fill
-            $tilesPart[ $tile['id'] ] = $partNumber;
-            $shipParts[$partNumber][$tile['id']] = $tile;
-        }
-        $thisPart = $tilesPart[ $tile['id'] ];
-        self::trace( "###### checkShipIntegrity: tile ".$tile['id']." is ".
-                        "in ship part ".$thisPart ); // temp test
-
-        // 2. Check adjacent tiles (right and bottom) to see if we must include them in
-        // this ship part, or merge the ship part they belong to to this ship part
-        foreach ( array(90,180) as $side ) {
-            $adjTile = self::getAdjacentTile( $plBoard, $tile, $side );
-            if ( $adjTile &&
-                    self::tileConnectionOnThisSide( $plBoard, $tile, $side, $adjTile ) > 0 )
-            {
-                // The tile on this side is connected, so we check if it's already
-                // included in a ship part
-                if ( isset( $tilesPart[ $adjTile['id'] ] ) ) {
-                    //self::trace( "###### checkShipIntegrity: tile on side $side ".$adjTile['id'].
-                    //    " already in ship part ".$tilesPart[ $adjTile['id'] ] ); // temp test
-                    $adjPart = $tilesPart[ $adjTile['id'] ];
-                    if ( $adjPart != $thisPart ) {
-                        // We merge the two ship parts into a single one. We don't use
-                        // array_merge() because we have to run through $shipParts[$adjPart]
-                        // anyway, to modify corresponding $tilesPart values (ship part id)
-                        // self::trace( "###### checkShipIntegrity: merging part $adjPart ".
-                        //  "into part $thisPart " ); // temp test
-                        foreach ( $shipParts[$adjPart] as $ttmId => $tileToMerge ) {
-                            $tilesPart[$ttmId] = $thisPart;
-                            $shipParts[$thisPart][$ttmId] = $tileToMerge;
-                        }
-                        // Then we destroy the ship part that has been merged
-                        unset( $shipParts[$adjPart] );
-                    }
-                }
-                else {
-                    // include it now in the ship part
-                    $tilesPart[ $adjTile['id'] ] = $thisPart;
-                    $shipParts[$thisPart][$adjTile['id']] = $adjTile;
-                    //self::trace( "###### checkShipIntegrity: including adjacent tile ".
-                    //    $adjTile['id']." to ship part ".$thisPart." " ); // temp test
-                }
-            }
-        }
-      }
-    }
-    return $shipParts;
-  }
-
-  function getLine ( $plBoard, $rowOrCol, $side )
-  {
-      // This function returns an array of the tiles on a column or a row of a ship (or an empty
-      // array when no tile on this line), that can be used to check various things (exposed connectors,
-      // cannons, ...) or to know which tile(s) to destroy.
-      // This array is sorted (in the second switch block) so that reset($tilesOnLine) (or $tilesOnLine[0]
-      // if we decide to use sort instead of asort) is the tile exposed to meteors / cannon fires
-
-      $tilesOnLine = array();
-      switch ($side) {
-        case 0:
-        case 180:
-          if ( isset( $plBoard[ $rowOrCol ] ) )
-              $tilesOnLine = $plBoard[ $rowOrCol ]; // $tilesOnLine is indexed on y position
-          break;
-
-        case 90:
-        case 270:
-          // $tilesOnLine = array_column( $plBoard, $rowOrCol );
-          // $tilesOnLine = array_column( $tilesOnLine, NULL, 'x' ); // this re-indexes
-                                                                    // $tilesOnLine on x position
-          // array_column is undefined on BGA, must be PHP < 5.5, so the code below
-          // is used instead of the commented code above
-
-          foreach ( $plBoard as $x => $plBoard_x ) {
-              if ( isset( $plBoard_x[$rowOrCol] ) ) {
-                  $tilesOnLine[$x] = $plBoard_x[$rowOrCol];
-              }
-          }
-          break;
-      }
-
-      switch ($side) {
-        case 0:
-        case 270:
-          asort( $tilesOnLine );
-          break;
-        case 90:
-        case 180:
-          // we want $tilesOnLine array to be sorted from right to left (if $side==90) or from bottom
-          // to up (if $side==180), so arsort is used
-          arsort( $tilesOnLine );
-          break;
-      }
-      return $tilesOnLine;
-  }
-
-  function checkIfCellLeft ( $plContent ) {
-      $nbOfCells = 0;
-      foreach ( $plContent as $content )
-          if ( $content['content_type'] == 'cell' )
-              $nbOfCells ++;
-      return $nbOfCells;
-  }
-
-  function checkIfAlien ( $plContent, $alColor ) {
-    foreach ( $plContent as $content )
-        if ( $content['content_subtype'] === $alColor )
-          return true; // No need to continue, there can't be more than 1 alien of each color
-    return false;
-  }
-
-  function getMinMaxStrengthX2 ( $plBoard, $plContent, $type ) {
-    // $type can be 'cannon' or 'engine'
-    // Strength is multiplied by 2 throughout the process, till it is compared to ennemy
-    // or foe strength, to keep it an integer so that we avoid float imprecision
-    // (useful only for cannons, but we'd better not use different 
-    $strengthX2 = 0;
-    $nbActivableFor2 = 0;
-    $nbActivableFor1 = 0; // for cannons not pointing to the front
-    $minStrengthX2 = 0;
-    $maxStrengthX2 = 0;
-    $alien = false;
-    if ($type=='cannon') $contentTypeColor='purple';
-    elseif ($type=='engine') $contentTypeColor='brown';
-    else throw new BgaVisibleSystemException ( "GetMinMaxStrengthX2: type is ".
-                      $type." ".$this->plReportBug);
-
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        // for each tile, we check if it is an engine or cannon
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == $type ) {
-            if ( $this->tiles[ $tile['id'] ][ 'hold' ] == 1 ) { // simple engine or cannon
-                if ( $type == 'cannon' && $tile['o'] != 0 )
-                    $strengthX2 += 1;
-                else
-                    $strengthX2 += 2;
-            }
-            else { // double engine or cannon ('hold' should be 2, is it better to check
-                  // if it really is? Expansions: what about bi-directional cannons?)
-                if ( $type == 'cannon' && $tile['o'] != 0 )
-                    $nbActivableFor1 += 1; // do we need to keep track of the tile id,
-                                          // or do we only count?
-                else
-                    $nbActivableFor2 += 1;
-            }
-        }
-      }
-    }
-    $minStrengthX2 = $maxStrengthX2 = $strengthX2;
-
-    // check for number of cells left, to compute max strength
-    // TODO only if needed
-    $nbOfCells = self::checkIfCellLeft($plContent);
-    while ( $nbActivableFor2 != 0 && $nbOfCells != 0 ) {
-        $nbActivableFor2 -= 1;
-        $nbOfCells -= 1;
-        $maxStrengthX2 += 4;
-    }
-    while ( $nbActivableFor1 != 0 && $nbOfCells != 0 ) {
-        $nbActivableFor1 -= 1;
-        $nbOfCells -= 1;
-        $maxStrengthX2 += 2;
-    }
-
-    // truckers don't get alien bonus if their cannon / engine strength without alien is 0
-    // if max strength is 0, no engine or cannon at all so don't bother looking for an alien
-    if ( $maxStrengthX2 > 0 ) {
-        if ( self::checkIfAlien( $plContent, $contentTypeColor ) ) {
-        //foreach ( $plContent as $contentPlace ) {
-        //  foreach ( $contentPlace as $tileContent ) {
-        //    if ( $tileContent['content_subtype'] == $contentTypeColor ) {
-                $maxStrengthX2 += 4;
-                if ( $minStrengthX2 > 0 )
-                    $minStrengthX2 += 4;
-        //        break; // No need to continue, there can't be more than 1 alien of each color
-        //    }
-        //  }
-        }
-    }
-    return array( 'min' => $minStrengthX2, 'max' => $maxStrengthX2 );
-  }
-
-  function checkIfExposedConnector ( $plBoard, $rowOrCol, $side ) {
-    $tilesOnLine = self::getLine( $plBoard, $rowOrCol, $side );
-    if ( count($tilesOnLine) > 0
-            && self::getConnectorType( reset($tilesOnLine), $side ) != 0 )
-        return true;
-    return false;
-  }
-
-  function nbOfExposedConnectors ( $plBoard ) {
-    // Est-ce qu'il faut améliorer cette fonction pour renvoyer les id et/ou coord des
-    // tuiles avec le(s) côté(s) où il y a des connecteurs exposés ? (par
-    // exemple pour que le client puisse les mettre en évidence)
-    $nbExp = 0;
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        // for each tile, we check if it has exposed connectors
-        for ( $side=0 ; $side<=270 ; $side+=90 ) {
-            // Is there an adjacent tile on this side ?
-            if ( !self::getAdjacentTile ($plBoard, $tile, $side) ) {
-                // There isn't, so let's check if there's a connector on this side
-                if ( self::getConnectorType( $tile, $side ) != 0 )
-                    $nbExp++;
-            }
-        }
-      }
-    }
-    return $nbExp;
-  }
-
-  function countDoubleEngines ( $plId, $plBoard=null ) {
-    if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
-    $nbDoubleEngines = 0;
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'engine'
-                && $this->tiles[ $tile['id'] ][ 'hold' ] == 2 ) {
-            $nbDoubleEngines++;
-        }
-      }
-    }
-    return $nbDoubleEngines;
-  }
-
-  function countSimpleEngines ( $plId, $plBoard=null ) {
-    if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
-    $nbSimpleEngines = 0;
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'engine'
-                && $this->tiles[ $tile['id'] ][ 'hold' ] == 1 ) {
-            $nbSimpleEngines++;
-        }
-      }
-    }
-    return $nbSimpleEngines;
-  }
-
-  function nbOfCrewMembers ( $plId, $plContent=null ) {
-      $nbCrewMembers = 0;
-      if ( $plContent ) {
-        foreach ( $plContent as $content ) {
-            if ( $content['content_type'] == 'crew' )
-                $nbCrewMembers++;
-        }
-      }
-      else {
-        $nbCrewMembers = self::getUniqueValueFromDB( "SELECT COUNT(content_type) FROM content ".
-                        "WHERE content_type='crew' AND player_id=$plId");
-      }
-      return $nbCrewMembers;
-  }
-
-  function checkIfPowerableShield ( $plBoard, $plContent, $sideToProtect ) {
-    if ( self::checkIfCellLeft($plContent) > 0 ) {
-      foreach ( $plBoard as $plBoard_x ) {
-        foreach ( $plBoard_x as $tile ) {
-          // for each tile, we check if it is a shield that protects the side that was hit
-          if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'shield'
-              && ($tile['o']==$sideToProtect || $tile['o']==($sideToProtect+360-90)%360 ) ) {
-              return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  function checkIfCannonOnLine ( $plBoard, $plContent, $rowOrCol, $side ) {
-    $simpleCannonPresent = false;
-    $doubleCannonPresent = false;
-
-    // Maybe getLine() could be called just before calling checkIfCannonOnLine and $tilesOnLine
-    // passed in argument, so that it can also be used to know if there are tiles on this
-    // row/column, and which tile will be destroyed? We'll see...
-    $tilesOnLine = self::getLine( $plBoard, $rowOrCol, $side );
-
-    foreach ( $tilesOnLine as $tile ) {
-        // Is this a cannon pointing in the good direction ?
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'cannon' && $tile['o'] == $side ) {
-            // Is it a simple or double cannon?
-            switch ( $this->tiles[ $tile['id'] ][ 'hold' ] ) {
-              case 1:
-                $simpleCannonPresent = true;
-                break 2; // Simple cannon, so we don't need to check if another cannon is
-                        // present, so break 2 to leave foreach block
-              case 2:
-                $doubleCannonPresent = true;
-                break; // Double cannon, so we need to stay in this foreach loop to check
-                      // if another cannon is present, because if a simple cannon is also
-                      // present, we don't nee to check if there are cells left.
-              default:
-                throw new BgaVisibleSystemException( "Something went wrong in ".
-                      "checkIfCannonOnLine. Hold should be set to 1 or 2 for cannons. ".
-                      $this->plReportBug );
-            }
-        }
-    }
-
-    // if there is/are only double cannon(s), we must check if this player has at least
-    // one cell left
-    if ( $simpleCannonPresent )
-        return 'OK_simple';
-    elseif ( $doubleCannonPresent && (self::checkIfCellLeft($plContent)>0) )
-        return 'OK_double';
-
-    return false;
+  function getNbOfCrewMembers ( $plId, $plContent=null ) {
+      return self::getUniqueValueFromDB( "SELECT COUNT(content_type) FROM content ".
+                    "WHERE content_type='crew' AND player_id=$plId");
   }
 
 
@@ -1174,9 +757,9 @@ class GalaxyTrucker extends Table {
               if ( $tile['x']>0 && ($tile['id']<31 || $tile['id']>34) )
                   $firstPlacedTile = false;
           }
-          $plBoard = self::getPlayerBoard( $player_id );
+          $brd = $this->newPlayerBoard($player_id);
           $tileToCheck = array( 'x' => $x, 'y' => $y, 'id' => $component_id, 'o' => $o );
-          if ( !self::checkIfTileConnected( $plBoard, $tileToCheck ) )
+          if ( ! $brd->checkIfTileConnected( $tileToCheck ) )
               throw new BgaUserException ( self::_("Wrong tile placement : this tile ".
                                                 "isn't connected to your ship") );
       }
@@ -1372,11 +955,11 @@ class GalaxyTrucker extends Table {
   function finishRepairs( ) {
       self::checkAction( 'finishRepairs' );
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      
+      $brd = $this->newPlayerBoard($player_id);
+
       // TODO
       
-      $nbExp = self::nbOfExposedConnectors ( $plBoard );
+      $nbExp = $brd->nbOfExposedConnectors();
       // Maybe we'll include DB update and notif in nbOfExposedConnectors()
       self::DbQuery( "UPDATE player SET exp_conn=$nbExp WHERE player_id=$player_id" );
       self::notifyAllPlayers( "updatePlBoardItems", '', array(
@@ -1499,9 +1082,10 @@ class GalaxyTrucker extends Table {
       $tileOrient = self::getCollectionFromDB( "SELECT component_id, component_orientation ".
                   "FROM component WHERE component_player=$plId", true );
       $plContent = self::getPlContent( $plId );
-      $plBoard = self::getPlayerBoard( $plId );
-      $nbDoubleEngines = self::countDoubleEngines( $plId, $plBoard );
-      $nbSimpleEngines = self::countSimpleEngines( $plId, $plBoard );
+      $brd = $this->newPlayerBoard($plId);
+      $plyrContent = $this->newPlayerContent($plId, $plContent);
+      $nbDoubleEngines = $brd->countDoubleEngines();
+      $nbSimpleEngines = $brd->countSingleEngines();
 
       // Checks
       if ( count( array_unique($battChoices) ) !== $nbBatt )
@@ -1524,7 +1108,7 @@ class GalaxyTrucker extends Table {
 
       $nbDays = $nbSimpleEngines + 2*$nbBatt;
       if ( $nbDays > 0 ) {
-          if ( self::checkIfAlien( $plContent, 'brown' ) )
+          if ( $plyrContent->checkIfAlien( 'brown' ) )
               $nbDays += 2;
       }
       // else TODO if $nbDays == 0 (exception or allow them to
@@ -1694,39 +1278,55 @@ class GalaxyTrucker extends Table {
         These methods are only used to quickly check if game logic works properly, or to debug it.
     */
 
+  function test_countTileType($type, $hold=null, $orientation=null) {
+      $player_id = self::getCurrentPlayerId();
+      $brd = $this->newPlayerBoard($player_id);
+      $ret = $brd->countTileType($type, $hold, $orientation);
+      $msg = "###### countTileType() $type $hold $orientation returns ".var_export($ret, true)." ";
+      self::trace($msg);
+      self::log_console($msg);
+  }
 
   function test_checkShield( $sideToProtect ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $plContent = self::getPlContent( $player_id );
-      $ret = self::checkIfPowerableShield( $plBoard, $plContent, $sideToProtect );
-      self::trace( "###### checkIfPowerableShield() returns ".var_export( $ret, true )." " );
+      $brd = $this->newPlayerBoard($player_id);
+      $plyrContent = $this->newPlayerContent($player_id);
+      $ret = $brd->checkIfPowerableShield( $plyrContent, $sideToProtect );
+      $msg = "###### checkIfPowerableShield() returns ".var_export( $ret, true )." ";
+      self::trace($msg);
+      self::log_console($msg);
   }
 
   function test_checkCannon( $sideToCheck, $rowOrCol ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $plContent = self::getPlContent( $player_id );
-      $ret = self::checkIfCannonOnLine( $plBoard, $plContent, $rowOrCol, $sideToCheck );
-      self::trace( "###### checkIfCannonOnLine() returns ".var_export( $ret, true )." " );
+      $brd = $this->newPlayerBoard($player_id);
+      $plyrContent = $this->newPlayerContent($player_id);
+      $ret = $brd->checkIfCannonOnLine( $plyrContent, $rowOrCol, $sideToCheck );
+      $msg = "###### checkIfCannonOnLine() returns ".var_export( $ret, true )." ";
+      self::trace($msg);
+      self::log_console($msg);
   }
 
   function test_checkLine( $sideToCheck, $rowOrCol ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $ret = self::getLine( $plBoard, $rowOrCol, $sideToCheck );
-      self::trace( "###### getLine() returns ".var_export( $ret, true )." " );
+      $brd = $this->newPlayerBoard($player_id);
+      $ret = $brd->getLine( $rowOrCol, $sideToCheck );
+      $msg = "###### getLine() returns ".var_export( $ret, true )." ";
+      self::trace($msg);
+      self::log_console($msg);
   }
 
   function test_checkConn( $sideToCheck, $rowOrCol ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $ret = self::checkIfExposedConnector( $plBoard, $rowOrCol, $sideToCheck );
-      self::trace( "###### checkIfExposedConnector returns ".var_export( $ret, true )." " );
+      $brd = $this->newPlayerBoard($player_id);
+      $ret = $brd->checkIfExposedConnector( $rowOrCol, $sideToCheck );
+      $msg = "###### checkIfExposedConnector returns ".var_export( $ret, true )." ";
+      self::trace($msg);
+      self::log_console($msg);
   }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1744,8 +1344,8 @@ class GalaxyTrucker extends Table {
         $player = self::getObjectFromDb( "SELECT min_eng, max_eng FROM player ".
                                 "WHERE player_id=".$plId );
         $nbDoubleEngines = self::countDoubleEngines( $plId );
-        $plContent = self::getPlContent( $plId );
-        $nbCells = self::checkIfCellLeft( $plContent );
+        $plyrContent = $this->newPlayerContent( $plId );
+        $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_eng'], 'maxStr' => $player['max_eng'],
                         'maxSel' => ( min( $nbDoubleEngines, $nbCells ) ) );
     }
@@ -1754,7 +1354,7 @@ class GalaxyTrucker extends Table {
         $plId = self::getActivePlayerId();
         $currentCard = self::getGameStateValue( 'currentCard' );
         if ( $this->card[$currentCard]['type'] == 'abship' 
-            && self::nbOfCrewMembers( $plId ) == $this->card[$currentCard]['crew'] ) {
+            && self::getNbOfCrewMembers( $plId ) == $this->card[$currentCard]['crew'] ) {
             $wholeCrewWillLeave = true;
         }
         else
@@ -1797,6 +1397,7 @@ class GalaxyTrucker extends Table {
     // Are globals 'flight' and 'round' updated here or in stJourneysEnd()?
     // flight in stJourneysEnd(), but 'round' must be set here, since for the
     // first round it can't be set in setupNewGame()
+    self::log("Starting stPrepareRound");
     $players = self::loadPlayersBasicInfos();
     $nbPlayers = count( $players );
     $flight = self::getGameStateValue( 'flight' );
@@ -1932,6 +1533,7 @@ class GalaxyTrucker extends Table {
   }
 
   function stRepairShips() {
+    self::log("Starting stRepairShips");
     $players = self::loadPlayersBasicInfos();
     $playersToActivate = array ();
     $errors = array();
@@ -1943,42 +1545,35 @@ class GalaxyTrucker extends Table {
 
     foreach ( $players as $player_id => $player ) {
         $player_name = $player['player_name'];
-        $engToRemove = array();
         $shipParts = array();
         $playersShipPartsToKeep[$player_id] = array();
         $actionNeeded = false;
-        $plBoard = self::getPlayerBoard( $player_id );
+        $brd = $this->newPlayerBoard($player_id);
 
         // At first, we check if there are badly oriented engines in the ship, because
         // since we'll remove them without asking player, we can in next steps check for
-        // other errors without considering them (so we remove them from $plBoard), and
+        // other errors without considering them (so we remove them from $brd), and
         // also check if the ship holds together when these engines are removed
-        foreach ( $plBoard as $plBoard_x )
-          foreach ( $plBoard_x as $tile )
-            if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'engine' && $tile['o'] != '0' )
-            {
-              $engToRemove[] = $tile['id'];
-              unset ( $plBoard[ $tile['x'] ][ $tile['y'] ] );
-              $tilesToRemoveInDb[] = $tile['id'];
-            }
+        $engToRemove = $brd->badEngines();
+        $tilesToRemoveInDb = array_merge($engToRemove, $tilesToRemoveInDb);
+        $brd->removeTiles($engToRemove);
         if ( $engToRemove ) {
-            $numbEngine = count($engToRemove);
+            $idToRemove = array_map(function($x) { return $x['id']; }, $engToRemove);
             self::notifyAllPlayers( "loseComponent", clienttranslate('${player_name} '.
                             'loses ${numbComp} engine(s): wrong orientation'), array(
                     'plId' => $player_id,
                     'player_name' => $player_name,
-                    'numbComp' => $numbEngine,
-                    'compToRemove' => $engToRemove,
+                    'numbComp' => count($idToRemove),
+                    'compToRemove' => $idToRemove,
                     ) );
         }
 
         // 2nd step: check if this ship holds together, taking into account
         // illegal connections
-        $shipParts = self::checkShipIntegrity( $plBoard ); // Info: $plBoard has been
-                    // updated since DB query if a badly oriented engine has been removed
         // Check if these ship parts are valid (at least one cabin), only needed if
         // more than one part OR with ship classes without starting component
-        if ( count( $shipParts ) > 1 ) {
+        $shipParts = $brd->checkShipIntegrity();
+        if ( $shipParts > 1 ) {
             $partsToKeep = array_keys( $shipParts );
             foreach ( $shipParts as $partNumber => $part ) {
                 $compToRemove = array();
@@ -1989,11 +1584,12 @@ class GalaxyTrucker extends Table {
                     }
                 }
                 // no cabin was found in this part, so it has to be removed from the ship
+                $cntParts = count($part);
+
+                $brd->removeTiles(array_values($part));
                 foreach ( $part as $tileId => $tile ) {
-                    // Update $plBoard for 3rd step
-                    unset ( $plBoard[ $tile['x'] ][ $tile['y'] ] );
                     $compToRemove[] = $tileId;
-                    $tilesToRemoveInDb[] = $tileId;
+                    $tilesToRemoveInDb[] = $tile;
                 }
                 unset( $partsToKeep[ array_search($partNumber, $partsToKeep) ] );
                 $numbComp = count($compToRemove);
@@ -2025,18 +1621,9 @@ class GalaxyTrucker extends Table {
         // 3rd step: check for other errors once badly oriented engines and invalid
         // ship parts have been removed. We also count exposed connectors, this will
         // be stored in exp_conn if this player doesn't need to repair their ship
-        foreach ( $plBoard as $plBoard_x ) {
-          foreach ( $plBoard_x as $tile ) {
-            // check if this tile has errors (engine not pointing to the rear, or problem
-            // (cannon, engine or connector) with adjacent tile on the right or at the bottom)
-            $tileErrors = self::checkTile( $plBoard, $tile, $player_id );
-                                        // do we need $player_id here?
-            if ( $tileErrors ) {
-                $errors = array_merge( $errors, $tileErrors );
-                $actionNeeded = true;
-            }
-          }
-        }
+        $errors = $brd->checkTiles();
+        if ($errors)
+              $actionNeeded = true;
 
         if ( $actionNeeded ) {
             $playersToActivate[] = $player_id;
@@ -2044,7 +1631,7 @@ class GalaxyTrucker extends Table {
         else {
             // This player's ship is ready for the flight, so we count exposed connectors
             // now. Otherwise, we'll count them when they have repaired their ship.
-            $nbExp = self::nbOfExposedConnectors ( $plBoard );
+            $nbExp = $brd->nbOfExposedConnectors();
             // Maybe we'll include DB update and notif in nbOfExposedConnectors()
             self::DbQuery( "UPDATE player SET exp_conn=$nbExp WHERE player_id=$player_id" );
             self::notifyAllPlayers( "updatePlBoardItems", '', array(
@@ -2055,9 +1642,10 @@ class GalaxyTrucker extends Table {
     } // End of foreach player
 
     if ( $tilesToRemoveInDb ) {
+        $idsToRemove = array_map(function($x) { return $x['id']; }, $tilesToRemoveInDb);
         self::DbQuery( "UPDATE component SET aside_discard=1, component_x=-1, ". // TODO Pb if several tiles in discard for the same player
                     "component_y=NULL, component_orientation=0 ".
-                    "WHERE component_id IN (".implode(',', $tilesToRemoveInDb ).")" );
+                    "WHERE component_id IN (".implode(',', $idsToRemove).")" );
     }
 
     if ( $playersToActivate ) {
@@ -2071,6 +1659,7 @@ class GalaxyTrucker extends Table {
 
     $this->gamestate->setPlayersMultiactive( $playersToActivate, 'repairsDone' );
     // maybe this will change if we use turn order instead of everyone at the same time
+    self::log("Finished stRepairShips");
   }
 
   function stPrepareFlight() {
@@ -2122,11 +1711,13 @@ class GalaxyTrucker extends Table {
       // (ask_human in any case, and ask_brown and/or ask_purple), so that we can
       // check player actions in placeCrew state and give informations to players.
       $plBoard = self::getPlayerBoard( $plId );
+      $brd = $this->newPlayerBoard($plId);
       $tilesWithOverlay = array();
       $alienChoices = false;
       //sql request: INSERT INTO content (player_id, tile_id, square_x, square_y,
       //                    content_type, content_subtype, place, capacity) VALUES
       $sqlImplode = array();
+      // TODO: refactor all this to be methods of GT_PlayerBoard
       foreach ( $plBoard as $plBoard_x ) {
         foreach ( $plBoard_x as $tile ) {
           $tileType = $this->tiles[ $tile['id'] ][ 'type' ];
@@ -2162,7 +1753,7 @@ class GalaxyTrucker extends Table {
 
                   for ( $side=0 ; $side<=270 ; $side+=90 ) {
                     // Is there an adjacent tile on this side ?
-                    if ( $adjTile = self::getAdjacentTile ($plBoard, $tile, $side) ) {
+                    if ( $adjTile = $brd->getAdjacentTile ($tile, $side) ) {
                       // There is one, so let's check if it's connected and if
                       // it's a life support and its type (color)
                       if ( in_array( self::getConnectorType( $tile, $side ), array(1,2,3) ) ) {
