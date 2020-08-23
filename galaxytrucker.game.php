@@ -145,7 +145,7 @@ class GalaxyTrucker extends Table {
     self::DbQuery( $sql );
 
     self::log("Game initialized");
-    self::setGameStateInitialValue( 'testGameState', 1 ); 
+    self::setGameStateInitialValue( 'testGameState', 0 ); 
     // $this->gamestate->setAllPlayersMultiactive();
 
     /************ End of the game initialization *****/
