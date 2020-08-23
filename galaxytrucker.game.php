@@ -562,163 +562,9 @@ class GalaxyTrucker extends Table {
     // $this->orient[0] is 'n', $this->orient[90] is 'e', etc.
   }
 
-  function getLine ( $plBoard, $rowOrCol, $side )
-  {
-      // This function returns an array of the tiles on a column or a row of a ship (or an empty
-      // array when no tile on this line), that can be used to check various things (exposed connectors,
-      // cannons, ...) or to know which tile(s) to destroy.
-      // This array is sorted (in the second switch block) so that reset($tilesOnLine) (or $tilesOnLine[0]
-      // if we decide to use sort instead of asort) is the tile exposed to meteors / cannon fires
-
-      $tilesOnLine = array();
-      switch ($side) {
-        case 0:
-        case 180:
-          if ( isset( $plBoard[ $rowOrCol ] ) )
-              $tilesOnLine = $plBoard[ $rowOrCol ]; // $tilesOnLine is indexed on y position
-          break;
-
-        case 90:
-        case 270:
-          // $tilesOnLine = array_column( $plBoard, $rowOrCol );
-          // $tilesOnLine = array_column( $tilesOnLine, NULL, 'x' ); // this re-indexes
-                                                                    // $tilesOnLine on x position
-          // array_column is undefined on BGA, must be PHP < 5.5, so the code below
-          // is used instead of the commented code above
-
-          foreach ( $plBoard as $x => $plBoard_x ) {
-              if ( isset( $plBoard_x[$rowOrCol] ) ) {
-                  $tilesOnLine[$x] = $plBoard_x[$rowOrCol];
-              }
-          }
-          break;
-      }
-
-      switch ($side) {
-        case 0:
-        case 270:
-          asort( $tilesOnLine );
-          break;
-        case 90:
-        case 180:
-          // we want $tilesOnLine array to be sorted from right to left (if $side==90) or from bottom
-          // to up (if $side==180), so arsort is used
-          arsort( $tilesOnLine );
-          break;
-      }
-      return $tilesOnLine;
-  }
-
-  function checkIfCellLeft ( $plContent ) {
-      $nbOfCells = 0;
-      foreach ( $plContent as $content )
-          if ( $content['content_type'] == 'cell' )
-              $nbOfCells ++;
-      return $nbOfCells;
-  }
-
-  function checkIfAlien ( $plContent, $alColor ) {
-    foreach ( $plContent as $content )
-        if ( $content['content_subtype'] === $alColor )
-          return true; // No need to continue, there can't be more than 1 alien of each color
-    return false;
-  }
-
-  function checkIfExposedConnector ( $plBoard, $rowOrCol, $side ) {
-    $tilesOnLine = self::getLine( $plBoard, $rowOrCol, $side );
-    if ( count($tilesOnLine) > 0
-            && self::getConnectorType( reset($tilesOnLine), $side ) != 0 )
-        return true;
-    return false;
-  }
-
-  function countDoubleEngines ( $plId, $plBoard=null ) {
-    if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
-    $nbDoubleEngines = 0;
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'engine'
-                && $this->tiles[ $tile['id'] ][ 'hold' ] == 2 ) {
-            $nbDoubleEngines++;
-        }
-      }
-    }
-    return $nbDoubleEngines;
-  }
-
-  function countSimpleEngines ( $plId, $plBoard=null ) {
-    if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
-    $nbSimpleEngines = 0;
-    foreach ( $plBoard as $plBoard_x ) {
-      foreach ( $plBoard_x as $tile ) {
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'engine'
-                && $this->tiles[ $tile['id'] ][ 'hold' ] == 1 ) {
-            $nbSimpleEngines++;
-        }
-      }
-    }
-    return $nbSimpleEngines;
-  }
-
   function getNbOfCrewMembers ( $plId, $plContent=null ) {
       return self::getUniqueValueFromDB( "SELECT COUNT(content_type) FROM content ".
                     "WHERE content_type='crew' AND player_id=$plId");
-  }
-
-  function checkIfPowerableShield ( $plBoard, $plContent, $sideToProtect ) {
-    if ( self::checkIfCellLeft($plContent) > 0 ) {
-      foreach ( $plBoard as $plBoard_x ) {
-        foreach ( $plBoard_x as $tile ) {
-          // for each tile, we check if it is a shield that protects the side that was hit
-          if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'shield'
-              && ($tile['o']==$sideToProtect || $tile['o']==($sideToProtect+360-90)%360 ) ) {
-              return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  function checkIfCannonOnLine ( $plBoard, $plContent, $rowOrCol, $side ) {
-    $simpleCannonPresent = false;
-    $doubleCannonPresent = false;
-
-    // Maybe getLine() could be called just before calling checkIfCannonOnLine and $tilesOnLine
-    // passed in argument, so that it can also be used to know if there are tiles on this
-    // row/column, and which tile will be destroyed? We'll see...
-    $tilesOnLine = self::getLine( $plBoard, $rowOrCol, $side );
-
-    foreach ( $tilesOnLine as $tile ) {
-        // Is this a cannon pointing in the good direction ?
-        if ( $this->tiles[ $tile['id'] ][ 'type' ] == 'cannon' && $tile['o'] == $side ) {
-            // Is it a simple or double cannon?
-            switch ( $this->tiles[ $tile['id'] ][ 'hold' ] ) {
-              case 1:
-                $simpleCannonPresent = true;
-                break 2; // Simple cannon, so we don't need to check if another cannon is
-                        // present, so break 2 to leave foreach block
-              case 2:
-                $doubleCannonPresent = true;
-                break; // Double cannon, so we need to stay in this foreach loop to check
-                      // if another cannon is present, because if a simple cannon is also
-                      // present, we don't nee to check if there are cells left.
-              default:
-                throw new BgaVisibleSystemException( "Something went wrong in ".
-                      "checkIfCannonOnLine. Hold should be set to 1 or 2 for cannons. ".
-                      $this->plReportBug );
-            }
-        }
-    }
-
-    // if there is/are only double cannon(s), we must check if this player has at least
-    // one cell left
-    if ( $simpleCannonPresent )
-        return 'OK_simple';
-    elseif ( $doubleCannonPresent && (self::checkIfCellLeft($plContent)>0) )
-        return 'OK_double';
-
-    return false;
   }
 
 
@@ -1236,9 +1082,10 @@ class GalaxyTrucker extends Table {
       $tileOrient = self::getCollectionFromDB( "SELECT component_id, component_orientation ".
                   "FROM component WHERE component_player=$plId", true );
       $plContent = self::getPlContent( $plId );
-      $plBoard = self::getPlayerBoard( $plId );
-      $nbDoubleEngines = self::countDoubleEngines( $plId, $plBoard );
-      $nbSimpleEngines = self::countSimpleEngines( $plId, $plBoard );
+      $brd = $this->newPlayerBoard($plId);
+      $plyrContent = $this->newPlayerContent($plId, $plContent);
+      $nbDoubleEngines = $brd->countDoubleEngines();
+      $nbSimpleEngines = $brd->countSingleEngines();
 
       // Checks
       if ( count( array_unique($battChoices) ) !== $nbBatt )
@@ -1261,7 +1108,7 @@ class GalaxyTrucker extends Table {
 
       $nbDays = $nbSimpleEngines + 2*$nbBatt;
       if ( $nbDays > 0 ) {
-          if ( self::checkIfAlien( $plContent, 'brown' ) )
+          if ( $plyrContent->checkIfAlien( 'brown' ) )
               $nbDays += 2;
       }
       // else TODO if $nbDays == 0 (exception or allow them to
@@ -1431,13 +1278,21 @@ class GalaxyTrucker extends Table {
         These methods are only used to quickly check if game logic works properly, or to debug it.
     */
 
+  function test_countTileType($type, $hold=null, $orientation=null) {
+      $player_id = self::getCurrentPlayerId();
+      $brd = $this->newPlayerBoard($player_id);
+      $ret = $brd->countTileType($type, $hold, $orientation);
+      $msg = "###### countTileType() $type $hold $orientation returns ".var_export($ret, true)." ";
+      self::trace($msg);
+      self::log_console($msg);
+  }
 
   function test_checkShield( $sideToProtect ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $plContent = self::getPlContent( $player_id );
-      $ret = self::checkIfPowerableShield( $plBoard, $plContent, $sideToProtect );
+      $brd = $this->newPlayerBoard($player_id);
+      $plyrContent = $this->newPlayerContent($player_id);
+      $ret = $brd->checkIfPowerableShield( $plyrContent, $sideToProtect );
       $msg = "###### checkIfPowerableShield() returns ".var_export( $ret, true )." ";
       self::trace($msg);
       self::log_console($msg);
@@ -1446,9 +1301,9 @@ class GalaxyTrucker extends Table {
   function test_checkCannon( $sideToCheck, $rowOrCol ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $plContent = self::getPlContent( $player_id );
-      $ret = self::checkIfCannonOnLine( $plBoard, $plContent, $rowOrCol, $sideToCheck );
+      $brd = $this->newPlayerBoard($player_id);
+      $plyrContent = $this->newPlayerContent($player_id);
+      $ret = $brd->checkIfCannonOnLine( $plyrContent, $rowOrCol, $sideToCheck );
       $msg = "###### checkIfCannonOnLine() returns ".var_export( $ret, true )." ";
       self::trace($msg);
       self::log_console($msg);
@@ -1457,8 +1312,8 @@ class GalaxyTrucker extends Table {
   function test_checkLine( $sideToCheck, $rowOrCol ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $ret = self::getLine( $plBoard, $rowOrCol, $sideToCheck );
+      $brd = $this->newPlayerBoard($player_id);
+      $ret = $brd->getLine( $rowOrCol, $sideToCheck );
       $msg = "###### getLine() returns ".var_export( $ret, true )." ";
       self::trace($msg);
       self::log_console($msg);
@@ -1467,8 +1322,8 @@ class GalaxyTrucker extends Table {
   function test_checkConn( $sideToCheck, $rowOrCol ) // temp
   {
       $player_id = self::getCurrentPlayerId();
-      $plBoard = self::getPlayerBoard( $player_id );
-      $ret = self::checkIfExposedConnector( $plBoard, $rowOrCol, $sideToCheck );
+      $brd = $this->newPlayerBoard($player_id);
+      $ret = $brd->checkIfExposedConnector( $rowOrCol, $sideToCheck );
       $msg = "###### checkIfExposedConnector returns ".var_export( $ret, true )." ";
       self::trace($msg);
       self::log_console($msg);
@@ -1693,12 +1548,11 @@ class GalaxyTrucker extends Table {
         $shipParts = array();
         $playersShipPartsToKeep[$player_id] = array();
         $actionNeeded = false;
-        $plBoard = self::getPlayerBoard( $player_id );
         $brd = $this->newPlayerBoard($player_id);
 
         // At first, we check if there are badly oriented engines in the ship, because
         // since we'll remove them without asking player, we can in next steps check for
-        // other errors without considering them (so we remove them from $plBoard), and
+        // other errors without considering them (so we remove them from $brd), and
         // also check if the ship holds together when these engines are removed
         $engToRemove = $brd->badEngines();
         $tilesToRemoveInDb = array_merge($engToRemove, $tilesToRemoveInDb);

@@ -92,6 +92,52 @@ class GT_PlayerBoard extends APP_GameClass {
         return 0; // No adjacent tile on this side
     }
 
+    function getLine ( $rowOrCol, $side ) {
+        // This function returns an array of the tiles on a column or a row of a ship (or an empty
+        // array when no tile on this line), that can be used to check various things (exposed connectors,
+        // cannons, ...) or to know which tile(s) to destroy.
+        // This array is sorted (in the second switch block) so that reset($tilesOnLine) (or $tilesOnLine[0]
+        // if we decide to use sort instead of asort) is the tile exposed to meteors / cannon fires
+
+        $tilesOnLine = array();
+        switch ($side) {
+            case 0:
+            case 180:
+                if ( isset( $this->plTiles[ $rowOrCol ] ) )
+                    $tilesOnLine = $this->plTiles[ $rowOrCol ]; // $tilesOnLine is indexed on y position
+                break;
+
+            case 90:
+            case 270:
+            // $tilesOnLine = array_column( $plBoard, $rowOrCol );
+            // $tilesOnLine = array_column( $tilesOnLine, NULL, 'x' ); // this re-indexes
+                                                                        // $tilesOnLine on x position
+            // array_column is undefined on BGA, must be PHP < 5.5, so the code below
+            // is used instead of the commented code above
+
+                foreach ( $this->plTiles as $x => $plBoard_x ) {
+                    if ( isset( $plBoard_x[$rowOrCol] ) ) {
+                        $tilesOnLine[$x] = $plBoard_x[$rowOrCol];
+                    }
+                }
+                break;
+        }
+
+        switch ($side) {
+            case 0:
+            case 270:
+                asort( $tilesOnLine );
+                break;
+            case 90:
+            case 180:
+            // we want $tilesOnLine array to be sorted from right to left (if $side==90) or from bottom
+            // to up (if $side==180), so arsort is used
+                arsort( $tilesOnLine );
+                break;
+        }
+        return $tilesOnLine;
+    }
+
     function getConnectorType($tile, $side) {
         return $this->game->getConnectorType($tile, $side);
     }
@@ -101,7 +147,10 @@ class GT_PlayerBoard extends APP_GameClass {
     }
 
     function getTileHold($tileid) {
-        return $this->game->tiles[ $tileid ]['hold'];
+        $tileType = $this->game->tiles[ $tileid ];
+        if (array_key_exists('hold', $tileType))
+            return $tileType['hold'];
+        return 0;
     }
 
     // ###################################################################
@@ -212,7 +261,7 @@ class GT_PlayerBoard extends APP_GameClass {
     function checkTile($tileToCheck) {
         $errors = array();
         $tileId = $tileToCheck['id'];
-        $tileToCheckType = $this->game->tiles[ $tileId ][ 'type' ];
+        $tileToCheckType = $this->getTileType($tileId);
 
         // For two sides (9O=right, 180=bottom) of this tile, we want to check if rules are
         // respected (cannon, engine and connectors restrictions).
@@ -221,7 +270,7 @@ class GT_PlayerBoard extends APP_GameClass {
         // Is there an adjacent tile on this side ?
             if ( $adjTile = $this->getAdjacentTile ($tileToCheck, $side) ) {
                 // There is one, so let's check a few things
-                $adjTileType = $this->game->tiles[ $adjTile['id'] ][ 'type' ];
+                $adjTileType = $this->getTileType($adjTile['id']);
                 // check engine placement restrictions
                 // Note: not enough for Somersault Rough Road card
                 if ( $side == 180 && $tileToCheckType == 'engine' ) {
@@ -258,6 +307,21 @@ class GT_PlayerBoard extends APP_GameClass {
 
     // ###################################################################
     // ############ FUNCTIONS TO SUMMARIZE SHIP ############
+    function countTileType($type, $hold=null, $orientation=null) {
+        $cnt = 0;
+        foreach ( $this->plTiles as $plBoard_x ) {
+            foreach ( $plBoard_x as $tile ) {
+                if ( $this->getTileType($tile['id']) == $type ) {
+                    if (is_null($hold) or $this->getTileHold($tile['id']) == $hold)
+                        if (is_null($orientation) or $tile['o'] == $orientation)
+                            $cnt++;
+                }
+            }
+        }
+        return $cnt;
+    }
+
+
     function nbOfExposedConnectors () {
         // Est-ce qu'il faut améliorer cette fonction pour renvoyer les id et/ou coord des
         // tuiles avec le(s) côté(s) où il y a des connecteurs exposés ? (par
@@ -277,6 +341,22 @@ class GT_PlayerBoard extends APP_GameClass {
             }
         }
         return $nbExp;
+    }
+
+    function checkIfExposedConnector ( $rowOrCol, $side ) {
+        $tilesOnLine = $this->getLine( $rowOrCol, $side );
+        if ( count($tilesOnLine) > 0
+                && $this->getConnectorType( reset($tilesOnLine), $side ) != 0 )
+            return true;
+        return false;
+    }
+
+    function countSingleEngines() {
+        return countTileType('engine', 1); 
+    }
+
+    function countDoubleEngines() {
+        return countTileType('engine', 2); 
     }
 
     function getMinMaxStrengthX2 ( $plyrContent, $type ) {
@@ -342,5 +422,62 @@ class GT_PlayerBoard extends APP_GameClass {
                 $minStrengthX2 += 4;
         }
         return array( 'min' => $minStrengthX2, 'max' => $maxStrengthX2 );
-      }
+    }
+
+    function checkIfPowerableShield ( $plyrContent, $sideToProtect ) {
+        if ( $plyrContent->checkIfCellLeft() <= 0 )
+            return false;
+
+        foreach ( $this->plTiles as $plBoard_x ) {
+            foreach ( $plBoard_x as $tile ) {
+            // for each tile, we check if it is a shield that protects the side that was hit
+                if ( $this->getTileType($tile['id']) == 'shield'
+                    && ($tile['o']==$sideToProtect || $tile['o']==($sideToProtect+360-90)%360 ) ) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+   
+    function checkIfCannonOnLine ( $plyrContent, $rowOrCol, $side ) {
+        $simpleCannonPresent = false;
+        $doubleCannonPresent = false;
+    
+        // Maybe getLine() could be called just before calling checkIfCannonOnLine and $tilesOnLine
+        // passed in argument, so that it can also be used to know if there are tiles on this
+        // row/column, and which tile will be destroyed? We'll see...
+        $tilesOnLine = $this->getLine( $rowOrCol, $side );
+    
+        foreach ( $tilesOnLine as $tile ) {
+            // Is this a cannon pointing in the good direction ?
+            if ( $this->getTileType($tile['id']) == 'cannon' && $tile['o'] == $side ) {
+                // Is it a simple or double cannon?
+                switch ( $this->getTileHold($tile['id']) ) {
+                  case 1:
+                    $simpleCannonPresent = true;
+                    break 2; // Simple cannon, so we don't need to check if another cannon is
+                            // present, so break 2 to leave foreach block
+                  case 2:
+                    $doubleCannonPresent = true;
+                    break; // Double cannon, so we need to stay in this foreach loop to check
+                          // if another cannon is present, because if a simple cannon is also
+                          // present, we don't nee to check if there are cells left.
+                  default:
+                    throw new BgaVisibleSystemException( "Something went wrong in ".
+                          "checkIfCannonOnLine. Hold should be set to 1 or 2 for cannons. ".
+                          $this->plReportBug );
+                }
+            }
+        }
+        // if there is/are only double cannon(s), we must check if this player has at least
+        // one cell left
+        if ( $simpleCannonPresent )
+            return 'OK_simple';
+        elseif ( $doubleCannonPresent && ($plyrContent->checkIfCellLeft()) )
+            return 'OK_double';
+
+        return false;
+    }
+
 }
