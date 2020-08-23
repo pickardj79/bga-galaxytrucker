@@ -4,6 +4,7 @@
  */
 
 require_once('GT_DBComponent.php');
+require_once('GT_DBCard.php');
 
 class GT_GameState {
     public function __construct($game, $players) {
@@ -11,10 +12,17 @@ class GT_GameState {
         $this->players = $players;
     }
 
-    function setState() {
+    function log($msg) {
+        $this->game->log($msg);
+    }
+
+    // ######################### STATE MANIPULATION ########################
+    function prepareRound() {
         // runs at the end of stPrepareRound if testGameState GameStateValue is tru-ish (set at end of setupNewGame)
         // setupNewGame moves state to prepareRound
         //    which ends with allPlayersMultiactive going to buildPhase
+
+        $this->log("Running prepareRound for Test GameState");
 
         $tiles = $this->getComponents();
         $sql = GT_DBComponent::updateTilesSql($tiles);
@@ -23,22 +31,75 @@ class GT_GameState {
         $this->game->gamestate->setAllPlayersMultiactive();
         $this->game->gamestate->nextState('buildPhase');
 
+        // All players finishShip ends the multipleactiveplayer, through stTakeOrderTiles, into repairShips
+        // repairShips will move onto prepareFlight if no ships need to be repaired
         $order = 1;
         foreach( array_keys($this->players) as $player_id ) {
             if ($order == 2) 
                 $this->game->finishShip($order, $player_id);
             $order++;
         }
-        // All players finishShip ends the multipleactiveplayer, through stTakeOrderTiles, into repairShips
-        // repairShips will move onto prepareFlight if no ships need to be repaired
-        
-        // stPrepareFlight will shuffle cards if the top card is not for the current round
 
-        // prepareFlight will move to drawCard if no aliens need to be placed (via 'crewsDone')
-
-        // so here we end in stDrawCard
+        // Move to repairShips
+        // If nothing to repair, move to prepareFlight
     }
 
+    function prepareFlight($nextState) {
+        $this->log("Running prepareFlight for Test GameState");
+
+        // Set cards - put planet card id 11 first
+        $this->setCardOrder(11,1);
+
+        $this->game->gamestate->nextState( $nextState );
+        // Move to stCheckNextCrew 
+        // If no crew to place, move to stDrawCard
+    }
+
+    // ######################### GAME PARTS CHANGES (SHIPS, CARDS) ########################
+    function getComponents() {
+        // Return array of Tiles ready for inserting into component db
+
+        // build a basic ship for each player
+        $all_tiles = array();
+        $i = 1;
+        foreach( $this->players as $player_id => $player ) {
+            if ($i == 1)
+                $tiles = $this->basicShipTiles($player['player_color'], $i);
+            else
+                $tiles = $this->basicShipTiles($player['player_color'], $i); 
+            $i++;
+            foreach( $tiles as &$tile ) {
+                $tile['component_player'] = $player_id;
+            }
+            $all_tiles = array_merge($all_tiles, $tiles);
+        }
+        return $all_tiles;
+    }
+
+    function setCardOrder($card_id, $order) {
+        if ($order != 1)
+            throw new InvalidArgumentException("Only order=1 is implemented");
+        $deck = GT_DBCard::getAdvDeckForFlight($this->game);
+        $this->game->dump_var("deck before", $deck);
+
+        // find the requested card, put it first if found, put a new one first if not found
+        $card = array_filter($deck, function($c) use($card_id) { return $c['id'] == $card_id; } );
+        if ($card) {
+            $deck = array_filter($deck, function($c) use($card_id) { return $c['id'] != $card_id; } );
+            $the_card = $card[0];
+        }
+        else {
+            $the_card = array('round' => 1, 'id' => $card_id);
+        }
+        array_unshift($deck, $the_card);
+
+        $this->game->dump_var("deck", $deck);
+        $this->game->dump_console("deck", $deck);
+
+        GT_DBCard::updateAdvDeck($this->game, $deck);
+    }
+
+    // #########################  SHIP BIULDING ########################
     function newTile($id, $x, $y, $o) {
         if (! in_array($o, array(0,90,180,270) ) )
             throw new InvalidArgumentException("Orientation '$o' not valid");
@@ -49,7 +110,7 @@ class GT_GameState {
 
     // A basic ship with every type of tile
     // Returns array(Tiles['id','x','y','o']) to be inserted into db
-    function basicShip($color, $variant) {
+    function basicShipTiles($color, $variant) {
         $tiles = array();
 
         // start tile
@@ -74,9 +135,10 @@ class GT_GameState {
         return $tiles;
     }
 
-    function repairShip($color, $variant) {
+    function repairShipTiles($color, $variant) {
+        // Create a ship that needs to be repaired
         // start with basicShip
-        $tiles = $this->basicShip($color, $variant);
+        $tiles = $this->basicShipTiles($color, $variant);
 
         // some "bad" parts (at least for $variant 1)
         array_push($tiles, self::newTile(66, 6, 6, 90)); // side-ways engine to west of cargo
@@ -88,33 +150,7 @@ class GT_GameState {
         return $tiles;
     }
 
-    function getComponents() {
-        // Return array of Tiles ready for inserting into component db
 
-        // build a basic ship for each player
-        $all_tiles = array();
-        $i = 1;
-        foreach( $this->players as $player_id => $player ) {
-            if ($i == 1)
-                $tiles = $this->basicShip($player['player_color'], $i);
-            else
-                $tiles = $this->basicShip($player['player_color'], $i); 
-            $i++;
-            foreach( $tiles as &$tile ) {
-                $tile['component_player'] = $player_id;
-            }
-            $all_tiles = array_merge($all_tiles, $tiles);
-        }
-        return $all_tiles;
-    }
-
-    function getContent() {
-        // Return array of content-tiles ready for inserting into content db
-    }
-
-    function getCards() {
-        // Return array of cards ready for inserting into the card db
-    }
 
 
 }

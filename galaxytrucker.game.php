@@ -18,6 +18,7 @@
 
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
+require_once('modules/GT_DBCard.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
 require_once('modules/GT_GameStates.php');
@@ -145,7 +146,7 @@ class GalaxyTrucker extends Table {
     self::DbQuery( $sql );
 
     self::log("Game initialized");
-    self::setGameStateInitialValue( 'testGameState', 0 ); 
+    self::setGameStateInitialValue( 'testGameState', 1 ); 
     // $this->gamestate->setAllPlayersMultiactive();
 
     /************ End of the game initialization *****/
@@ -236,8 +237,7 @@ class GalaxyTrucker extends Table {
                 }
             }
             if ( $result['atLeast1Tile'] == 1 ) {
-                $result['cards'] = self::getObjectListFromDB( "SELECT card_id id, ".
-                        "card_pile pile FROM card WHERE card_pile IN (1,2,3)" );
+                $result['cards'] = GT_DBCard::getAdvDeckPreview($this);
             }
         }
         $result['revealed_tiles'] = self::getCollectionFromDB( "SELECT tile_id id, space ".
@@ -324,6 +324,17 @@ class GalaxyTrucker extends Table {
   function dump_var($msg, $var) {
     self::trace("##### $msg :: " . var_export($var,TRUE));
   }
+
+  function dump_console($msg, $var) {
+    self::notifyAllPlayers("consoleLog", '', "$msg :: " . var_export($var,TRUE));
+  }
+
+  function throw_bug_report($msg) {
+    $func = debug_backtrace()[1]['function'];
+    $line = debug_backtrace()[1]['line'];
+    throw new BgaVisibleSystemException( $msg . " (at $func line $line)! " . $this->plReportBug );
+  }
+
 
   function traceExportVar( $varToExport, $varName, $functionStr ) {
     self::trace( "###### $functionStr(): $varName is ".var_export( $varToExport, true)." " );
@@ -779,8 +790,7 @@ class GalaxyTrucker extends Table {
       self::DbQuery( $sql );
 
       if ( $firstPlacedTile ) {
-        $cards = self::getCollectionFromDB( "SELECT card_id id, card_pile pile ".
-                  "FROM card WHERE card_pile IN (1,2,3)" );
+        $cards = GT_DBCard::getAdvDeckPreview($this);
         self::notifyPlayer( $player_id, 'cardsPile', "",
                             array( 'cards' => $cards ) );
       }
@@ -1474,8 +1484,8 @@ class GalaxyTrucker extends Table {
     // Get cards that can be looked at by players
     $cardsInPiles = array();
     for( $i=1 ; $i<=3 ; $i++ )
-        $cardsInPiles[$i] = self::getObjectListFromDB( "SELECT card_round round, ".
-                                  "card_id id FROM card WHERE card_pile=$i" );
+        $cardsInPiles[$i] = GT_DBCard::getAdvDeckPile($this, $i);
+
     // Get number of tiles in face down pile
     $tilesLeft = self::getUniqueValueFromDB( "SELECT COUNT(component_id) ".
                         "FROM component WHERE component_player IS NULL" );
@@ -1504,7 +1514,7 @@ class GalaxyTrucker extends Table {
     // Setup a test game state
     if ( self::getGameStateValue( 'testGameState' ) ) {
       $gt_state = new GT_GameState($this, $players);
-      $gt_state->setState();
+      $gt_state->prepareRound();
     }
     else {
       $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
@@ -1662,6 +1672,7 @@ class GalaxyTrucker extends Table {
     self::log("Finished stRepairShips");
   }
 
+  // ######################### 
   function stPrepareFlight() {
     // This query's ordered by turn_order so that we can know which player to activate
     // first for alien placement (if he/she has a choice to do)
@@ -1673,21 +1684,16 @@ class GalaxyTrucker extends Table {
     self::setGameStateValue( 'overlayTilesPlaced', 1 );
 
     // Shuffle cards in pile to create the adventure deck
-    $cardsInAdvDeck = self::getObjectListFromDB( "SELECT card_round round, card_id id ".
-                                          "FROM card WHERE card_pile IS NOT NULL" );
+    $cardsInAdvDeck = GT_DBCard::getAdvDeckForPrep($this);
+
+    if (!$cardsInAdvDeck)
+      self::throw_bug_report("No cards in adventure deck");
+
     do {
       shuffle ($cardsInAdvDeck);
     } while ( $cardsInAdvDeck[0]['round'] != $round ); // rules : keep shuffling until
                                         // the top card matches the number of the round.
-    $sql = "REPLACE INTO card (card_round, card_id, card_order) VALUES ";
-                        // REPLACE so that we remove card_pile information and 
-                        // set card_order in a simple single sql request
-    $values = array();
-    foreach ( $cardsInAdvDeck as $order=>$card ) {
-        $values[] = "(".$card['round'].",".$card['id'].",".($order+1).")";
-    }
-    $sql .= implode( ',', $values );
-    self::DbQuery( $sql );
+    GT_DBCard::updateAdvDeck($this, $cardsInAdvDeck);
 
     foreach( $players as $plId => $player ) {
         // In this foreach loop: 1. POSITION 2. CONTENT (including overlay tiles
@@ -1861,9 +1867,16 @@ class GalaxyTrucker extends Table {
     // What if all players have built a ship without any content? Possible only with some
     // expansions' ship classes, and this needs to be handled before (give up before start)
 
-    $this->gamestate->nextState( $nextState );
+    if ( self::getGameStateValue( 'testGameState' ) ) {
+      $gt_state = new GT_GameState($this, $players);
+      $gt_state->prepareFlight($nextState);
+    }
+    else {
+      $this->gamestate->nextState( $nextState );
+    }
   }
 
+  // ######################### 
   function stCheckNextCrew() {
       // In turn order, we check if a player still has a choice to do
       $nextPlayer = self::getUniqueValueFromDB( "SELECT player_id FROM player ".
