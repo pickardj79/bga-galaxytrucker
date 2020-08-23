@@ -72,8 +72,8 @@ class GT_PlayerBoard extends APP_GameClass {
               // Otherwise we try to get it and if it exists, execute the block
                 || $adjTile = $this->getAdjacentTile ($tileToCheck, $side) ) {
             // There is one, so let's check how plTiles are connected
-            $conn1 = $this->game->getConnectorType( $tileToCheck, $side );
-            $conn2 = $this->game->getConnectorType( $adjTile, ($side+180)%360 );
+            $conn1 = $this->getConnectorType( $tileToCheck, $side );
+            $conn2 = $this->getConnectorType( $adjTile, ($side+180)%360 );
             if ( $conn1 === $conn2 ) {
                 if ( $conn1 === 0 )
                     { return 0; } // Both are smooth sides, so not connected but no error
@@ -90,6 +90,18 @@ class GT_PlayerBoard extends APP_GameClass {
                 { return -2; } // simple vs double connector: error
         }
         return 0; // No adjacent tile on this side
+    }
+
+    function getConnectorType($tile, $side) {
+        return $this->game->getConnectorType($tile, $side);
+    }
+
+    function getTileType($tileid) {
+        return $this->game->tiles[ $tileid ]['type'];
+    }
+
+    function getTileHold($tileid) {
+        return $this->game->tiles[ $tileid ]['hold'];
     }
 
     // ###################################################################
@@ -246,4 +258,89 @@ class GT_PlayerBoard extends APP_GameClass {
 
     // ###################################################################
     // ############ FUNCTIONS TO SUMMARIZE SHIP ############
+    function nbOfExposedConnectors () {
+        // Est-ce qu'il faut améliorer cette fonction pour renvoyer les id et/ou coord des
+        // tuiles avec le(s) côté(s) où il y a des connecteurs exposés ? (par
+        // exemple pour que le client puisse les mettre en évidence)
+        $nbExp = 0;
+        foreach ( $this->plTiles as $plBoard_x ) {
+            foreach ( $plBoard_x as $tile ) {
+                // for each tile, we check if it has exposed connectors
+                for ( $side=0 ; $side<=270 ; $side+=90 ) {
+                    // Is there an adjacent tile on this side ?
+                    if ( !$this->getAdjacentTile ($tile, $side) ) {
+                        // There isn't, so let's check if there's a connector on this side
+                        if ( $this->getConnectorType( $tile, $side ) != 0 )
+                            $nbExp++;
+                    }
+                }
+            }
+        }
+        return $nbExp;
+    }
+
+    function getMinMaxStrengthX2 ( $plyrContent, $type ) {
+        // $type can be 'cannon' or 'engine'
+        // Strength is multiplied by 2 throughout the process, till it is compared to ennemy
+        // or foe strength, to keep it an integer so that we avoid float imprecision
+        // (useful only for cannons, but we'd better not use different 
+        $strengthX2 = 0;
+        $nbActivableFor2 = 0;
+        $nbActivableFor1 = 0; // for cannons not pointing to the front
+        $minStrengthX2 = 0;
+        $maxStrengthX2 = 0;
+        $alien = false;
+        if ($type=='cannon') $contentTypeColor='purple';
+        elseif ($type=='engine') $contentTypeColor='brown';
+        else throw new BgaVisibleSystemException ( "GetMinMaxStrengthX2: type is ".
+                          $type." ".$this->plReportBug);
+    
+        foreach ( $this->plTiles as $plBoard_x ) {
+            foreach ( $plBoard_x as $tile ) {
+                // for each tile, we check if it is an engine or cannon
+                if ( $this->getTileType($tile['id']) == $type ) {
+                    if ( $this->getTileHold( $tile['id'] ) == 1 ) { // simple engine or cannon
+                        if ( $type == 'cannon' && $tile['o'] != 0 )
+                            $strengthX2 += 1;
+                        else
+                            $strengthX2 += 2;
+                    }
+                    else { 
+                        // double engine or cannon ('hold' should be 2, is it better to check
+                        // if it really is? Expansions: what about bi-directional cannons?)
+                        if ( $type == 'cannon' && $tile['o'] != 0 )
+                            $nbActivableFor1 += 1; // do we need to keep track of the tile id,
+                                                // or do we only count?
+                        else
+                            $nbActivableFor2 += 1;
+                    }
+                }
+            }
+        }
+        $minStrengthX2 = $maxStrengthX2 = $strengthX2;
+    
+        // check for number of cells left, to compute max strength
+        // TODO only if needed
+        $nbOfCells = $plyrContent->checkIfCellLeft();
+        while ( $nbActivableFor2 != 0 && $nbOfCells != 0 ) {
+            $nbActivableFor2 -= 1;
+            $nbOfCells -= 1;
+            $maxStrengthX2 += 4;
+        }
+        while ( $nbActivableFor1 != 0 && $nbOfCells != 0 ) {
+            $nbActivableFor1 -= 1;
+            $nbOfCells -= 1;
+            $maxStrengthX2 += 2;
+        }
+    
+        // truckers don't get alien bonus if their cannon / engine strength without alien is 0
+        // if max strength is 0, no engine or cannon at all so don't bother looking for an alien
+        if ( $plyrContent->checkIfAlien( $contentTypeColor ) ) {
+            if ( $maxStrengthX2 > 0 )
+                $maxStrengthX2 += 4;
+            if ( $minStrengthX2 > 0 )
+                $minStrengthX2 += 4;
+        }
+        return array( 'min' => $minStrengthX2, 'max' => $maxStrengthX2 );
+      }
 }

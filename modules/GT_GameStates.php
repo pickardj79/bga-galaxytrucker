@@ -96,7 +96,7 @@ class GT_GameState {
         $i = 1;
         foreach( $this->players as $player_id => $player ) {
             if ($i == 1)
-                $tiles = $this->repairShip($player['player_color'], $i);
+                $tiles = $this->basicShip($player['player_color'], $i);
             else
                 $tiles = $this->basicShip($player['player_color'], $i); 
             $i++;
