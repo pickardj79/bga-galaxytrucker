@@ -19,6 +19,7 @@
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
 require_once('modules/GT_DBCard.php');
+require_once('modules/GT_DBPlayer.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
 require_once('modules/GT_GameStates.php');
@@ -498,7 +499,10 @@ class GalaxyTrucker extends Table {
   }
 
   // To avoid problems due to transtyping, $nbDays must be an integer
-  function moveShip( $players, $plId, $nbDays ) {
+  function moveShip( $plId, $nbDays, $players=null ) {
+    if (!$players)
+      $players = GT_DBPlayer::getPlayersInFlight($this);
+
     $plName = $players[$plId]['player_name'];
     if ( $nbDays === 0 ) {
         self::notifyAllPlayers( "onlyLogMessage",
@@ -524,45 +528,10 @@ class GalaxyTrucker extends Table {
   }
 
   function noExplore ( $plId, $player_name ) {
-    self::DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
+    GT_DBPlayer::setCardDone($this, $plId);
     self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
           'doesn\'t stop'), array ( 'player_name' => $player_name ) );
 
-  }
-
-  function loseCrew ( $crewMembers, $player, $plContent, $bToCard ) {
-    // This method removes crew members from db and notifies clients to slide them away in
-    // space or to current card (eg for abandoned ships).
-    //$sqlImplode = array();
-    $contentLost = array();
-    $contentHtml = "";
-    //$i = 0;
-    foreach ( $crewMembers as $crewId ) {
-//        $sqlImplode[] = "(content_id=".$crew['content_id'].")";
-//        $contentLost[$i] = array ( 'divId' => 'tile_'.$crew['tile_id'].'_crew_'.$crew['place'] );
-//        if ( $orientNeeded ) {
-//            $contentLost[$i]['orient'] = $crew['orient'];
-//            $contentLost[$i]['toCard'] = false;
-//        }
-//        else {
-//            $contentLost[$i]['toCard'] = true;
-//        }
-        $contentLost[] = array ( 'divId' => 'content_'.$crewId,
-                                    'orient' => 0,
-                                    'toCard' => $bToCard );
-        // check if it's a human or an alien, for the image displayed in game log
-        $crewType = $plContent[$crewId]['content_subtype']; // human, brown or purple
-        $typeClasses = ( $crewType == 'human' ) ? 'human' : 'alien '.$crewType;
-        $contentHtml .= "<img class='content ".$typeClasses."'></img> ";
-        //$i++;
-    }
-    //$sql = "DELETE FROM content WHERE ".implode( ' OR ', $sqlImplode );
-    $sql = "DELETE FROM content WHERE content_id IN (".implode( ',', $crewMembers ).")";
-    self::DbQuery( $sql );
-    self::notifyAllPlayers( "loseContent", clienttranslate( '${player_name} loses ${content_icons}'),
-          array( 'player_name' => $player['player_name'],
-                  'content' => $contentLost,
-                  'content_icons' => $contentHtml) );
   }
 
   function getConnectorType( $tile, $side ) {
@@ -1082,143 +1051,24 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( 'crewPlacementDone' );
   }
 
+  // ############ CARD ACTIONS ############### 
+
   function battChoice( $battChoices ) {
+      // current this is setup only for powering engines during open space
       self::checkAction( 'contentChoice' );
       $plId = self::getActivePlayerId();
-      $nbBatt = count( $battChoices );
-      $players = self::getCollectionFromDB ( "SELECT player_id, player_name, ".
-          "player_position, min_eng, max_eng FROM player WHERE still_flying=1 " );
-      $actPlayer = $players[$plId];
-      $tileOrient = self::getCollectionFromDB( "SELECT component_id, component_orientation ".
-                  "FROM component WHERE component_player=$plId", true );
-      $plContent = self::getPlContent( $plId );
-      $brd = $this->newPlayerBoard($plId);
-      $plyrContent = $this->newPlayerContent($plId, $plContent);
-      $nbDoubleEngines = $brd->countDoubleEngines();
-      $nbSimpleEngines = $brd->countSingleEngines();
-
-      // Checks
-      if ( count( array_unique($battChoices) ) !== $nbBatt )
-          throw new BgaVisibleSystemException( "Several batteries with ".
-                  "the same id. ".var_export( $battChoices, true)." ".$this->plReportBug );
-      foreach ( $battChoices as $battId ) {
-          if ( ! array_key_exists( $battId, $plContent ) )
-              throw new BgaVisibleSystemException( "Wrong id ".$battId.": no content ".
-                                              "with this id. ".$this->plReportBug );
-          if ( $plContent[$battId]['content_type'] !== 'cell' )
-              throw new BgaVisibleSystemException( "Wrong id ".$battId.": not a battery. ".
-                                              $this->plReportBug );
-          if ( $plContent[$battId]['player_id'] != $plId )
-              throw new BgaVisibleSystemException( "Wrong id ".$battId.": not in your ship. ".
-                                              $this->plReportBug );
-      }
-      if ( $nbBatt > $nbDoubleEngines )
-          throw new BgaVisibleSystemException( "Error: too many batteries selected ".
-                              "(more than double engines). ".$this->plReportBug );
-
-      $nbDays = $nbSimpleEngines + 2*$nbBatt;
-      if ( $nbDays > 0 ) {
-          if ( $plyrContent->checkIfAlien( 'brown' ) )
-              $nbDays += 2;
-      }
-      // else TODO if $nbDays == 0 (exception or allow them to
-      // give up before the end of the card? ask vlaada / cge)
-
-      if ( $nbBatt > 0 ) {
-          $contentLost = array();
-          $contentHtml = "";
-          foreach ( $battChoices as $battId ) {
-              $tileId = $plContent[$battId]['tile_id'];
-              $contentLost[] = array ( 'orient' => $tileOrient[$tileId],
-                            'divId' => 'content_'.$battId,
-                            'toCard' => false );
-              $contentHtml .= "<img class='content cell'></img> ";
-          }
-          $sql = "DELETE FROM content WHERE content_id IN (".implode(',', $battChoices).")";
-          self::DbQuery( $sql );
-          self::notifyAllPlayers( "loseContent",
-                                  clienttranslate( '${player_name} loses ${content_icons}'),
-                                  array( 'player_name' => $actPlayer['player_name'],
-                                          'content' => $contentLost,
-                                          'content_icons' => $contentHtml,
-                                        )
-                                );
-          self::updNotifPlInfos( $plId );
-      }
-      self::moveShip( $players, $plId, $nbDays );
-      self::DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
+      GT_ActionsCard::battChoice($this, $plId, $battChoices); 
+      GT_DBPlayer::setCardDone($this, $plId);
       $this->gamestate->nextState( 'battChosen' );
   }
 
   function exploreChoice( $choice ) {
-    self::checkAction( 'exploreChoice' );
-    $plId = self::getActivePlayerId();
-    $players = self::getCollectionFromDB ( "SELECT player_id, player_name, card_line_done, ".
-          "player_position, nb_crew, min_eng, max_eng FROM player WHERE still_flying=1 " ); // TODO min_eng and max_eng needed here?
-    $player = $players[$plId];
-    $player_name = $player['player_name'];
-    $cardId = self::getGameStateValue( 'currentCard' );
+      self::checkAction( 'exploreChoice' );
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $nextState = GT_ActionsCard::exploreChoice($this, $plId, $cardId, $choice); 
 
-    // Sanity checks TODO: do we need to check something else?
-    if ( $player['card_line_done'] !== '1' )
-        throw new BgaVisibleSystemException( "Explore choice: wrong value for card done (".
-                var_export($player['card_line_done'], true)."). ".$this->plReportBug );
-    if ( !in_array( $choice, array(0,1) ) )
-        throw new BgaVisibleSystemException( "Explore choice: wrong value for choice (".
-                var_export($choice, true)."). ".$this->plReportBug );
-
-    if ( $choice == 0 ) {
-        self::noExplore( $plId, $player['player_name'] ); // card_line_done=2 and notif
-        $this->gamestate->nextState( 'nextPlayer');
-    }
-    elseif ( $this->card[$cardId]['type'] == 'abship' ) {
-        if ( $player['nb_crew'] > $this->card[$cardId]['crew'] ) {
-            // This player has to choose which crew members to lose
-            // Is a quiet notif needed?
-            $this->gamestate->nextState( 'chooseCrew');
-            return;
-        }
-        elseif ( $player['nb_crew'] == $this->card[$cardId]['crew'] ) {
-            // This player sends ALL their remaining crew members
-            // Remove all crew members:
-            $plContent = self::getPlContent( $plId );
-            $crewMembers = array();
-            foreach ( $plContent as $ctId => $content ) {
-                if ( $content['content_type'] == 'crew' )
-                    $crewMembers[] = $ctId;
-            }
-            self::loseCrew( $crewMembers, $player, $plContent, true );
-            // TODO credits
-            self::updNotifPlInfos( $plId, null, null, true );
-
-            self::DbQuery( "UPDATE player SET card_line_done=0 WHERE 1" );
-            self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-                'sends their whole crew to the abandoned ship and will have to give up'),
-                array ( 'player_name' => $player['player_name'] ) );
-            $this->gamestate->nextState( 'nextCard');
-            return;
-        }
-        else {
-            throw new BgaVisibleSystemException( "Explore choice: not enough crew members (".
-                  var_export($player['nb_crew'], true)."). ".$this->plReportBug );
-        }
-    }
-    elseif ( $this->card[$cardId]['type'] == 'abstation' ) {
-        // Check nb of crew members or not? Should have been checked in stAbandoned
-        // If we need informations from the player table, we can get also nb_crew
-        // Should we check if this player has NO CARGO AT ALL? (no placeGoods state)
-        // Is a quiet notif needed?
-
-        // TEMP, end of card, since placeGoods is not implemented yet:
-        $nbDays = -($this->card[$cardId]['days_loss']);
-        self::moveShip( $players, $plId, $nbDays );
-        self::DbQuery( "UPDATE player SET card_line_done=0" ); // WHERE 1?
-
-        $this->gamestate->nextState( 'placeGoods');
-    }
-    else
-        throw new BgaVisibleSystemException( "Explore choice: wrong value for card type (".
-                var_export($this->card[$cardId]['type'], true)."). ".$this->plReportBug );
+      $this->gamestate->nextState($nextState);
   }
 
   function cancelExplore() {
@@ -1226,7 +1076,7 @@ class GalaxyTrucker extends Table {
     $plId = self::getActivePlayerId();
     $player_name = self::getActivePlayerName();
 
-    self::noExplore( $plId, $player_name ); // card_line_done=2 and notif
+    self::noExplore( $plId, $player_name ); 
     $this->gamestate->nextState( 'nextPlayer');
   }
 
@@ -1234,43 +1084,13 @@ class GalaxyTrucker extends Table {
       self::checkAction( 'contentChoice' );
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
-      $nbcrewMembers = count( $crewChoices ); // needed?
-      $players = self::getCollectionFromDB ( "SELECT player_id, player_name, ".
-          "player_position, nb_crew, min_eng, max_eng FROM player WHERE still_flying=1 " ); // TODO min_eng and max_eng needed here?
-      $player = $players[$plId];
-      $plBoard = self::getPlayerBoard( $plId );
-      $plContent = self::getPlContent( $plId );
-      // Hey, wait. We need orientation for batteries, but not for crew members, right?
-      // Since they're in a non-rotated overlay tile, they'll always be slided correctly.
-      //$orientNeeded = false; // Will be set to true only for Slavers (sure?) and Combat Zone
-      $bToCard = true; // Will be set to false only for Combat Zone
-      //$tileOrient = ( ! $orientNeeded ) ? null
-      //                                : self::getCollectionFromDB( "SELECT component_id, ".
-      //                "orientation FROM component WHERE component_player=$plId", true );
-      // TODO checks:
-      
-      // TODO see if it's possible to have a common function with battChoice() and slavers and combat zones (maybe only one or two things will differ: number of batteries consistent with number of cannons, moveShip (forward) vs gainCredits and moveShip backwards, ...)
+      GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
 
-
-      self::traceExportVar($crewChoices,'crewChoices','crewChoice');//temp
-      // Remove crew from db and notify
-      //self::loseCrew( $crewChoices, $player, $plContent, $orientNeeded, $tileOrient );
-      self::loseCrew( $crewChoices, $player, $plContent, $bToCard );
-      // TODO credits
-      self::updNotifPlInfos( $plId, $plBoard, null, true ); // We can't use the variable $plContent here since some content has been removed since it was get.
-
-      $nbDays = -($this->card[$cardId]['days_loss']);
-      self::moveShip( $players, $plId, $nbDays );
-      self::DbQuery( "UPDATE player SET card_line_done=0" ); // WHERE 1?
-
-      $this->gamestate->nextState( 'nextCard' ); // Expansions: in fifth wheel expansion, we'll
-                                        // have to check (here or in stAbandoned) if another
-                                        // player can benefit from this card
+      $this->gamestate->nextState( 'nextCard' ); 
   }
 
   function goOn( ) {
       self::checkAction( 'goOn' );
-      self::DbQuery( "UPDATE player SET card_line_done=0" );
       $this->gamestate->nextState( 'goOn' );
   }
 
@@ -1421,13 +1241,14 @@ class GalaxyTrucker extends Table {
     // We need the ship class at the end of stPrepareRound to notify players
     $shipClass = $this->flightVariant[$flightVariant][$flight]['shipClass'];
 
-    if ( $flight !== 1 ) {
-        // Reset some values and clean content table
-        self::DbQuery( "UPDATE player SET turn_order=NULL, player_position=NULL, nb_crew=NULL, ".
-            "exp_conn=NULL, min_eng=NULL, max_eng=NULL, min_cann_x2=NULL, max_cann_x2=NULL" );
-        self::DbQuery( "DELETE FROM content" ); // WHERE 1 ?
-        self::setGameStateValue( 'overlayTilesPlaced', 0 );
-    }
+    // Reset some values and clean content table
+    //    still_flying may need to be set to 0 in
+    //    the highly improbable case of a player having built a ship without
+    //    humans (with expansions' ship classes without starting component)
+    self::DbQuery( "UPDATE player SET still_flying=1, turn_order=NULL, player_position=NULL, nb_crew=NULL, ".
+        "exp_conn=NULL, min_eng=NULL, max_eng=NULL, min_cann_x2=NULL, max_cann_x2=NULL" );
+    self::DbQuery( "DELETE FROM content" ); 
+    self::setGameStateValue( 'overlayTilesPlaced', 0 );
 
     // Prepare cards
     // Used cards are not used in next rounds (rules)
@@ -1891,26 +1712,24 @@ class GalaxyTrucker extends Table {
   }
 
   function stDrawCard() {
+    GT_DBPlayer::clearCardProgress($this);
+
     $cardOrderInFlight = self::getGameStateValue( 'cardOrderInFlight' );
-    $round = self::getGameStateValue( 'round' );
-    if ( $cardOrderInFlight >= ($round+1)*4 ) { // Or should we replace ($round+1)*4 by a global set at
-        // the beginning of the round, because this number can be different when using some expansion?
+    $cardOrderInFlight++;
+    self::setGameStateValue( 'cardOrderInFlight', $cardOrderInFlight );
+    $currentCard = self::getUniqueValueFromDB ( "SELECT card_id id FROM card ".
+                                      "WHERE card_order=$cardOrderInFlight" );
+    self::setGameStateValue( 'currentCard', $currentCard );
+
+    if ( is_null($currentCard) ) { 
+        // no more cards, this flight is done
         $nextState = 'cardsDone' ;
     }
     else {
-        if ( $cardOrderInFlight == 0 )
-            self::DbQuery( "UPDATE player SET still_flying=1" ); // Except in
-          // the highly improbable case of a player having built a ship without
-          // humans (with expansions' ship classes without starting component)
         // temp, so that there is an active player when going to notImpl state
         if ( self::getUniqueValueFromDB('SELECT global_value FROM global WHERE global_id=2') == 0 )// temp
             self::activeNextPlayer();// temp
         
-        $cardOrderInFlight++;
-        self::setGameStateValue( 'cardOrderInFlight', $cardOrderInFlight );
-        $currentCard = self::getUniqueValueFromDB ( "SELECT card_id id FROM card ".
-                                          "WHERE card_order=$cardOrderInFlight" );
-        self::setGameStateValue( 'currentCard', $currentCard );
         $cardType = $this->card[ $currentCard ][ 'type' ];
 
         if ( in_array( $cardType, array( "slavers", "smugglers", "pirates" ) ) )
@@ -1933,64 +1752,57 @@ class GalaxyTrucker extends Table {
   }
 
   function stStardust() {
-    $players = self::getCollectionFromDB ( "SELECT player_id, player_name, player_position, ".
-            "exp_conn FROM player WHERE still_flying=1 ORDER BY player_position" );
+      $players = GT_DBPlayer::getPlayersInFlight($this, '', $order='ASC');
     
-    foreach ( $players as $plId => $player ) {
-      $newPlPos = self::moveShip( $players, $plId, -($player['exp_conn']) );
-      if ( $newPlPos !== null ) {
-        //update this player's position so that it is taken into account if other
-        // ships move in the same action
-        $players[$plId]['player_position'] = $newPlPos;
+      foreach ( $players as $plId => $player ) {
+          $newPlPos = self::moveShip( $plId, -($player['exp_conn']), $players );
+          if ( $newPlPos !== null ) {
+              //update this player's position so that it is taken into account if other
+              // ships move in the same action
+              $players[$plId]['player_position'] = $newPlPos;
+          }
       }
-    }
-    $this->gamestate->nextState( 'nextCard' );
+      $this->gamestate->nextState( 'nextCard' );
   }
 
   function stOpenspace() {
       $nextState = "nextCard"; // Will be changed to powerEngines if someone
                                 // needs to choose if they use batteries
-      $players = self::getCollectionFromDB ( "SELECT player_id, player_name, player_position, ".
-                    "min_eng, max_eng, card_line_done FROM player WHERE still_flying=1 ".
-                    "ORDER BY player_position DESC" ); // We can't use WHERE card_line_done=0
-                      // here, because we need ALL the players' position for moveShip()
+      $players = GT_DBPlayer::getPlayersForCard($this);
 
       foreach ( $players as $plId => $player ) {
-          if ( $player['card_line_done'] == 2 )
-              continue; // This player has already moved, so nothing to do here
           if ( $player['max_eng'] == 0 ) {
               // TODO ouch! This player has to give up
               self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
                       'has no activable engine, but is lucky because giving up is not '.
                       'implemented yet'),
                       array ( 'player_name' => $player['player_name'] ) );
-              self::DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
+              GT_DBPlayer::setCardDone($this, $plId);
           }
           elseif ( $player['min_eng'] == $player['max_eng'] ) {
-              // No choice to do for this player, so we move it now and notify players
-              $newPlPos = self::moveShip( $players, $plId, (int)$player['min_eng'] );
+              // No choice to do for this player, so we move it now and notify players.
+              // Do not pass $players to moveShip. We need to consider all players still in flight,
+              //    $players here is only those who still have yet to act 
+              $newPlPos = self::moveShip( $plId, (int)$player['min_eng'] );
               if ( $newPlPos !== null ) {
-                //update this player's position so that it is taken into account if other
-                // ships move in the same action
-                $players[$plId]['player_position'] = $newPlPos;
+                  //update this player's position so that it is taken into account if other
+                  // ships move in the same action
+                  $players[$plId]['player_position'] = $newPlPos;
               }
-              self::DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
+              GT_DBPlayer::setCardDone($this, $plId);
           }
           else {
-            // min and max different means that this player can activate a double
-            // cannon or more, so we need an activeplayer state to ask them 
-            self::DbQuery( "UPDATE player SET card_line_done=1 WHERE player_id=$plId" ); // needed? Maybe in checks in battChoice().
-            // Infos for player: here or in args? In args.
-            
-            $this->gamestate->changeActivePlayer( $plId );
-            $nextState = "powerEngines";
-            break; // End of this foreach loop because we need to ask this 
-                    // player before processing the following players.
+              // min and max different means that this player can activate a double
+              // engine or more, so we need an activeplayer state to ask them 
+              // Infos for player: here or in args? In args.
+              GT_DBPlayer::setCardInProgress($this, $plId);
+              $this->gamestate->changeActivePlayer( $plId );
+              $nextState = "powerEngines";
+              break; // End of this foreach loop because we need to ask this 
+                      // player before processing the following players.
           }
       } // end of foreach players
 
-      if ( $nextState == "nextCard" )
-          self::DbQuery( "UPDATE player SET card_line_done=0" ); // WHERE 1?
       $this->gamestate->nextState( $nextState );
   }
 
@@ -1998,32 +1810,44 @@ class GalaxyTrucker extends Table {
     $nextState = "nextCard"; // Will be changed to exploreAbandoned  if someone
                               // has a big enough crew
     $cardId = self::getGameStateValue( 'currentCard' );
-    $players = self::getCollectionFromDB ( "SELECT player_id, player_name, nb_crew, ".
-            "card_line_done FROM player WHERE still_flying=1 ORDER BY player_position DESC" );
+    $players = GT_DBPlayer::getPlayersForCard($this);
     
     foreach ( $players as $plId => $player ) {
-        if ( $player['card_line_done'] == 2 )
-            continue; // This player has already been processed for this card in a
-                    // previous state, so nothing to do here
         if ( $player['nb_crew'] < $this->card[$cardId]['crew'] ) {
             self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
                     'doesn\'t have a big enough crew to benefit from this card'),
                     array ( 'player_name' => $player['player_name'] ) );
-            self::DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
+            GT_DBPlayer::setCardDone($this, $plId);
         }
         else {
             // This player has enough crew members to use the card, so we need
             // to ask them if they want to.
-            self::DbQuery( "UPDATE player SET card_line_done=1 WHERE player_id=$plId" ); // needed? Maybe in checks in exploreAbandoned().
+            GT_DBPlayer::setCardInProgress($this, $plId);
             $this->gamestate->changeActivePlayer( $plId );
             $nextState = "exploreAbandoned";
             break; // End of this foreach loop because we need to ask this 
                     // player before processing the following players.
         }
     }
-    if ( $nextState == "nextCard" )
-        self::DbQuery( "UPDATE player SET card_line_done=0" ); // WHERE 1?
+
     $this->gamestate->nextState( $nextState );
+  }
+
+  function stPlanets() {
+      // Setup active player to choose a planet
+      $nextState = "nextCard";
+
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $players = GT_DBPlayer::getPlayersForCard($this);
+
+      foreach ( $players as $plId => $player ) {
+          GT_DBPlayer::setCardInProgress($this, $plId);
+          $this->gamestate->changeActivePlayer( $plId );
+          $nextState = "choosePlanet";
+          break; 
+      }
+
+      $this->gamestate->nextState( $nextState );
   }
 
   function stJourneysEnd() {

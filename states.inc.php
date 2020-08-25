@@ -49,6 +49,33 @@
 
 //    !! It is not a good idea to modify this file when a game is running !!
 
+// define contants for state ids
+if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, since it is included multiple times
+    define("STATE_PREPARE_ROUND", 2);
+    define("STATE_WAIT_FOR_PLAYERS", 3);
+    define("STATE_ACTIVATE_FOR_BUILD", 4);
+    define("STATE_BUILD", 5);
+    define("STATE_TAKE_ORDER_TILES", 10);
+    define("STATE_REPAIR_SHIPS", 15);
+    define("STATE_PREPARE_FLIGHT", 20);
+    define("STATE_PLACE_CREW", 25);
+    define("STATE_CHECK_NEXT_CREW", 26);
+    define("STATE_DRAW_CARD", 30);
+    define("STATE_NOT_IMPL", 35);
+    // Cards
+    define("STATE_STARDUST", 40);
+    define("STATE_OPEN_SPACE", 41);
+    define("STATE_ABANDONED", 42);
+    define("STATE_PLANETS", 46);
+    define("STATE_EXPLORE_ABANDONED", 58);
+    define("STATE_POWER_ENGINES", 60);
+    define("STATE_CHOOSE_PLANET", 61);
+    define("STATE_CHOOSE_CREW", 66);
+    define("STATE_PLACE_GOODS", 68);
+    define("STATE_JOURNEYS_END", 80);
+    define("STATE_END_GAME", 99);
+ }
+
 $machinestates = array(
 
     // The initial state. Please do not modify.
@@ -57,38 +84,40 @@ $machinestates = array(
         "description" => "",
         "type" => "manager",
         "action" => "stGameSetup",
-        "transitions" => array( "" => 2 )
+        "transitions" => array( "" => STATE_PREPARE_ROUND)
     ),
 
-    2 => array(
+    STATE_PREPARE_ROUND => array(
         "name" => "prepareRound",
         "description" => '',
         "type" => "game",
         "action" => "stPrepareRound",
         "updateGameProgression" => false,
-        "transitions" => array( "waitForPlayers" => 3, "buildPhase" => 5 )
+        "transitions" => array( 
+            "waitForPlayers" => STATE_WAIT_FOR_PLAYERS, 
+            "buildPhase" => STATE_BUILD )
     ),
 
-    3 => array(
+    STATE_WAIT_FOR_PLAYERS => array(
         "name" => "waitForPlayers",
         "description" => clienttranslate("Some players are not ready yet"),
         "descriptionmyturn" => clienttranslate("Are you ready? (Do you see the starting cabin in the middle of your ship?)"),
         "type" => "multipleactiveplayer",
         "possibleactions" => array( "ImReady", "pass" ),
-        "transitions" => array( "readyGo" => 4 )
+        "transitions" => array( "readyGo" => STATE_ACTIVATE_FOR_BUILD )
     ),
 
-    4 => array(
+    STATE_ACTIVATE_FOR_BUILD => array(
         "name" => "activatePlayersForBuildPhase",
         "description" => '',
         "type" => "game",
         "action" => "stActivatePlayersForBuildPhase",
         "updateGameProgression" => false,
-        "transitions" => array( "" => 5 )
+        "transitions" => array( "" => STATE_BUILD )
     ),
 
 
-    5 => array(
+    STATE_BUILD => array(
         "name" => "buildPhase",
         "description" => clienttranslate('Some players must finish their ship (you can still flip the timer)'),
         "descriptionmyturn" => clienttranslate('Build your ship!'),
@@ -100,17 +129,19 @@ $machinestates = array(
                                         "pickAside", "pickLastPlaced",
                                         "flipTimer", "timeFinished", "pass" ),
 //                                        "timeFinished", "pass" ),
-        "transitions" => array( "timeFinished" => 10, "shipsDone" => 15 )
+        "transitions" => array( 
+            "timeFinished" => STATE_TAKE_ORDER_TILES, 
+            "shipsDone" => STATE_REPAIR_SHIPS )
     ),
 
-    10 => array(
+    STATE_TAKE_ORDER_TILES => array(
         "name" => "takeOrderTiles",
         "description" => clienttranslate('Some players must yet take an order tile'),
         "descriptionmyturn" => clienttranslate('Take an order tile!'),
         "type" => "multipleactiveplayer",
         "action" => "stTakeOrderTiles",
         "possibleactions" => array( "finishShip", "pass" ),
-        "transitions" => array( "shipsDone" => 15 )
+        "transitions" => array( "shipsDone" => STATE_REPAIR_SHIPS )
     ),
 
     // May be removed
@@ -123,7 +154,7 @@ $machinestates = array(
     //     "transitions" => array( "shipsNotOk" => 15, "shipsOk" => 20 )
     // ),
 
-    15 => array(
+    STATE_REPAIR_SHIPS => array(
         "name" => "repairShips",
         "description" => clienttranslate('Some players must yet fix their ship'),
         // "descriptionmyturn" => clienttranslate('${you} must remove components in order to fix your ship'),
@@ -132,97 +163,130 @@ $machinestates = array(
         "action" => "stRepairShips",
         "possibleactions" => array( "removeTile", "finishRepairs", // "undoChanges",?
                                 "pass" ),
-        "transitions" => array( "repairsDone" => 20 )
+        "transitions" => array( "repairsDone" => STATE_PREPARE_FLIGHT )
     ),
 
-    20 => array(
+    STATE_PREPARE_FLIGHT => array(
         "name" => "prepareFlight",
         "description" => clienttranslate('Embarking crew and batteries'),
         "type" => "game",
         "action" => "stPrepareFlight",
         "updateGameProgression" => true,
-        "transitions" => array( "nextCrew" => 25, "crewsDone" => 30 )
+        "transitions" => array(
+            "nextCrew" => STATE_PLACE_CREW,
+            "crewsDone" => STATE_DRAW_CARD )
     ),
 
-    25 => array(
+    STATE_PLACE_CREW => array(
         "name" => "placeCrew",
         "description" => clienttranslate('${actplayer} must place aliens'),
         "descriptionmyturn" => clienttranslate('${you} must select an alien or humans in all relevant cabins'),
         "type" => "activeplayer",
         "possibleactions" => array( // "placePurple", "placeBrown",
                                 "crewPlacementDone", "pass", "tempTestNextRound" ),
-        "transitions" => array( "crewPlacementDone" => 26 )
+        "transitions" => array( "crewPlacementDone" => STATE_CHECK_NEXT_CREW )
     ),
 
-    26 => array(
+    STATE_CHECK_NEXT_CREW => array(
         "name" => "checkNextCrew",
         "description" => '',
         "type" => "game",
         "action" => "stCheckNextCrew",
         "updateGameProgression" => false,
-        "transitions" => array( "nextCrew" => 25, "crewsDone" => 30 )
+        "transitions" => array( 
+            "nextCrew" => STATE_PLACE_CREW, 
+            "crewsDone" => STATE_DRAW_CARD )
     ),
 
-    30 => array(
+    STATE_DRAW_CARD => array(
         "name" => "drawCard",
         "description" => '',
         "type" => "game",
         "action" => "stDrawCard",
         "updateGameProgression" => true,
-        "transitions" => array( "enemies" => 35, "stardust" => 40, "openspace" => 41,
-                    "meteoric" => 35, "planets" => 35, "combatzone" => 35, "abandoned" => 42,
-                    "epidemic" => 35, "sabotage" => 35, "cardsDone" => 80 )
+        "transitions" => array( 
+            "stardust" => STATE_STARDUST, 
+            "openspace" => STATE_OPEN_SPACE,
+            "abandoned" => STATE_ABANDONED,
+            "planets" => STATE_CHOOSE_PLANET, 
+
+            "enemies" => STATE_NOT_IMPL, 
+            "meteoric" => STATE_NOT_IMPL, 
+            "combatzone" => STATE_NOT_IMPL, 
+            "epidemic" => STATE_NOT_IMPL, 
+            "sabotage" => STATE_NOT_IMPL, 
+
+            "cardsDone" => STATE_JOURNEYS_END )
     ),
 
-    35 => array(
+    STATE_NOT_IMPL => array(
         "name" => "notImpl",
         "description" => clienttranslate('Not implemented yet. ${actplayer} must click the "Go on" button'),
         "descriptionmyturn" => clienttranslate('Not implemented yet. ${you} must click the "Go on" button'),
         "type" => "activeplayer",
         "possibleactions" => array( "goOn", "pass" ),
-        "transitions" => array( "goOn" => 30 )
+        "transitions" => array( "goOn" => STATE_DRAW_CARD )
     ),
 
-    40 => array(
+    STATE_STARDUST => array(
         "name" => "stardust",
         "description" => '',
         "type" => "game",
         "action" => "stStardust",
         "updateGameProgression" => false,
-        "transitions" => array( "nextCard" => 30 )
+        "transitions" => array( "nextCard" => STATE_DRAW_CARD )
     ),
 
-    41 => array(
+    STATE_OPEN_SPACE => array(
         "name" => "openspace",
         "description" => '',
         "type" => "game",
         "action" => "stOpenspace",
         "updateGameProgression" => false,
-        "transitions" => array( "nextCard" => 30, "powerEngines" => 60 )
+        "transitions" => array(
+            "nextCard" => STATE_DRAW_CARD,
+            "powerEngines" => STATE_POWER_ENGINES )
     ),
 
-    42 => array(
+    STATE_ABANDONED => array(
         "name" => "abandoned",
         "description" => '',
         "type" => "game",
         "action" => "stAbandoned",
         "updateGameProgression" => false,
-        "transitions" => array( "nextCard" => 30, "exploreAbandoned" => 58 )
+        "transitions" => array( 
+            "nextCard" => STATE_DRAW_CARD,
+            "exploreAbandoned" => STATE_EXPLORE_ABANDONED )
     ),
 
-    58 => array(
+    STATE_PLANETS => array(
+        // Select player for choosePlanet
+        "name" => "planet",
+        "description" => '',
+        "type" => "game",
+        "action" => "stPlanets",
+        "updateGameProgression" => false,
+        "transitions" => array( 
+            "nextCard" => STATE_DRAW_CARD,
+            "choosePlanet" => STATE_CHOOSE_PLANET)
+    ),
+
+
+    STATE_EXPLORE_ABANDONED => array(
         "name" => "exploreAbandoned",
         "description" => clienttranslate('${actplayer} must decide whether to explore this derelict'),
         "descriptionmyturn" => clienttranslate('${you} must decide whether to explore this derelict'),
         "type" => "activeplayer",
         "args" => "argExploreAbandoned",
         "possibleactions" => array( "exploreChoice", "pass" ),
-        "transitions" => array( "nextPlayer" => 42, "nextCard" => 30,
-        //"chooseCrew" => 66, "placeGoods" => 68,  )
-        "chooseCrew" => 66, "placeGoods" => 35,  )
+        "transitions" => array( 
+            "nextPlayer" => STATE_ABANDONED,
+            "nextCard" => STATE_DRAW_CARD,
+            "chooseCrew" => STATE_CHOOSE_CREW,
+            "placeGoods" => STATE_NOT_IMPL,  )
     ),
 
-    60 => array(
+    STATE_POWER_ENGINES => array(
         "name" => "powerEngines",
         "description" => clienttranslate('${actplayer} must choose batteries to use'),
         "descriptionmyturn" => clienttranslate('${you} must choose batteries to use'),
@@ -230,27 +294,39 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPowerEngines",
         "possibleactions" => array( "contentChoice", "pass" ),
-        "transitions" => array( "battChosen" => 41 ) // or "enginesPowered"?
+        "transitions" => array( "battChosen" => STATE_OPEN_SPACE ) // or "enginesPowered"?
     ),
 
-    66 => array(
+    STATE_CHOOSE_PLANET => array(
+        "name" => "choosePlanet",
+        "description" => clienttranslate('${actplayer} must decide on which planet to land'),
+        "descriptionmyturn" => clienttranslate('${you} must decide on which planet to land'),
+        "type" => "activeplayer",
+        "possibleactions" => array( "planetChoice", "pass" ),
+        "transitions" => array(
+            "nextPlayer" => STATE_PLANETS,
+            "placeGoods" => STATE_PLACE_GOODS )
+    ),
+
+    STATE_CHOOSE_CREW => array(
         "name" => "chooseCrew",
         "description" => clienttranslate('${actplayer} must decide which crew to lose'),
         "descriptionmyturn" => clienttranslate('${you} must decide which crew to lose'),
         "type" => "activeplayer",
         "args" => "argChooseCrew",
         "possibleactions" => array( "contentChoice", "cancelExplore", "pass" ),
-        "transitions" => array( "nextCard" => 30, "nextPlayer" => 42 )
+        "transitions" => array( 
+            "nextCard" => STATE_DRAW_CARD,
+            "nextPlayer" => STATE_ABANDONED )
     ),
 
-    68 => array(
+    STATE_PLACE_GOODS => array(
         "name" => "placeGoods",
         "description" => clienttranslate('${actplayer} may reorganize their goods'),
         "descriptionmyturn" => clienttranslate('${you} may reorganize your goods (not implemented yet)'),
         "type" => "activeplayer",
-        "possibleactions" => array( "removeGood", "placeGood",
-                                        "choiceMade", "pass" ),
-        "transitions" => array( "choiceMade" => 42 )
+        "possibleactions" => array( "removeGood", "placeGood", "choiceMade", "pass" ),
+        "transitions" => array( "choiceMade" => STATE_ABANDONED )
     ),
 
 //    40 => array(
@@ -259,7 +335,7 @@ $machinestates = array(
 //        "type" => "game",
 //        "action" => "stResolveCard",
 //        "updateGameProgression" => false,
-//        "transitions" => array( "nextPlayer" => 40, "cardResolved" => 30,
+//        "transitions" => array( "nextPlayer" => 40, "cardResolved" => STATE_DRAW_CARD,
 //                                "powerShield" => 41, "powerCannons" => 42,
 //                                "powerEngines" => 43, "loseGoods" => 44,
 //                                "loseCrews" => 45, "choosePlanet" => 46,
@@ -306,14 +382,7 @@ $machinestates = array(
         "transitions" => array( "choiceMade" => 40 )
     ),
 
-    46 => array(
-        "name" => "choosePlanet",
-        "description" => clienttranslate('${actplayer} must decide on which planet to land'),
-        "descriptionmyturn" => clienttranslate('${you} must decide on which planet to land'),
-        "type" => "activeplayer",
-        "possibleactions" => array( "choiceMade", "pass", "tempTestNextRound" ),
-        "transitions" => array( "choiceMade" => 40, "tempTestNextRound" => 50 )
-    ),
+    
 
     49 => array(
         "name" => "takeReward",
