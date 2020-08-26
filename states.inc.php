@@ -173,6 +173,7 @@ $machinestates = array(
         "action" => "stPrepareFlight",
         "updateGameProgression" => true,
         "transitions" => array(
+            "pauseTest" => STATE_NOT_IMPL,
             "nextCrew" => STATE_PLACE_CREW,
             "crewsDone" => STATE_DRAW_CARD )
     ),

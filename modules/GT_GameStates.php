@@ -14,9 +14,14 @@ class GT_GameState {
 
     function log($msg) {
         $this->game->log($msg);
+        $this->game->log_console($msg);
     }
 
     // ######################### STATE MANIPULATION ########################
+    function pauseState() {
+        $this->game->gamestate->nextState( "pauseTest" );
+    }
+
     function prepareRound() {
         // runs at the end of stPrepareRound if testGameState GameStateValue is tru-ish (set at end of setupNewGame)
         // setupNewGame moves state to prepareRound
@@ -37,8 +42,9 @@ class GT_GameState {
         foreach( array_keys($this->players) as $player_id ) {
             $order++;
 
+            // Uncomment to pause after this step
             // if ($order == 1)
-                // continue;
+            //     continue;
 
             $this->game->finishShip($order, $player_id);
         }
@@ -51,9 +57,14 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        $this->setCardOrder(11,1);
+        $this->setCardOrder(11,1); // planet card
+        // $this->setCardOrder(3,1); // stardust card
+        // $this->setCardOrder(4,1); // openspace card
+        // $this->setCardOrder(16,1); // abship card
+
 
         $this->game->gamestate->nextState( $nextState );
+
         // Move to stCheckNextCrew 
         // If no crew to place, move to stDrawCard
     }
@@ -80,20 +91,30 @@ class GT_GameState {
     }
 
     function setCardOrder($card_id, $order) {
+        $this->log("Setting card $card_id to order $order");
+
         if ($order != 1)
             throw new InvalidArgumentException("Only order=1 is implemented");
         $deck = GT_DBCard::getAdvDeckForFlight($this->game);
 
         // find the requested card, put it first if found, put a new one first if not found
-        $card = array_filter($deck, function($c) use($card_id) { return $c['id'] == $card_id; } );
+        $card = array_values(
+            array_filter($deck, function($c) use($card_id) { return $c['id'] == $card_id; } )
+        );
         $the_card = null;
         if ($card) {
+            $this->log("EXISTING CARD");
             $deck = array_filter($deck, function($c) use($card_id) { return $c['id'] != $card_id; } );
+            $this->game->dump_var("existing card, deck", $deck);
             $the_card = $card[0];
+            $this->game->dump_var("existing card, the_card", $card);
+            $this->game->dump_var("existing card, the_card", $the_card);
         }
         else {
+            $this->log("NEW CARD");
             $the_card = array('round' => 1, 'id' => $card_id);
         }
+        $this->game->dump_var("existing card", $the_card);
         array_unshift($deck, $the_card);
 
         GT_DBCard::updateAdvDeck($this->game, $deck);
@@ -127,7 +148,7 @@ class GT_GameState {
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
         }
         else if ($variant == 2) {
-            array_push($tiles, self::newTile(68, 7, 8, 0)); // single engine directly south
+            array_push($tiles, self::newTile(85, 7, 8, 0)); // double engine directly south
             array_push($tiles, self::newTile(58, 7, 6, 0)); // hazard north
             array_push($tiles, self::newTile(88, 7, 5, 0)); // laser above that
             array_push($tiles, self::newTile(3, 8, 6, 0)); // battery to east of cargo

@@ -63,7 +63,7 @@ class GT_ActionsCard extends APP_GameClass {
     }
 
     function crewChoice($game, $plId, $cardId, $crewChoices) {
-        $plyrContent = $game->getPlayerContent( $plId );
+        $plyrContent = $game->newPlayerContent( $plId );
         // Hey, wait. We need orientation for batteries, but not for crew members, right?
         // Since they're in a non-rotated overlay tile, they'll always be slided correctly.
         //$orientNeeded = false; // Will be set to true only for Slavers (sure?) and Combat Zone
@@ -84,9 +84,10 @@ class GT_ActionsCard extends APP_GameClass {
 
     function battChoice($game, $plId, $battChoices ) {
         $brd = $game->newPlayerBoard($plId);
-        $plyrContent = $game->newPlayerContent($plId, $plContent);
+        $plyrContent = $game->newPlayerContent($plId);
         $nbDoubleEngines = $brd->countDoubleEngines();
         $nbSimpleEngines = $brd->countSingleEngines();
+        $nbBatt = count($battChoices);
 
         // Checks
         if ( count( array_unique($battChoices) ) != $nbBatt )

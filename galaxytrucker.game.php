@@ -18,11 +18,12 @@
 
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
+require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
 require_once('modules/GT_DBPlayer.php');
+require_once('modules/GT_GameStates.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
-require_once('modules/GT_GameStates.php');
 
 class GalaxyTrucker extends Table {
         function __construct( ) {
@@ -1173,7 +1174,7 @@ class GalaxyTrucker extends Table {
         $plId = self::getActivePlayerId();
         $player = self::getObjectFromDb( "SELECT min_eng, max_eng FROM player ".
                                 "WHERE player_id=".$plId );
-        $nbDoubleEngines = self::countDoubleEngines( $plId );
+        $nbDoubleEngines = $this->newPlayerBoard($plId)->countDoubleEngines( $plId );
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_eng'], 'maxStr' => $player['max_eng'],

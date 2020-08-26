@@ -18,7 +18,7 @@ class GT_PlayerContent extends APP_GameClass {
         if ( $this->plContent[$id]['content_type'] != $type )
             $this->game->throw_bug_report("Wrong id $id: not a $type.");
 
-        if ( $this->plContent[$id]['player_id'] != $plId )
+        if ( $this->plContent[$id]['player_id'] != $this->player_id)
             $this->game->throw_bug_report("Wrong id $id: not in your ship.");
     }
 

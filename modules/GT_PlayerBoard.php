@@ -352,11 +352,11 @@ class GT_PlayerBoard extends APP_GameClass {
     }
 
     function countSingleEngines() {
-        return countTileType('engine', 1); 
+        return $this->countTileType('engine', 1); 
     }
 
     function countDoubleEngines() {
-        return countTileType('engine', 2); 
+        return $this->countTileType('engine', 2); 
     }
 
     function getMinMaxStrengthX2 ( $plyrContent, $type ) {
