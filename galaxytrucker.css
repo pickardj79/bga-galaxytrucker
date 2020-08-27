@@ -508,6 +508,25 @@ html {
 .alien_choice.p2on3 { left: 27px; }
 .alien_choice.p1on2 { left: 14px; }
 
+.planet.available{
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    -webkit-border-radius: 18px;
+    -moz-border-radius: 18px;
+    border-radius: 18px;
+    border: solid red;
+}
+.planet.available:hover{
+    cursor: pointer;
+    border-color: yellow;
+}
+.planet.chosen{
+    cursor: pointer;
+    border-color: green;
+}
+.planet.unavailable{}
+
 .opponent {
     width: 223px;
     height: 280px;

@@ -88,6 +88,7 @@ function (dojo, declare) {
               "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>";
       this.chooseCrewInfoHtml = "<p><span id='curr_sel'>${curr}</span> / "+
               "<span id='needed_sel'>${needed}</span></p>";
+      this.choosePlanetInfoHtml = "<p><span id='curr_sel'>${curr}</span></p>";
       this.noBuildMessage = false; // Set to true if a player doesn't want to see
                                     // the build message
       this.stateName = null; // Is updated in every onEnteringState
@@ -300,6 +301,7 @@ function (dojo, declare) {
         //
     onEnteringState: function( stateName, args ) {
         console.log( 'Entering state: '+stateName );
+        console.log( 'args for state: ', args.args);
         this.stateName = stateName;
 
         switch( stateName ) {
@@ -397,11 +399,7 @@ function (dojo, declare) {
                                         max: args.args.maxStr
                                     } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                dojo.query('.cell', 'my_ship').forEach(
-                    dojo.hitch( this, function( node ) {
-                        this.connect( node, 'onclick', 'onSelectContent');
-                        dojo.addClass( node, 'available');
-                        } ) );
+                this.prepareContentChoice('cell');
                 this.baseStrength = Number(args.args.baseStr);
                 this.maxSelected = Number(args.args.maxSel);
                 this.typeToSelect = "cell";
@@ -427,9 +425,18 @@ function (dojo, declare) {
                 this.typeToSelect = "crew";
             }
             break;
+        case 'choosePlanet':
+            dojo.style( 'current_card', 'display', 'block' );
+            if ( this.isCurrentPlayerActive() ) {
+                dojo.place( this.format_string( this.choosePlanetInfoHtml, {
+                                        curr: 0,
+                                    } ), "info_box", "only" );
+                dojo.style( 'info_box', 'display', 'block' );
+            }
+            this.preparePlanetChoice(args.args.availIdx, args.args.unavailIdx);
+            break;
         case 'powerShield':
         case 'loseGoods':
-        case 'choosePlanet':
         case 'placeGoods':
         case 'takeReward':
             dojo.style( 'current_card', 'display', 'block' );
@@ -536,8 +543,8 @@ function (dojo, declare) {
             this.addActionButton( 'button_nextCard', _('Go on'), 'onGoOn' );
             break;
         case 'choosePlanet' :
-            // this.addActionButton( 'button_planetChosen', _('Validate'), 'onPlanetChosen' );
-            this.addActionButton( 'button_nextRound', _('Test Next Round'), 'onTestNextRound' );
+            this.addActionButton('button_choosePlanet',_('Choose Planet'), 'onConfirmPlanet');
+            this.addActionButton('button_passChoosePlanet',_('Pass'), 'onPassChoosePlanet'); 
             break;
         }
       }
@@ -924,6 +931,23 @@ function (dojo, declare) {
                 } ) );
     },
 
+    preparePlanetChoice: function(avail, unavail) {
+        for (var i in avail ) {
+            idx = avail[i];
+            dojo.place( this.format_block('jstpl_circle', {
+                idx: idx, top: 5+idx*47, classes: "planet available"
+            }), 'current_card');
+            this.addTooltip('planet_'+idx, '', _('Click here to select this planet.'));
+            this.connect( $('planet_'+idx), 'onclick', 'onChoosePlanet');
+        }
+        for (var i in unavail ) {
+            idx = unavail[i];
+            dojo.place( this.format_block('jstpl_circle', {
+                idx: idx, top: 5+idx*47, classes: "planet unavailable"
+            }), 'current_card');
+        }
+    },
+
     updateInfoBox: function() {
         switch ( this.gamedatas.gamestate.name ) {
           case 'powerEngines':
@@ -1215,6 +1239,11 @@ function (dojo, declare) {
         } ) );
     },
 
+    onChoosePlanet: function(evt) {
+        console.log('onChoosePlanet', evt, this);
+        dojo.stopEvent(evt);
+    },
+
     onCrewPlacementDone: function( evt ) {
       console.log( 'onCrewPlacementDone' );
       dojo.stopEvent( evt );
@@ -1330,6 +1359,14 @@ function (dojo, declare) {
         console.log( 'onCancelExplore' );
         dojo.stopEvent( evt );
         this.ajaxAction( 'cancelExplore', {} );
+    },
+
+    onConfirmPlanet: function (evt) {
+
+    },
+
+    onPassChoosePlanet: function (evt) {
+
     },
 
     onGoOn: function( evt ) {

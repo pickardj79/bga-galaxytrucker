@@ -44,7 +44,7 @@ class GT_GameState {
 
             // Uncomment to pause after this step
             // if ($order == 1)
-            //     continue;
+                // continue;
 
             $this->game->finishShip($order, $player_id);
         }

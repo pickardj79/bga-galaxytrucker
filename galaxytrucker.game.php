@@ -1198,6 +1198,16 @@ class GalaxyTrucker extends Table {
         return array( 'nbCrewMembers' => $this->card[$currentCard]['crew'] );
     }
 
+    function argChoosePlanet() {
+        $plId = self::getActivePlayerId();
+        $args = array(
+            "availIdx" => [1,3],
+            "unavailIdx" => [2,4]
+        );
+        return $args;
+        // somehow get the planets that have been chosen --> need to be stored in db
+    }
+
     /*
 
     Example for game state "MyGameState":

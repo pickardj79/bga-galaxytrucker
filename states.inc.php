@@ -303,6 +303,7 @@ $machinestates = array(
         "description" => clienttranslate('${actplayer} must decide on which planet to land'),
         "descriptionmyturn" => clienttranslate('${you} must decide on which planet to land'),
         "type" => "activeplayer",
+        "args" => "argChoosePlanet",
         "possibleactions" => array( "planetChoice", "pass" ),
         "transitions" => array(
             "nextPlayer" => STATE_PLANETS,
