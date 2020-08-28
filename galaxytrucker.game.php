@@ -24,6 +24,8 @@ require_once('modules/GT_DBPlayer.php');
 require_once('modules/GT_GameStates.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
+require_once('modules/GT_StatesCard.php');
+require_once('modules/GT_StatesSetup.php');
 
 class GalaxyTrucker extends Table {
         function __construct( ) {
@@ -340,6 +342,11 @@ class GalaxyTrucker extends Table {
 
   function traceExportVar( $varToExport, $varName, $functionStr ) {
     self::trace( "###### $functionStr(): $varName is ".var_export( $varToExport, true)." " );
+  }
+
+  // Hooks into protected functions for our "helper" modules
+  function myActiveNextPlayer() {
+      $this->activeNextPlayer();
   }
 
   function cardsIntoPile( $cdRound, $nbCards ) {
@@ -1090,6 +1097,13 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( 'nextCard' ); 
   }
 
+  function planetChoice( $choice ) {
+      self::checkAction('planetChoice');
+      self::log("Got planet Choice $choice");
+      self::log_console("Got planet Choice $choice");
+      // can be null or an idx
+  }
+
   function goOn( ) {
       self::checkAction( 'goOn' );
       $this->gamestate->nextState( 'goOn' );
@@ -1722,145 +1736,34 @@ class GalaxyTrucker extends Table {
       }
   }
 
+  // ########### CARD-BASED STATES ############## 
   function stDrawCard() {
-    GT_DBPlayer::clearCardProgress($this);
-
-    $cardOrderInFlight = self::getGameStateValue( 'cardOrderInFlight' );
-    $cardOrderInFlight++;
-    self::setGameStateValue( 'cardOrderInFlight', $cardOrderInFlight );
-    $currentCard = self::getUniqueValueFromDB ( "SELECT card_id id FROM card ".
-                                      "WHERE card_order=$cardOrderInFlight" );
-    self::setGameStateValue( 'currentCard', $currentCard );
-
-    if ( is_null($currentCard) ) { 
-        // no more cards, this flight is done
-        $nextState = 'cardsDone' ;
-    }
-    else {
-        // temp, so that there is an active player when going to notImpl state
-        if ( self::getUniqueValueFromDB('SELECT global_value FROM global WHERE global_id=2') == 0 )// temp
-            self::activeNextPlayer();// temp
-        
-        $cardType = $this->card[ $currentCard ][ 'type' ];
-
-        if ( in_array( $cardType, array( "slavers", "smugglers", "pirates" ) ) )
-            $nextState = 'enemies';
-        else if ( in_array( $cardType, array( "abship", "abstation" ) ) )
-            $nextState = 'abandoned';
-        else
-            $nextState = $cardType;
-
-        self::notifyAllPlayers( "cardDrawn",
-                    clienttranslate( 'New card drawn: ${cardTypeStr}'), array(
-                        'i18n' => array ( 'cardTypeStr' ),
-                        'cardTypeStr' => $this->cardNames[$cardType],
-                        'cardRound' => $this->card[ $currentCard ]['round'],
-                        'cardId' => $currentCard,
-                        ) );
-    }
-
-    $this->gamestate->nextState( $nextState );
+      GT_DBPlayer::clearCardProgress($this);
+      $nextState = GT_StatesCard::stDrawCard($this);
+      $this->gamestate->nextState( $nextState );
   }
 
   function stStardust() {
-      $players = GT_DBPlayer::getPlayersInFlight($this, '', $order='ASC');
-    
-      foreach ( $players as $plId => $player ) {
-          $newPlPos = self::moveShip( $plId, -($player['exp_conn']), $players );
-          if ( $newPlPos !== null ) {
-              //update this player's position so that it is taken into account if other
-              // ships move in the same action
-              $players[$plId]['player_position'] = $newPlPos;
-          }
-      }
-      $this->gamestate->nextState( 'nextCard' );
+      $nextState = GT_StatesCard::stStardust($this);
+      $this->gamestate->nextState( $nextState );
   }
 
   function stOpenspace() {
-      $nextState = "nextCard"; // Will be changed to powerEngines if someone
-                                // needs to choose if they use batteries
-      $players = GT_DBPlayer::getPlayersForCard($this);
-
-      foreach ( $players as $plId => $player ) {
-          if ( $player['max_eng'] == 0 ) {
-              // TODO ouch! This player has to give up
-              self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-                      'has no activable engine, but is lucky because giving up is not '.
-                      'implemented yet'),
-                      array ( 'player_name' => $player['player_name'] ) );
-              GT_DBPlayer::setCardDone($this, $plId);
-          }
-          elseif ( $player['min_eng'] == $player['max_eng'] ) {
-              // No choice to do for this player, so we move it now and notify players.
-              // Do not pass $players to moveShip. We need to consider all players still in flight,
-              //    $players here is only those who still have yet to act 
-              $newPlPos = self::moveShip( $plId, (int)$player['min_eng'] );
-              if ( $newPlPos !== null ) {
-                  //update this player's position so that it is taken into account if other
-                  // ships move in the same action
-                  $players[$plId]['player_position'] = $newPlPos;
-              }
-              GT_DBPlayer::setCardDone($this, $plId);
-          }
-          else {
-              // min and max different means that this player can activate a double
-              // engine or more, so we need an activeplayer state to ask them 
-              // Infos for player: here or in args? In args.
-              GT_DBPlayer::setCardInProgress($this, $plId);
-              $this->gamestate->changeActivePlayer( $plId );
-              $nextState = "powerEngines";
-              break; // End of this foreach loop because we need to ask this 
-                      // player before processing the following players.
-          }
-      } // end of foreach players
-
+      $nextState = GT_StatesCard::stOpenspace($this);
       $this->gamestate->nextState( $nextState );
   }
 
   function stAbandoned() {
-    $nextState = "nextCard"; // Will be changed to exploreAbandoned  if someone
-                              // has a big enough crew
-    $cardId = self::getGameStateValue( 'currentCard' );
-    $players = GT_DBPlayer::getPlayersForCard($this);
-    
-    foreach ( $players as $plId => $player ) {
-        if ( $player['nb_crew'] < $this->card[$cardId]['crew'] ) {
-            self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-                    'doesn\'t have a big enough crew to benefit from this card'),
-                    array ( 'player_name' => $player['player_name'] ) );
-            GT_DBPlayer::setCardDone($this, $plId);
-        }
-        else {
-            // This player has enough crew members to use the card, so we need
-            // to ask them if they want to.
-            GT_DBPlayer::setCardInProgress($this, $plId);
-            $this->gamestate->changeActivePlayer( $plId );
-            $nextState = "exploreAbandoned";
-            break; // End of this foreach loop because we need to ask this 
-                    // player before processing the following players.
-        }
-    }
-
-    $this->gamestate->nextState( $nextState );
-  }
-
-  function stPlanets() {
-      // Setup active player to choose a planet
-      $nextState = "nextCard";
-
-      $cardId = self::getGameStateValue( 'currentCard' );
-      $players = GT_DBPlayer::getPlayersForCard($this);
-
-      foreach ( $players as $plId => $player ) {
-          GT_DBPlayer::setCardInProgress($this, $plId);
-          $this->gamestate->changeActivePlayer( $plId );
-          $nextState = "choosePlanet";
-          break; 
-      }
-
+      $nextState = GT_StatesCard::stAbandoned($this);
       $this->gamestate->nextState( $nextState );
   }
 
+  function stPlanets() {
+      $nextState = GT_StatesCard::stPlanets($this);
+      $this->gamestate->nextState( $nextState );
+  }
+
+  // ########### FINAL CLEAN UP STATES ############## 
   function stJourneysEnd() {
       // Rewards and penalties
       // TODO

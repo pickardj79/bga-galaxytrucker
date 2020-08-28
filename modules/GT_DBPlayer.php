@@ -6,7 +6,7 @@ class GT_DBPlayer extends APP_GameClass {
 
     function getPlayer($game, $plId) {
         return $game->getNonEmptyObjectFromDB ( "
-            SELECT player_id, player_name, player_position, nb_crew, card_line_done, min_eng, max_eng
+            SELECT player_id, player_name, player_position, nb_crew, card_line_done, card_choice, min_eng, max_eng
             FROM player WHERE player_id = $plId");
     }
 
@@ -19,7 +19,8 @@ class GT_DBPlayer extends APP_GameClass {
             $game->throw_bug_report("Order must be DESC or ASC");
 
         return $game->getCollectionFromDB ( "
-            SELECT player_id, player_name, player_position, nb_crew, card_line_done, 
+            SELECT player_id, player_name, player_position, nb_crew, 
+                card_line_done, card_choice,
                 min_eng, max_eng, exp_conn
             FROM player 
             WHERE still_flying=1 $extra_where
@@ -27,7 +28,11 @@ class GT_DBPlayer extends APP_GameClass {
     }
 
     function clearCardProgress($game) {
-        $game->DbQuery( "UPDATE player SET card_line_done=0" );
+        $game->DbQuery( "UPDATE player SET card_line_done=0, card_choice=0" );
+    }
+
+    function setCardChoice($game, $plId, $choice) {
+        $game->DbQuery( "UPDATE player SET card_choice=$choice WHERE player_id=$plId" );
     }
 
     function setCardDone($game, $plId) {

@@ -521,7 +521,7 @@ html {
     cursor: pointer;
     border-color: yellow;
 }
-.planet.chosen{
+.planet.available.selected{
     cursor: pointer;
     border-color: green;
 }

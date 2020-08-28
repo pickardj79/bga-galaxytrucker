@@ -30,6 +30,9 @@ function (dojo, declare) {
       // Example:
       // this.myGlobalValue = 0;
 
+      // PART id stems. These must not contain '_' for getPartFromId to work correctly
+      this.PART_PLANET = 'planet';
+
       // ship coordinates definition: the first index is the ship class, and in each ship
       // class array the indexes are the row numbers ships coordinates definition for x must
       // begin at 3, i.e. the first digit on each line corresponds to column no3 of ship board
@@ -560,6 +563,18 @@ function (dojo, declare) {
 
         */
 
+    // makePartId and getPartFromId form a companion pair of functions for creating/getting div or part ids for various game components
+    makePartId: function(base, i) {
+        return base + "_" + i;
+    },
+
+    getPartFromId: function( word ) {
+        var arr = word.split('_');
+        if (arr.length > 2)
+            this.showMessage( _("Internal error - this should not happen." + word), 'error');
+        return arr[1];
+    },
+
     getPart: function( word, i ) {
         var arr = word.split('_');
         return arr[i];
@@ -933,12 +948,13 @@ function (dojo, declare) {
 
     preparePlanetChoice: function(avail, unavail) {
         for (var i in avail ) {
-            idx = avail[i];
+            var idx = avail[i];
             dojo.place( this.format_block('jstpl_circle', {
                 idx: idx, top: 5+idx*47, classes: "planet available"
             }), 'current_card');
-            this.addTooltip('planet_'+idx, '', _('Click here to select this planet.'));
-            this.connect( $('planet_'+idx), 'onclick', 'onChoosePlanet');
+            var partId = this.makePartId(this.PART_PLANET, idx);
+            this.addTooltip(partId, '', _('Click to select or deselect this planet.'));
+            this.connect( $(partId), 'onclick', 'onSelectPlanet');
         }
         for (var i in unavail ) {
             idx = unavail[i];
@@ -1239,10 +1255,6 @@ function (dojo, declare) {
         } ) );
     },
 
-    onChoosePlanet: function(evt) {
-        console.log('onChoosePlanet', evt, this);
-        dojo.stopEvent(evt);
-    },
 
     onCrewPlacementDone: function( evt ) {
       console.log( 'onCrewPlacementDone' );
@@ -1361,12 +1373,51 @@ function (dojo, declare) {
         this.ajaxAction( 'cancelExplore', {} );
     },
 
-    onConfirmPlanet: function (evt) {
+    onSelectPlanet: function(evt) {
+        console.log('onSelectPlanet', evt.currentTarget);
+        dojo.stopEvent(evt);
+        var id = evt.currentTarget.id;
+        // Deselect this planet if it's already selected
+        if (dojo.hasClass(id, 'selected'))
+            dojo.removeClass(id, 'selected');
+        // If this element is available, select it, deselected all others
+        else {
+            dojo.query('.selected', 'current_card').forEach(
+                dojo.hitch(this, (node) => {
+                    dojo.removeClass(node, 'selected')
+                })
+            );
+            dojo.addClass(id, 'selected');
+        }
+    },
 
+    onConfirmPlanet: function (evt) {
+        console.log('onConfirmPlanet', evt.currentTarget);
+        dojo.stopEvent(evt);
+        if (this.checkAction('planetChoice')) {
+            var selected = dojo.query('.selected', 'current_card');
+            if (selected.length != 1) {
+                this.showMessage( _("You must select a planet or pass."), 'error');
+                return;
+            }
+            var idx = this.getPartFromId(selected[0].id);
+
+            this.ajaxAction( 'planetChoice', {idx: idx} );
+        }
     },
 
     onPassChoosePlanet: function (evt) {
-
+        console.log('onConfirmPlanet', evt.currentTarget);
+        dojo.stopEvent(evt);
+        if (this.checkAction('planetChoice')) {
+            var selected = dojo.query('.selected', 'current_card');
+            if (selected.length != 0) {
+                this.showMessage( _("You cannot pass if a planet is selected. Deselected it first."), 'error');
+                return;
+            }
+            this.ajaxAction( 'planetChoice', {});
+        }
+        // cannot pass if a planet is selected
     },
 
     onGoOn: function( evt ) {

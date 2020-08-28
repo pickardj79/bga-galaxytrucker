@@ -177,6 +177,13 @@
       self::ajaxResponse( );
   }
 
+  public function planetChoice() {
+      self::setAjaxMode();
+      $choice = self::getArg("idx", AT_posint, false);
+      $this->game->planetChoice($choice);
+      self::ajaxResponse( );
+  }
+
   public function goOn() {
       self::setAjaxMode();
       $this->game->goOn( );
