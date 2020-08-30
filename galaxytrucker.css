@@ -403,6 +403,9 @@ html {
 .content {
     background-image: url('img/content.png');
 }
+.content.goods {
+    background-image: url('img/30_30_wooden_cubes.png')
+}
 .square .content {
     position: absolute;
 }
@@ -432,6 +435,19 @@ html {
 .square .cell {
     top: 18px;
 }
+.goods {
+    width: 29px;
+    height: 29px;
+    transform: scale(.47);
+    -ms-transform: scale(.47);
+    -webkit-transform: scale(.47);
+    -moz-transform: scale(.47);
+    -o-transform: scale(.47);
+}
+.goods.blue { background-position: -29px 0px; }
+.goods.red { background-position: -59px 0px; }
+.goods.yellow { background-position: -89px 0px; }
+.goods.green { background-position: -119px 0px; }
 .human {
     width: 15px;
     height: 20px;
@@ -502,6 +518,12 @@ html {
 .cell.p1on3 { left: 10px; }
 .cell.p2on3 { left: 20px; }
 .cell.p3on3 { left: 30px; }
+.goods.p1on1 { left: 10px; top: 7px; }
+.goods.p1on2 { left: 10px; top: 2px; }
+.goods.p2on2 { left: 10px; top: 19px; }
+.goods.p1on3 { left: 10px; top: 2px; } /* not tested */
+.goods.p2on3 { left: 10px; top: 7px; } /* not tested */
+.goods.p3on3 { left: 10px; top: 12px; } /* not tested */
 .human.p1on2 { left: 10px; }
 .human.p2on2 { left: 25px; }
 .alien_choice.p1on3 { left: 4px; } /* on3: includes human_choice */
@@ -513,12 +535,12 @@ html {
 }
 
 .planet.available{
-    width: 36px;
-    height: 36px;
-    -webkit-border-radius: 18px;
-    -moz-border-radius: 18px;
-    border-radius: 18px;
-    border: solid red;
+    width: 38px;
+    height: 38px;
+    -webkit-border-radius: 20px;
+    -moz-border-radius: 20px;
+    border-radius: 20px;
+    border: 2px solid red;
 }
 .planet.available:hover{
     cursor: pointer;

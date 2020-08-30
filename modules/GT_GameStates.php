@@ -4,6 +4,7 @@
  */
 
 require_once('GT_DBComponent.php');
+require_once('GT_DBContent.php');
 require_once('GT_DBCard.php');
 
 class GT_GameState {
@@ -29,8 +30,11 @@ class GT_GameState {
 
         $this->log("Running prepareRound for Test GameState");
 
-        $tiles = $this->getComponents();
+        list ($tiles, $content) = $this->getComponents();
         $sql = GT_DBComponent::updateTilesSql($tiles);
+        $this->game::DbQuery($sql);
+
+        $sql = GT_DBContent::insertContentSql($content);
         $this->game::DbQuery($sql);
 
         $this->game->gamestate->setAllPlayersMultiactive();
@@ -62,6 +66,16 @@ class GT_GameState {
         // $this->setCardOrder(4,1); // openspace card
         // $this->setCardOrder(16,1); // abship card
 
+        // Add cargo to ships
+        $sql = "INSERT INTO content (player_id, tile_id, square_x, square_y, content_type, content_subtype, place, capacity) VALUES";
+        $values = array();
+        $i = 1;
+        foreach ($this->players as $player_id => $player) {
+            if ($i == 1) {
+                $values[] = "()";
+            }
+        }
+        $sql .= "()";
 
         $this->game->gamestate->nextState( $nextState );
 
@@ -75,19 +89,24 @@ class GT_GameState {
 
         // build a basic ship for each player
         $all_tiles = array();
+        $all_content = array();
         $i = 1;
         foreach( $this->players as $player_id => $player ) {
             if ($i == 1)
-                $tiles = $this->basicShipTiles($player['player_color'], $i);
+                list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
             else
-                $tiles = $this->basicShipTiles($player['player_color'], $i); 
+                list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i); 
             $i++;
             foreach( $tiles as &$tile ) {
                 $tile['component_player'] = $player_id;
             }
+            foreach( $content as &$cont) {
+                $cont['player_id'] = $player_id;
+            }
             $all_tiles = array_merge($all_tiles, $tiles);
+            $all_content = array_merge($all_content, $content);
         }
-        return $all_tiles;
+        return array($all_tiles, $all_content);
     }
 
     function setCardOrder($card_id, $order) {
@@ -129,10 +148,20 @@ class GT_GameState {
         );
     }
 
+    function newContent($tile, $type, $subtype, $place, $capacity) {
+        return array(
+            'tile_id' => $tile['component_id'], 
+            'square_x' => $tile['component_x'], 'square_y' => $tile['component_y'],
+            'content_type' => $type, 'content_subtype' => $subtype, 
+            'place' => $place, 'capacity' => $capacity
+        );
+    }
+
     // A basic ship with every type of tile
     // Returns array(Tiles['id','x','y','o']) to be inserted into db
     function basicShipTiles($color, $variant) {
         $tiles = array();
+        $content = array();
 
         // start tile
         $start_id = array_search($color, $this->game->start_tiles);
@@ -143,23 +172,27 @@ class GT_GameState {
 
         if ($variant == 1) {
             array_push($tiles, self::newTile(74, 7, 8, 0)); // single engine directly south
-            array_push($tiles, self::newTile(22, 7, 6, 0)); // cargo north
+            $cargo = self::newTile(22, 7, 6, 0); // cargo north
+            array_push($tiles, $cargo);
             array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above that
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
+            array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));
         }
         else if ($variant == 2) {
             array_push($tiles, self::newTile(85, 7, 8, 0)); // double engine directly south
-            array_push($tiles, self::newTile(58, 7, 6, 0)); // hazard north
+            $cargo = self::newTile(58, 7, 6, 0); // hazard cargo north
+            array_push($tiles, $cargo);
             array_push($tiles, self::newTile(88, 7, 5, 0)); // laser above that
             array_push($tiles, self::newTile(3, 8, 6, 0)); // battery to east of cargo
+            array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
         }
-        return $tiles;
+        return array($tiles, $content);
     }
 
     function repairShipTiles($color, $variant) {
         // Create a ship that needs to be repaired
         // start with basicShip
-        $tiles = $this->basicShipTiles($color, $variant);
+        list($tiles, $content) = $this->basicShipTiles($color, $variant);
 
         // some "bad" parts (at least for $variant 1)
         array_push($tiles, self::newTile(66, 6, 6, 90)); // side-ways engine to west of cargo
@@ -168,7 +201,7 @@ class GT_GameState {
         array_push($tiles, self::newTile(10, 6, 8, 180) ); // wrong connector (battery) west side of southern engine
         array_push($tiles, self::newTile(6, 5, 8, 0)); // good connector (battery) west side of wrong connector
 
-        return $tiles;
+        return array($tiles, $content);
     }
 
 

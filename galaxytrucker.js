@@ -21,7 +21,8 @@ define([
   "ebg/counter",
   "ebg/zone",
   "ebg/stock",
-  g_gamethemeurl + "modules/GTFE_Card.js"
+  g_gamethemeurl + "modules/GTFE_Card.js",
+  g_gamethemeurl + "modules/GTFE_Ship.js"
 ],
 function (dojo, declare) {
   return declare("bgagame.galaxytrucker", ebg.core.gamegui, {
@@ -174,7 +175,6 @@ function (dojo, declare) {
             }
         }
 
-        this.players = gamedatas.players;
 
         this.setupPlacedTiles( gamedatas.placed_tiles, bWaitBuildOrTakeOrderPhase );
 
@@ -278,12 +278,17 @@ function (dojo, declare) {
             }
         }
 
+        this.ship = new GTFE_Ship(this);
+
         for( var i in gamedatas.content )
-            this.placeContent ( gamedatas.content[i] );
+            this.ship.placeContent ( gamedatas.content[i] );
 
         this.card = new GTFE_Card(this, gamedatas.currentCard).setupImage();
 
         this.addTooltip( 'sandTimer', '', _('Click here to flip the timer when it is finished.') );
+
+        // Save gamedatas to this for future use
+        this.players = gamedatas.players;
         
         // Setup game notifications to handle (see "setupNotifications" method below)
         this.setupNotifications();
@@ -876,63 +881,6 @@ function (dojo, declare) {
                     'basic_pile', "first" );
     },
 
-    placeContent: function ( tileContent )
-    {
-        var divId = tileContent.content_id;
-        var tileId = tileContent.tile_id;
-        var ctType = tileContent.content_type;
-        var ctSubtype = tileContent.content_subtype;
-        //var error = false;
-        //var alien = false;
-        var rotWithTile = false;
-
-        switch( ctSubtype )
-        {
-          case 'cell':
-            rotWithTile = true;
-            var classes = 'cell';
-            break;
-          case 'human':
-            var classes = 'crew human';
-            break;
-          case 'purple':
-          case 'brown':
-            //alien = true;
-            var classes = 'crew alien '+ctSubtype;
-            break;
-          case 'ask_purple':
-          case 'ask_brown':
-            // This tile is special: we must place humans and alien(s) icons,
-            // to show that the owner of this tile will have to make a choice
-            var classes = 'crew alien_choice '+this.getPart( ctSubtype, 1); // color
-            break;
-          case 'ask_human':
-            var classes = 'crew human_choice';
-            break;
-          case 'red':
-          case 'yellow':
-          case 'green':
-          case 'blue':
-            rotWithTile = true;
-            var classes = 'goods '+ctSubtype;
-            break;
-
-          default:
-            this.showMessage( "Error: unrecognized content type: "+
-                        ctSubtype+" "+this.plReportBug, "error" );
-            return;
-        }
-
-        var destDivId = ( rotWithTile ) ? 'tile_'+tileId : 'overlaytile_'+tileId;
-        // position (given by CSS, eg. class p2on3) will depend on the
-        // tile (eg. 2 cells batteries vs 3 cells batteries)
-        //var posClass = ( alien ) ? 'p1on1' : 'p'+tileContent.place+'on'+tileContent.capacity;
-        classes += ' p'+tileContent.place+'on'+tileContent.capacity;
-        dojo.place( this.format_block( 'jstpl_content', {
-                        content_id: divId,
-                        classes: classes,
-                    } ), destDivId );
-    },
 
     connectAlienChoices: function() {
         dojo.query( '.alien_choice', 'my_ship' ).forEach(
@@ -1830,7 +1778,7 @@ function (dojo, declare) {
         }
 
         for ( var i in notif.args.ship_content_update ) {
-            this.placeContent( notif.args.ship_content_update[i] );
+            this.ship.placeContent( notif.args.ship_content_update[i] );
         }
     },
 

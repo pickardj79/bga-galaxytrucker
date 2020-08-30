@@ -31,10 +31,12 @@ class GTFE_Card {
         // place planet elements
         for (let i = 1; i <= 4; i++) {
             dojo.place( game.format_block('jstpl_circle', 
-                { idx: i, top: 5+i*47, classes: "planet" }),
+                { idx: i, top: 7+i*47, classes: "planet" }),
                 'current_card'
             );
         }
+
+        // place planet cargo 
         return this;
     }
 
