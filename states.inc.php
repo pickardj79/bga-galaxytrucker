@@ -327,6 +327,7 @@ $machinestates = array(
         "description" => clienttranslate('${actplayer} may reorganize their goods'),
         "descriptionmyturn" => clienttranslate('${you} may reorganize your goods (not implemented yet)'),
         "type" => "activeplayer",
+        "args" => "argPlaceGoods",
         "possibleactions" => array( "removeGood", "placeGood", "choiceMade", "pass" ),
         "transitions" => array( "choiceMade" => STATE_ABANDONED )
     ),

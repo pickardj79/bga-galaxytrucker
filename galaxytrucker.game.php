@@ -174,8 +174,8 @@ class GalaxyTrucker extends Table {
                                                 // informations visible by this player !!
 
     ////// Get information about players
-    $sql = "SELECT player_id id, player_color color, player_score score, turn_order, ".
-                    "player_position, undo_possible, exp_conn, nb_crew, min_eng, max_eng, ".
+    $sql = "SELECT player_id id, player_name name, player_color color, player_score score, turn_order, ".
+                    "player_position, card_action_choice, undo_possible, exp_conn, nb_crew, min_eng, max_eng, ".
                     "min_cann_x2, max_cann_x2, still_flying FROM player ";
     $result['players'] = self::getCollectionFromDB( $sql );
     $result['nbPlayers'] = count( $result['players'] );
@@ -318,27 +318,33 @@ class GalaxyTrucker extends Table {
 ////////////
 
   function log( $msg ) {
-    self::trace("##### $msg");
+      self::trace("##### $msg");
   }
 
   function log_console( $msg ) {
-    self::notifyAllPlayers( "consoleLog", '', array( 'msg' => $msg ) );
+      self::notifyAllPlayers( "consoleLog", '', array( 'msg' => $msg ) );
   }
 
   function dump_var($msg, $var) {
-    self::trace("##### $msg :: " . var_export($var,TRUE));
+      self::trace("##### $msg :: " . var_export($var,TRUE));
   }
 
   function dump_console($msg, $var) {
-    self::notifyAllPlayers("consoleLog", '', "$msg :: " . var_export($var,TRUE));
+      self::notifyAllPlayers("consoleLog", '', "$msg :: " . var_export($var,TRUE));
   }
 
   function throw_bug_report($msg) {
-    $func = debug_backtrace()[1]['function'];
-    $line = debug_backtrace()[1]['line'];
-    throw new BgaVisibleSystemException( $msg . " (at $func line $line)! " . $this->plReportBug );
+      $func = debug_backtrace()[1]['function'];
+      $line = debug_backtrace()[1]['line'];
+      throw new BgaVisibleSystemException( $msg . " (at $func line $line)! " . $this->plReportBug );
   }
 
+  function throw_bug_report_dump($msg, $var) {
+      $func = debug_backtrace()[1]['function'];
+      $line = debug_backtrace()[1]['line'];
+      $msg .= var_export($var, TRUE);
+      throw new BgaVisibleSystemException( $msg . " (at $func line $line)! " . $this->plReportBug );
+  }
 
   function traceExportVar( $varToExport, $varName, $functionStr ) {
     self::trace( "###### $functionStr(): $varName is ".var_export( $varToExport, true)." " );
@@ -528,12 +534,6 @@ class GalaxyTrucker extends Table {
     }
   }
 
-  function noExplore ( $plId, $player_name ) {
-    GT_DBPlayer::setCardDone($this, $plId);
-    self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-          'doesn\'t stop'), array ( 'player_name' => $player_name ) );
-
-  }
 
   function getConnectorType( $tile, $side ) {
     // compute side presented by this tile
@@ -1076,13 +1076,16 @@ class GalaxyTrucker extends Table {
     self::checkAction( 'cancelExplore' );
     $plId = self::getActivePlayerId();
     $player_name = self::getActivePlayerName();
+    GT_DBPlayer::setCardDone($this, $plId);
+    self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
+          'doesn\'t stop'), array ( 'player_name' => $player_name ) );
 
-    self::noExplore( $plId, $player_name ); 
     $this->gamestate->nextState( 'nextPlayer');
   }
 
   function crewChoice( $crewChoices ) {
       self::checkAction( 'contentChoice' );
+      self::dump_var("Action contentChoice ", $crewChoices);
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
@@ -1092,9 +1095,12 @@ class GalaxyTrucker extends Table {
 
   function planetChoice( $choice ) {
       self::checkAction('planetChoice');
-      self::log("Got planet Choice $choice");
-      self::log_console("Got planet Choice $choice");
-      // can be null or an idx
+      self::dump_var("Action planetChoice ", $choice);
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $nextState = GT_ActionsCard::planetChoice($this, $plId, $cardId, $choice);
+
+      $this->gamestate->nextState( $nextState ); 
   }
 
   function goOn( ) {
@@ -1206,13 +1212,35 @@ class GalaxyTrucker extends Table {
     }
 
     function argChoosePlanet() {
-        $plId = self::getActivePlayerId();
-        $args = array(
-            "availIdx" => [1,3],
-            "unavailIdx" => [2,4]
-        );
-        return $args;
-        // somehow get the planets that have been chosen --> need to be stored in db
+        // Find which planet indexes are available from the planet card
+        //    and remove those that have already been chosen by another player  
+        $currentCard = self::getGameStateValue( 'currentCard' );
+        $card = $this->card[$currentCard];
+        $alreadyChosen = GT_DBCard::getActionChoices($this);
+
+        $this->dump_var("alreadyChosen", $alreadyChosen);
+
+        $availIdx = array();
+        $planetIdxs = array(); 
+        foreach (array_keys($card['planets']) as $idx) {
+            if ($idx < 1 or $idx > 4)
+                $this->throw_bug_report("planet $currentCard has invalid index $idx");
+            // if (in_array($idx, $alreadyChosen))
+                // continue;
+            $availIdx[] = $idx; 
+            $planetIdxs[$idx] = array_key_exists($idx, $alreadyChosen)
+                ? $alreadyChosen[$idx]['player_id']
+                : null;
+        }
+
+        // planetIdxs is dict of planetId => player_id for all planet idx. 
+        // player_id is null for planets not yet chosen
+        return array( "availIdx" => $availIdx, "planetIdxs" => $planetIdxs );
+    }
+
+    function argPlaceGoods() {
+        $args = $this->argChoosePlanet();
+        return array("planetIdxs" => $args['planetIdxs']);
     }
 
     /*
@@ -1523,7 +1551,7 @@ class GalaxyTrucker extends Table {
                 SET     player_is_multiactive = 0
                 WHERE   player_id = $active_player
             ";
-            self::DbQuery( $sql );
+            self::DQuery( $sql );
 
             $this->gamestate->updateMultiactiveOrNextState( '' );
             return;

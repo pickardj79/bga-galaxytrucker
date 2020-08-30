@@ -129,7 +129,7 @@ class GT_StatesCard extends APP_GameClass {
         return $nextState;
     }
 
-    function stPlanets() {
+    function stPlanets($game) {
         // Setup active player to choose a planet
         $nextState = "nextCard";
   

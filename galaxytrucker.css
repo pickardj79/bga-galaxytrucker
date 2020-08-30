@@ -508,8 +508,11 @@ html {
 .alien_choice.p2on3 { left: 27px; }
 .alien_choice.p1on2 { left: 14px; }
 
-.planet.available{
+.planet {
     position: absolute;
+}
+
+.planet.available{
     width: 36px;
     height: 36px;
     -webkit-border-radius: 18px;
@@ -525,7 +528,11 @@ html {
     cursor: pointer;
     border-color: green;
 }
-.planet.unavailable{}
+.ship_marker {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+}
 
 .opponent {
     width: 223px;

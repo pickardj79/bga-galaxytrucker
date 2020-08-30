@@ -20,7 +20,8 @@ define([
   "ebg/core/gamegui",
   "ebg/counter",
   "ebg/zone",
-  "ebg/stock"
+  "ebg/stock",
+  g_gamethemeurl + "modules/GTFE_Card.js"
 ],
 function (dojo, declare) {
   return declare("bgagame.galaxytrucker", ebg.core.gamegui, {
@@ -29,9 +30,6 @@ function (dojo, declare) {
         // Here, you can init the global variables of your user interface
       // Example:
       // this.myGlobalValue = 0;
-
-      // PART id stems. These must not contain '_' for getPartFromId to work correctly
-      this.PART_PLANET = 'planet';
 
       // ship coordinates definition: the first index is the ship class, and in each ship
       // class array the indexes are the row numbers ships coordinates definition for x must
@@ -92,6 +90,7 @@ function (dojo, declare) {
       this.chooseCrewInfoHtml = "<p><span id='curr_sel'>${curr}</span> / "+
               "<span id='needed_sel'>${needed}</span></p>";
       this.choosePlanetInfoHtml = "<p><span id='curr_sel'>${curr}</span></p>";
+      this.blankInfoHtml = "<p><span id='curr_sel'></span></p>";
       this.noBuildMessage = false; // Set to true if a player doesn't want to see
                                     // the build message
       this.stateName = null; // Is updated in every onEnteringState
@@ -114,7 +113,6 @@ function (dojo, declare) {
                                           // connected in followMouse(), dojo.style sets the tile position
                                           // only when the mouse move, until which the tile is not visible)
       this.sandTimerHandle = null; // Used to connect and disconnect the timer to onFlipTimer
-      this.currentCard = null;
       this.baseStrength = null;
       this.nbSelected = null;
       this.maxSelected = null;
@@ -175,6 +173,8 @@ function (dojo, declare) {
                         { plId: player.id, color: player.color } ), 'flight_pos_'+shipPos );
             }
         }
+
+        this.players = gamedatas.players;
 
         this.setupPlacedTiles( gamedatas.placed_tiles, bWaitBuildOrTakeOrderPhase );
 
@@ -281,11 +281,7 @@ function (dojo, declare) {
         for( var i in gamedatas.content )
             this.placeContent ( gamedatas.content[i] );
 
-        if ( gamedatas.currentCard !== "-1" ) {
-            this.currentCard = gamedatas.currentCard;
-            var cardBg = this.cardBg( gamedatas.currentCard );
-            dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
-        }
+        this.card = new GTFE_Card(this, gamedatas.currentCard).setupImage();
 
         this.addTooltip( 'sandTimer', '', _('Click here to flip the timer when it is finished.') );
         
@@ -429,18 +425,24 @@ function (dojo, declare) {
             }
             break;
         case 'choosePlanet':
-            dojo.style( 'current_card', 'display', 'block' );
             if ( this.isCurrentPlayerActive() ) {
                 dojo.place( this.format_string( this.choosePlanetInfoHtml, {
                                         curr: 0,
                                     } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
+                this.card.onEnteringChoosePlanet(args.args.planetIdxs, 'onSelectPlanet');
             }
-            this.preparePlanetChoice(args.args.availIdx, args.args.unavailIdx);
             break;
         case 'powerShield':
         case 'loseGoods':
+            break;
         case 'placeGoods':
+            if ( this.isCurrentPlayerActive() ) {
+                dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
+                dojo.style( 'info_box', 'display', 'block' );
+                this.card.onEnteringPlaceGoods(args.args.planetIdxs, null, 'onPlaceGoods');
+            }
+            break;
         case 'takeReward':
             dojo.style( 'current_card', 'display', 'block' );
             break;
@@ -946,24 +948,6 @@ function (dojo, declare) {
                 } ) );
     },
 
-    preparePlanetChoice: function(avail, unavail) {
-        for (var i in avail ) {
-            var idx = avail[i];
-            dojo.place( this.format_block('jstpl_circle', {
-                idx: idx, top: 5+idx*47, classes: "planet available"
-            }), 'current_card');
-            var partId = this.makePartId(this.PART_PLANET, idx);
-            this.addTooltip(partId, '', _('Click to select or deselect this planet.'));
-            this.connect( $(partId), 'onclick', 'onSelectPlanet');
-        }
-        for (var i in unavail ) {
-            idx = unavail[i];
-            dojo.place( this.format_block('jstpl_circle', {
-                idx: idx, top: 5+idx*47, classes: "planet unavailable"
-            }), 'current_card');
-        }
-    },
-
     updateInfoBox: function() {
         switch ( this.gamedatas.gamestate.name ) {
           case 'powerEngines':
@@ -1013,12 +997,13 @@ function (dojo, declare) {
         dojo.style(mobile, "top", top + "px");
         dojo.style(mobile, "left", left + "px");
         dojo.style( mobile, "position", "absolute" );
+        console.log("sliding with top/left", top, left);
         box.l += box.w-cbox.w;
         box.t += box.h-cbox.h;
         return box;
     },
 
-    slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd ) {
+    slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd, targetxy ) {
         console.log("Entering slideToDomNode");
         stylesOnEnd = (typeof stylesOnEnd !== "undefined") ? stylesOnEnd : {};
         this.attachToNewParentNoDestroy( mobile, newParent );
@@ -1032,7 +1017,15 @@ function (dojo, declare) {
             if ( typeof stylesOnEnd[key] == "undefined" )
                 stylesOnEnd[key] = "";
         }
-        var anim = this.slideToObject( mobile, newParent, duration, delay ); 
+        if (targetxy) {
+            // stylesOnEnd['left'] = targetxy['x'];
+            // stylesOnEnd['top'] = targetxy['y'];
+            var anim = this.slideToObjectPos( mobile, newParent, 
+                targetxy['x'], targetxy['y'], duration, delay ); 
+        }
+        else
+            var anim = this.slideToObject( mobile, newParent, duration, delay ); 
+
         dojo.connect(anim, "onEnd", function(mobile) {
             dojo.style( mobile, stylesOnEnd );
         });
@@ -1376,48 +1369,33 @@ function (dojo, declare) {
     onSelectPlanet: function(evt) {
         console.log('onSelectPlanet', evt.currentTarget);
         dojo.stopEvent(evt);
-        var id = evt.currentTarget.id;
-        // Deselect this planet if it's already selected
-        if (dojo.hasClass(id, 'selected'))
-            dojo.removeClass(id, 'selected');
-        // If this element is available, select it, deselected all others
-        else {
-            dojo.query('.selected', 'current_card').forEach(
-                dojo.hitch(this, (node) => {
-                    dojo.removeClass(node, 'selected')
-                })
-            );
-            dojo.addClass(id, 'selected');
-        }
+        this.card.onSelectPlanet(evt.currentTarget.id);
+    },
+
+    onPlaceGoods: function(evt) {
+        console.log('onPlaceGoods', evt.currentTarget);
+        dojo.stopEvent(evt);
+        this.card.onPlaceGoods(evt.currentTarget.id);
     },
 
     onConfirmPlanet: function (evt) {
         console.log('onConfirmPlanet', evt.currentTarget);
         dojo.stopEvent(evt);
-        if (this.checkAction('planetChoice')) {
-            var selected = dojo.query('.selected', 'current_card');
-            if (selected.length != 1) {
-                this.showMessage( _("You must select a planet or pass."), 'error');
-                return;
-            }
-            var idx = this.getPartFromId(selected[0].id);
+        if (!this.checkAction('planetChoice'))
+            return;
 
-            this.ajaxAction( 'planetChoice', {idx: idx} );
-        }
+        var idx = this.card.onConfirmPlanet();
+        this.ajaxAction( 'planetChoice', {idx: idx} );
     },
 
     onPassChoosePlanet: function (evt) {
         console.log('onConfirmPlanet', evt.currentTarget);
         dojo.stopEvent(evt);
-        if (this.checkAction('planetChoice')) {
-            var selected = dojo.query('.selected', 'current_card');
-            if (selected.length != 0) {
-                this.showMessage( _("You cannot pass if a planet is selected. Deselected it first."), 'error');
-                return;
-            }
-            this.ajaxAction( 'planetChoice', {});
-        }
-        // cannot pass if a planet is selected
+        if (!this.checkAction('planetChoice'))
+            return;
+        if (! (this.card.onPassChoosePlanet()))
+            return;
+        this.ajaxAction( 'planetChoice', {});
     },
 
     onGoOn: function( evt ) {
@@ -1478,6 +1456,9 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'moveShip', 800 );
         dojo.subscribe( 'loseContent', this, "notif_loseContent" );
         this.notifqueue.setSynchronous( 'loseContent', 1500 );
+        dojo.subscribe( 'planetChoice', this, "notif_planetChoice");
+        this.notifqueue.setSynchronous( 'planetChoice', 1000 );
+
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
         // Example 1: standard notification handling
@@ -1852,24 +1833,19 @@ function (dojo, declare) {
     },
 
     notif_cardDrawn: function( notif ) {
-        console.log( 'notif_cardDrawn' );
-        console.log( notif );
-        this.currentCard = notif.args.cardId;
-        var cardBg = this.cardBg( notif.args.cardId );
-        dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
+        console.log( 'notif_cardDrawn', notif );
+        this.card.setId(notif.args.cardId).setupImage();
     },
 
     notif_moveShip: function( notif ) {
-        console.log( 'notif_moveShip' );
-        console.log( notif );
+        console.log( 'notif_moveShip', notif );
         var shipPos = ( +(notif.args.newPlPos)+400 ) % 40;
         this.slideToDomNode( 'ship_marker_'+notif.args.player_id, 
                               'flight_pos_'+shipPos, 800 );
     },
 
     notif_loseContent: function( notif ) {
-      console.log( 'notif_loseContent' );
-      console.log( notif );
+      console.log( 'notif_loseContent', notif );
       if ( this.isCurrentPlayerActive() ) {
           dojo.query('.selected', 'my_ship').removeClass('selected');
       }
@@ -1910,6 +1886,11 @@ function (dojo, declare) {
       }
     },
 
+    notif_planetChoice: function(notif) {
+        console.log("notif_planetChoice", notif);
+        this.card.notif_planetChoice(notif.args);
+    },
+
     notif_newRound: function( notif ) {
         console.log( 'notif_newRound' );
         console.log( notif );
@@ -1933,7 +1914,7 @@ function (dojo, declare) {
             dojo.query('.rev_space.additional').forEach(dojo.destroy);
             dojo.query('.plBoardSpan').forEach(dojo.empty); // Maybe not all,
                                                 // depending on what we add
-            this.currentCard = null; // Here? In onEnteringState or onLeavingState? Is it important?
+            this.card.setId(null);
         }
 
         dojo.style( 'pile', 'display', 'block' );

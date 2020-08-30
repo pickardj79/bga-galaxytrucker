@@ -3,6 +3,7 @@
 /* Collection of function to handle player actions in response to cards */
 
 require_once('GT_DBPlayer.php');
+require_once('GT_DBCard.php');
 
 class GT_ActionsCard extends APP_GameClass {
     public function __construct() {
@@ -113,6 +114,43 @@ class GT_ActionsCard extends APP_GameClass {
             $plyrContent->loseContent($battChoices, 'cell', false);
 
         $game->moveShip( $plId, $nbDays );
+    }
+
+    function planetChoice($game, $plId, $cardId, $choice) {
+        $player = GT_DBPlayer::getPlayer($game, $plId);
+        if (!$choice) {
+            GT_DBPlayer::setCardDone($game, $plId);
+            $game->notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
+                'doesn\'t stop'), array ( 'player_name' => $player['player_name'] ) );
+            return 'nextPlayer'; 
+        }
+
+        // Do some checks
+        if (!is_numeric($choice))
+            $game->throw_bug_report_dump("Planet choice is not an int:", $choice);
+        
+        $choice = (int)$choice;
+
+        $allIdx = array_keys($game->card[$cardId]['planets']);
+        $chosenIdx = GT_DBCard::getActionChoices($game);
+       
+        if (!in_array($choice, $allIdx))
+            $game->throw_bug_report("Planet choice ($choice) not possible for this planet ($cardId)");
+        
+        if (in_array($choice, $chosenIdx))
+            $game->throw_bug_report("Planet choice ($choice) already chosen", $chosenIdx);
+
+        // Update DB, front-end, move state to placeGoods
+        GT_DBCard::setActionChoice($game, $plId, $choice);
+        $game->notifyAllPlayers( "planetChoice",
+            clienttranslate( '${player_name} choses planet number ${planetId}'),
+            array ( 'player_name' => $player['player_name'],
+                'plId' => $plId,
+                'plColor' => $player['player_color'],
+                'planetId' => $choice
+            ) );
+
+        return 'placeGoods';
     }
 
 }

@@ -130,6 +130,7 @@ var jstpl_circle='<div class="circle ${classes}" id="planet_${idx}" style="left:
 var jstpl_order_tile='<div class="order_tile" id="order_tile_${i}"></div>';
 var jstpl_ord_tile_slot='<div class="order_tile_slot" id="ordTileSlotOnShip_${id}"></div>';
 var jstpl_ship_marker='<div class="ship_marker clr${color}" id="ship_marker_${plId}"></div>';
+var jstpl_card_marker='<div class="ship_marker clr${color}" id="card_marker_${plId}"></div>';
 
 var jstpl_content='<div class="content ${classes}" id="content_${content_id}"></div>';
 //var jstpl_cell='<div class="content cell ${posClass}" id="tile_${tile_id}_cell_${place}"></div>';
