@@ -1225,8 +1225,6 @@ class GalaxyTrucker extends Table {
         foreach (array_keys($card['planets']) as $idx) {
             if ($idx < 1 or $idx > 4)
                 $this->throw_bug_report("planet $currentCard has invalid index $idx");
-            // if (in_array($idx, $alreadyChosen))
-                // continue;
             $availIdx[] = $idx; 
             $planetIdxs[$idx] = array_key_exists($idx, $alreadyChosen)
                 ? $alreadyChosen[$idx]['player_id']
@@ -1235,7 +1233,7 @@ class GalaxyTrucker extends Table {
 
         // planetIdxs is dict of planetId => player_id for all planet idx. 
         // player_id is null for planets not yet chosen
-        return array( "availIdx" => $availIdx, "planetIdxs" => $planetIdxs );
+        return array( "planetIdxs" => $planetIdxs );
     }
 
     function argPlaceGoods() {

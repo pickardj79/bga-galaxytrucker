@@ -28,71 +28,42 @@ class GTFE_Card {
         let cardBg = game.cardBg( this.id );
         dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
 
-        if (false && type == 'planets') {
-            // setup planet circles, add ships if they're on there
-            console.log("Placing card markers for",players);
-            Object.values(players).forEach(player => {
-                console.log("player",player);
-                if (player['card_action_choice']) {
-                    dojo.place( this.format_block( 'jstpl_card_marker',
-                        { plId: player['id'], color: player['color']} ), 
-                        game.makePartId(game.PART_PLANET, players['card_action_choice']),
-                    );
-                    let styles = {
-
-                    };
-                    dojo.style("card_marker_" + player['id'], styles);
-                }
-            });
+        // place planet elements
+        for (let i = 1; i <= 4; i++) {
+            dojo.place( game.format_block('jstpl_circle', 
+                { idx: i, top: 5+i*47, classes: "planet" }),
+                'current_card'
+            );
         }
         return this;
     }
 
     /// ################# PLANET #########################
-    onEnteringChoosePlanet(planetIdxs, onclick) {
-        let partIds = this.placePlanetMarkers(planetIdxs, null, true);
-        partIds.forEach( id => {
-            this.game.addTooltip(id, '', _('Click to select or deselect this planet.'));
-            this.game.connect($(id), 'onclick', onclick);
-        });
-    }
-
-    onEnteringPlaceGoods(planetIdxs, cargoIdxs, onclick) {
-        let partIds = this.placePlanetMarkers(planetIdxs, cargoIdxs, false);
-        partIds.forEach( id => {
-            this.game.addTooltip(id, '', _('Click to select or deselect this planet.'));
-            this.game.connect($(id), 'onclick', onclick);
-        });
-    }
-
-    placePlanetMarkers(planetIdxs, cargoIdxs, showAvail) {
+    placeAvailMarkers(planetIdxs, cargoIdxs, onclick) {
         let game = this.game;
-        let partIds = [];
-        // for (let i in avail ) {
         for ( let [idx, plId] of Object.entries(planetIdxs) ) {
-            // let idx = avail[i];
-            // let idx = planetIdxs[i];
+            if (plId)
+                continue;
+
             let partId = game.makePartId(this.PLANET_PREFIX, idx);
-            partIds.push(partId);
 
-            // Create planet_X circle
-            dojo.place( game.format_block('jstpl_circle', 
-                { idx: idx, top: 5+idx*47, classes: "planet" }),
-                'current_card'
-            );
-
-            // Add ship if occupied or available class if showAvail
-            if (plId) {
-                dojo.place( game.format_block( 'jstpl_card_marker',
-                    { plId: plId, color: game.players[plId]['color'] } ), 
-                    partId
-                );
-            }
-            else if (showAvail) {
-                dojo.addClass(partId, "available");
-            } 
+            dojo.addClass(partId, "available");
+            game.addTooltip(partId, '', _('Click to select or deselect this planet.'));
+            game.connect($(partId), 'onclick', onclick);
         }
-        return partIds;
+    }
+
+    placeCardMarkers(planetIdxs) {
+        let game = this.game;
+        for ( let [idx, plId] of Object.entries(planetIdxs) ) {
+            if (!plId)
+                continue;
+            let partId = game.makePartId(this.PLANET_PREFIX, idx);
+            dojo.place( game.format_block( 'jstpl_card_marker',
+                { plId: plId, color: game.players[plId]['color'] } ), 
+                partId
+            );
+        }
     }
 
     onSelectPlanet(id) {

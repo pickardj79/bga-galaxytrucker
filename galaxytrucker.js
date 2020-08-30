@@ -430,8 +430,9 @@ function (dojo, declare) {
                                         curr: 0,
                                     } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                this.card.onEnteringChoosePlanet(args.args.planetIdxs, 'onSelectPlanet');
+                this.card.placeAvailMarkers(args.args.planetIdxs, null, 'onSelectPlanet');
             }
+            this.card.placeCardMarkers(args.args.planetIdxs);
             break;
         case 'powerShield':
         case 'loseGoods':
@@ -440,8 +441,9 @@ function (dojo, declare) {
             if ( this.isCurrentPlayerActive() ) {
                 dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                this.card.onEnteringPlaceGoods(args.args.planetIdxs, null, 'onPlaceGoods');
+                this.card.placeAvailMarkers(args.args.planetIdxs, null, 'onPlaceGoods');
             }
+            this.card.placeCardMarkers(args.args.planetIdxs);
             break;
         case 'takeReward':
             dojo.style( 'current_card', 'display', 'block' );
