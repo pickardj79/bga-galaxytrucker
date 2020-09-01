@@ -269,6 +269,13 @@ html {
     display: inline-block;
     margin: 20px;
 }
+#trash_box {
+    display: none;
+    position: relative;
+    width: 165px;
+    height: 253px;
+    margin: 10px;
+}
 
 #pile {
     display: none;
@@ -406,12 +413,9 @@ html {
 .content.goods {
     background-image: url('img/30_30_wooden_cubes.png')
 }
-.square .content {
-    position: absolute;
-}
-.log .content {
-    display: inline-block;
-}
+.square .content { position: absolute; }
+.planet .content { position: absolute ;}
+.log .content { display: inline-block; }
 
 .notouch-device .content.available:hover,
 .notouch-device .content.selected:hover {
@@ -524,6 +528,11 @@ html {
 .goods.p1on3 { left: 10px; top: 2px; } /* not tested */
 .goods.p2on3 { left: 10px; top: 7px; } /* not tested */
 .goods.p3on3 { left: 10px; top: 12px; } /* not tested */
+.planet_goods_1 { left: 35px; top: 3px }
+.planet_goods_2 { left: 57px; top: 3px }
+.planet_goods_3 { left: 78px; top: 3px }
+.planet_goods_4 { left: 100px; top: 3px }
+.planet_goods_5 { left: 121px; top: 3px }
 .human.p1on2 { left: 10px; }
 .human.p2on2 { left: 25px; }
 .alien_choice.p1on3 { left: 4px; } /* on3: includes human_choice */
@@ -548,7 +557,7 @@ html {
 }
 .planet.available.selected{
     cursor: pointer;
-    border-color: green;
+    border-color: blueviolet;
 }
 .ship_marker {
     position: absolute;

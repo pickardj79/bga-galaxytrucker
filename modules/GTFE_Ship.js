@@ -40,7 +40,6 @@ class GTFE_Ship {
             case 'yellow':
             case 'green':
             case 'blue':
-                console.log("#### Cargo ", tileContent);
                 rotWithTile = true;
                 var classes = 'goods '+ctSubtype;
                 break;

@@ -1,16 +1,26 @@
+// const GTFE_Tile = require('./GTFE_Tile.js');
+
 class GTFE_Card {
 
     PLANET_PREFIX = 'planet';
     MARKER_PREFIX = 'card_marker'
+    ALL_PLANET_GOODS_CLASSES = [1,2,3,4,5].map( i => "planet_goods_" + i).join(" ");
 
     constructor(game, id, type, varData) {
         this.game = game;
         this.id = id;
         this.type = type;
 
+
         // varData holds variable data about the state of the card
         // what it holds is dependent on the type of card and state of the game
         this.varData = varData;
+    }
+
+    static cardBg( cardId ) {
+        var x = (cardId%20) * -165;
+        var y = ( Math.floor(cardId/20) ) * -253;
+        return { x: x, y: y };
     }
 
     setId(id) {
@@ -25,7 +35,7 @@ class GTFE_Card {
         let game = this.game;
 
         dojo.style( 'current_card', 'display', 'block' );
-        let cardBg = game.cardBg( this.id );
+        let cardBg = GTFE_Card.cardBg( this.id );
         dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
 
         // place planet elements
@@ -36,12 +46,11 @@ class GTFE_Card {
             );
         }
 
-        // place planet cargo 
         return this;
     }
 
     /// ################# PLANET #########################
-    placeAvailMarkers(planetIdxs, cargoIdxs, onclick) {
+    placePlanetAvail(planetIdxs) {
         let game = this.game;
         for ( let [idx, plId] of Object.entries(planetIdxs) ) {
             if (plId)
@@ -51,7 +60,7 @@ class GTFE_Card {
 
             dojo.addClass(partId, "available");
             game.addTooltip(partId, '', _('Click to select or deselect this planet.'));
-            game.connect($(partId), 'onclick', onclick);
+            game.connect($(partId), 'onclick', this.onSelectPlanet);
         }
     }
 
@@ -68,7 +77,11 @@ class GTFE_Card {
         }
     }
 
-    onSelectPlanet(id) {
+    onSelectPlanet(evt) {
+        console.log('onSelectPlanet', evt.currentTarget);
+        dojo.stopEvent(evt);
+        let id = evt.currentTarget.id;
+
         // Deselect this planet if it's already selected
         if (dojo.hasClass(id, 'selected'))
             dojo.removeClass(id, 'selected');
@@ -123,9 +136,110 @@ class GTFE_Card {
 
     }
 
-    onPlaceGoods(args) {
-        console.log("GTFE_Card.onPlaceGoods Not implemented")
+    /// ################# PLANET #########################
+    placeGoods(cardType, planetIdx) {
+        let game = this.game;
+        if (cardType['type'] == 'planets') {
+            if (!planetIdx in cardType['planets'])
+                game.throw_bug_report("planetIdx invalid in GTFE_Card.placeGoods: " + planetIdx);
+            // place the goods with the given planet
+            let goodsIdx = 1;
+            for (let type of cardType['planets'][planetIdx]) {
+                dojo.place( game.format_block( 'jstpl_content', {
+                    content_id: "planetcargo_" + planetIdx + "_" + goodsIdx,
+                    classes: 'goods planet_goods_' + goodsIdx + " " + type,
+                } ), game.makePartId(this.PLANET_PREFIX, planetIdx) ); 
+                goodsIdx += 1;
+            }
+        }
+        else if (cardType['type'] == 'abstation') {
+            game.throw_bug_report("abstation placeGoods not implemented");
+        }
+        this.activateGoods();
     }
 
+
+    activateGoods() {
+        dojo.query('.goods', 'my_ship').forEach( node => {
+            dojo.connect( node, 'onclick', this.onSelectGoods);
+            dojo.addClass(node, 'available');
+        });
+
+        dojo.query('.goods', 'current_card').forEach( node => {
+            dojo.connect( node, 'onclick', this.onSelectGoods);
+            dojo.addClass(node, 'available');
+        });
+
+        // activate all tiles for clicking
+        // add cargo or hazard class to all cargo tiles - those are the activatable ones
+        for (let tile of dojo.query('.tile', 'my_ship')) {
+            let id = tile.id.split('_')[1];
+            let type = this.game.tiles[id]['type']; 
+            if (type != 'cargo' && type != 'hazard')
+                continue;
+            dojo.addClass(tile, type);
+            dojo.addClass(tile, 'available');
+            dojo.connect(tile, 'onclick', 
+                dojo.partial(this.onSelectTile_PlaceGoods, this));
+        }  
+
+        // TODO: activate Air Lock for clicks
+    }
+
+    onSelectGoods(evt) {
+        dojo.stopEvent(evt);
+        let id = evt.currentTarget.id;
+
+        if (dojo.hasClass(id, 'selected'))
+            dojo.removeClass(id, 'selected');
+        else
+            dojo.addClass(id, 'selected');
+    }
+
+    onSelectTile_PlaceGoods(this_card, evt) {
+        console.log('onSelectTile_PlaceGoods', evt.currentTarget);
+        dojo.stopEvent(evt);
+        let game = this_card.game;
+        let nodeId = evt.currentTarget.id;
+        
+        // This could be a click on goods
+        if (!nodeId.startsWith('tile_'))
+            return;
+
+        // Check that there's enough cargo space available
+        let tileId = nodeId.split('_')[1];
+        let goodsToPlace = dojo.query('.goods.selected');
+
+        if (goodsToPlace.length == 0)
+            return;
+
+        let tileObj = game.newGTFE_Tile(tileId);
+        let goodsOnTile = tileObj.queryGoods();
+        
+        if (tileObj.hold - goodsOnTile.length < goodsToPlace.length) {
+            game.showMessage(_("Not enough cargo space there."), "error");
+            goodsToPlace.removeClass('selected');
+            return;
+        }
+
+        // red cargo must go on hazard cargo holds
+        if (goodsToPlace.filter( node => dojo.hasClass(node, "red")).length > 0 
+            && game.tiles[tileId]['type'] != 'hazard')
+        {
+            game.showMessage(_("Red goods must go on hazardous cargo hold."), "error");
+            goodsToPlace.removeClass('selected');
+            return;
+        }
+
+        // All good, move cargo to available spots
+        // Class of content on tile is of form pXonY where Y is hold of tile
+        for (let good of goodsToPlace) {
+            game.slideToDomNode(good, nodeId);
+            dojo.removeClass(good, this_card.ALL_PLANET_GOODS_CLASSES);
+            dojo.addClass(good, tileObj.getEmptyContentClass());
+            // slide to tile
+        }
+        goodsToPlace.removeClass('selected');
+    }
 
 }

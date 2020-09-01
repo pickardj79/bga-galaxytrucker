@@ -22,6 +22,7 @@ define([
   "ebg/zone",
   "ebg/stock",
   g_gamethemeurl + "modules/GTFE_Card.js",
+  g_gamethemeurl + "modules/GTFE_Tile.js",
   g_gamethemeurl + "modules/GTFE_Ship.js"
 ],
 function (dojo, declare) {
@@ -137,7 +138,7 @@ function (dojo, declare) {
 
     setup: function( gamedatas ) {
         console.log( "Starting game setup" );
-        console.log( gamedatas );
+        console.log( "gamedatas", gamedatas );
         var bWaitBuildOrTakeOrderPhase = ( gamedatas.gamestate.name == 'waitForPlayers'
                     || gamedatas.gamestate.name == 'buildPhase'
                     || gamedatas.gamestate.name == 'takeOrderTiles');
@@ -289,6 +290,8 @@ function (dojo, declare) {
 
         // Save gamedatas to this for future use
         this.players = gamedatas.players;
+        this.tiles = gamedatas.tiles;
+        this.tilesCargo = this.tiles.filter( t => t['type'] == 'cargo' || t['type'] == 'hazard');
         
         // Setup game notifications to handle (see "setupNotifications" method below)
         this.setupNotifications();
@@ -435,7 +438,7 @@ function (dojo, declare) {
                                         curr: 0,
                                     } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                this.card.placeAvailMarkers(args.args.planetIdxs, null, 'onSelectPlanet');
+                this.card.placePlanetAvail(args.args.planetIdxs);
             }
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
@@ -446,7 +449,8 @@ function (dojo, declare) {
             if ( this.isCurrentPlayerActive() ) {
                 dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                this.card.placeAvailMarkers(args.args.planetIdxs, null, 'onPlaceGoods');
+                dojo.style( 'trash_box', 'display', 'block' );
+                this.card.placeGoods(args.args.cardType, args.args.planetIdx);
             }
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
@@ -572,6 +576,10 @@ function (dojo, declare) {
 
         */
 
+    throw_bug_report: function(msg) {
+        this.showMessage ( _("Internal error - this should not happen. " + msg + this.plReportBug), 'error' ); 
+    },
+
     // makePartId and getPartFromId form a companion pair of functions for creating/getting div or part ids for various game components
     makePartId: function(base, i) {
         return base + "_" + i;
@@ -580,7 +588,7 @@ function (dojo, declare) {
     getPartFromId: function( word ) {
         var arr = word.split('_');
         if (arr.length > 2)
-            this.showMessage( _("Internal error - this should not happen." + word), 'error');
+            this.throw_bug_report("partId has too many parts.");
         return arr[1];
     },
 
@@ -589,10 +597,8 @@ function (dojo, declare) {
         return arr[i];
     },
 
-    cardBg: function( cardId ) {
-        var x = (cardId%20) * -165;
-        var y = ( Math.floor(cardId/20) ) * -253;
-        return { x: x, y: y };
+    newGTFE_Tile(tileId) {
+        return new GTFE_Tile(this, tileId);
     },
 
     updateTimer: function() {
@@ -752,7 +758,7 @@ function (dojo, declare) {
     setupRevealedCards: function( cards ) {
         for( var id in cards ) {
           //var thisCard = cards[i][id];
-          var cardBg = this.cardBg( cards[id].id );
+          var cardBg = GTFE_Card.cardBg( cards[id].id );
           dojo.place ( this.format_block( 'jstpl_card', {
                             id: id, // useless?
                             x: cardBg.x,
@@ -1314,18 +1320,6 @@ function (dojo, declare) {
         console.log( 'onCancelExplore' );
         dojo.stopEvent( evt );
         this.ajaxAction( 'cancelExplore', {} );
-    },
-
-    onSelectPlanet: function(evt) {
-        console.log('onSelectPlanet', evt.currentTarget);
-        dojo.stopEvent(evt);
-        this.card.onSelectPlanet(evt.currentTarget.id);
-    },
-
-    onPlaceGoods: function(evt) {
-        console.log('onPlaceGoods', evt.currentTarget);
-        dojo.stopEvent(evt);
-        this.card.onPlaceGoods(evt.currentTarget.id);
     },
 
     onConfirmPlanet: function (evt) {

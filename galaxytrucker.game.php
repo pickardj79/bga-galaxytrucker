@@ -279,6 +279,7 @@ class GalaxyTrucker extends Table {
     // send TILE CONTENT (crew, cells, goods, in content DB table) to client, and also
     // alien choices still to be made
     $result['content'] = self::getObjectListFromDB( "SELECT * FROM content" );
+    $result['tiles'] = array_values($this->tiles);
 
     $result['currentCard'] = self::getGameStateValue( 'currentCard' );
 
@@ -1237,8 +1238,14 @@ class GalaxyTrucker extends Table {
     }
 
     function argPlaceGoods() {
+        $currentCard = self::getGameStateValue( 'currentCard' );
         $args = $this->argChoosePlanet();
-        return array("planetIdxs" => $args['planetIdxs']);
+        $plId = self::getActivePlayerId();
+        $player = GT_DBPlayer::getPlayer($this, $plId);
+        return array(
+            "planetIdx" => $player['card_action_choice'], 
+            "planetIdxs" => $args['planetIdxs'],
+            "cardType" => $this->card[$currentCard]);
     }
 
     /*
