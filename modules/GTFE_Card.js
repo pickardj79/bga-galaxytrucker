@@ -5,6 +5,7 @@ class GTFE_Card {
     PLANET_PREFIX = 'planet';
     MARKER_PREFIX = 'card_marker'
     ALL_PLANET_GOODS_CLASSES = [1,2,3,4,5].map( i => "planet_goods_" + i).join(" ");
+    ALL_TRASH_GOODS_CLASSES = [...Array(15).keys()].map( i => "trash_" + i).join(" ");
 
     constructor(game, id, type, varData) {
         this.game = game;
@@ -183,7 +184,9 @@ class GTFE_Card {
                 dojo.partial(this.onSelectTile_PlaceGoods, this));
         }  
 
-        // TODO: activate Air Lock for clicks
+        // activate Air Lock for clicks
+        dojo.addClass('trash_box', 'available');
+        dojo.connect($('trash_box'), 'onclick', dojo.partial(this.onSelectTrash_PlaceGoods, this));
     }
 
     onSelectGoods(evt) {
@@ -233,13 +236,64 @@ class GTFE_Card {
 
         // All good, move cargo to available spots
         // Class of content on tile is of form pXonY where Y is hold of tile
+        let i = 1;
         for (let good of goodsToPlace) {
-            game.slideToDomNode(good, nodeId);
             dojo.removeClass(good, this_card.ALL_PLANET_GOODS_CLASSES);
+            dojo.removeClass(good, this_card.ALL_TRASH_GOODS_CLASSES);
+            dojo.removeClass(good, tileObj.ALL_TILE_CONTENT_CLASSES);
             dojo.addClass(good, tileObj.getEmptyContentClass());
-            // slide to tile
+            game.slideToDomNode(good, nodeId, 500, 100*i);
+            i += 1;
         }
+
         goodsToPlace.removeClass('selected');
+    }
+
+    onSelectTrash_PlaceGoods(this_card, evt) {
+        console.log('onSelectTrash_PlaceGoods', evt.currentTarget);
+        dojo.stopEvent(evt);
+        let game = this_card.game;
+        let nodeId = evt.currentTarget.id;
+
+        let goodsToPlace = dojo.query('.goods.selected');
+        if (goodsToPlace.length == 0)
+            return;
+
+        let bogus_tile = game.newGTFE_Tile(1); // for static function calls
+        console.log("TILE CONTENT", bogus_tile.ALL_TILE_CONTENT_CLASSES);
+
+        let idx = 1;
+        let delayCtr = 1;
+        let goodsInTrash = dojo.query('.goods', 'trash_box');
+        console.log("idx in trash", goodsInTrash);
+        for (let good of goodsToPlace) {
+            dojo.removeClass(good, 'selected');
+            dojo.removeClass(good, this_card.ALL_PLANET_GOODS_CLASSES);
+            dojo.removeClass(good, bogus_tile.ALL_TILE_CONTENT_CLASSES);
+            dojo.removeClass(good, this_card.ALL_TRASH_GOODS_CLASSES);
+            game.slideToDomNode(good, nodeId, 500, delayCtr * 100);
+            delayCtr += 1;
+
+            // find next available spot in the trash
+            let tgt_class = '';
+            let tgt_found = false;
+            do {
+                tgt_class = 'trash_' + idx;
+                tgt_found = false;
+                for (let good of goodsInTrash) {
+                    // found an item with this class. Go to next class and try again
+                    if (good.classList.contains(tgt_class)) {
+                        idx += 1;
+                        tgt_found = true;
+                        break;
+                    }
+                }
+            } while (tgt_found);
+            idx += 1;
+
+            console.log("placing good", i, good);
+            dojo.addClass(good, tgt_class); 
+        }
     }
 
 }

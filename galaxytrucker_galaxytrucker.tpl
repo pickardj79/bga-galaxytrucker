@@ -98,7 +98,7 @@
 
     <div id="info_box" class="darkblock"></div>
     <div id="current_card"></div>
-    <div id="trash_box"><h3>{AIR_LOCK}</h3></div>
+    <div id="trash_box" class="darkblock"><h3>{AIR_LOCK}</h3></div>
 
 
   </div>
