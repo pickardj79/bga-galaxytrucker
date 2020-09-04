@@ -3,6 +3,8 @@ class GTFE_Tile {
 
     constructor(game, id) {
         // id is back-end id, like "1"
+        if (id.startsWith('tile_'))
+            id = id.split("_")[1];
         this.game = game;
         this.id = id;
         this.nodeId = "tile_" + id;

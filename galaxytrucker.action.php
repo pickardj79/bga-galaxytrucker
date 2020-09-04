@@ -184,6 +184,14 @@
       self::ajaxResponse( );
   }
 
+  public function cargoChoice() {
+      self::setAjaxMode();
+      $encoded = self::getArg("goodsOnTile", AT_base64, true);
+      $decoded = (array)json_decode(base64_decode($encoded));
+      $this->game->chooseCargo($decoded);
+      self::ajaxResponse( );
+  }
+
   public function goOn() {
       self::setAjaxMode();
       $this->game->goOn( );

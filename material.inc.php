@@ -67,6 +67,25 @@ $this->flightVariant = array (
 $this->orient = array( 0 => 'n', 90 => 'e', 180 => 's', 270 => 'w');
 $this->start_tiles = array( 31 => "0000ff", 32 => "008000", 33 => "ffff00", 34 => "ff0000" );
 
+// Map tile types to the types of content they can hold
+$this->tileHoldTypes = array(
+    'battery' => 'cell',
+    'cargo' => 'goods',
+    'hazard' => 'goods',
+    'crew' => 'crew',
+    'brown' => 'crew',
+    'purple' => 'crew'
+);
+
+// For tiles without an explict hold, define how much they hold
+$this->tileHoldCnt = array(
+    'crew' => 2,
+    'brown' => 1,
+    'purple' => 1,
+    'structure' => 0,
+    'shield' => 0,
+);
+
 $this->tiles = array();
 for( $i=1 ; $i<=144 ; $i++)
   {
@@ -138,6 +157,7 @@ $this->tiles[109]['type'] = 'crew';
 $this->tiles[110]['type'] = 'structure';
 $this->tiles[111]['type'] = 'structure';
 $this->tiles[112]['type'] = 'hazard';
+$this->tiles[112]['hold'] = 1;
 $this->tiles[113]['type'] = 'engine';
 $this->tiles[113]['hold'] = 1;
 $this->tiles[114]['type'] = 'purple';

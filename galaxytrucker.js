@@ -562,6 +562,9 @@ function (dojo, declare) {
             this.addActionButton('button_choosePlanet',_('Choose Planet'), 'onConfirmPlanet');
             this.addActionButton('button_passChoosePlanet',_('Pass'), 'onPassChoosePlanet'); 
             break;
+        case 'placeGoods' :
+            this.addActionButton( 'button_validateCargo', _('Validate'), 'onValidateChooseCargo');
+            break;
         }
       }
     },
@@ -597,8 +600,18 @@ function (dojo, declare) {
         return arr[i];
     },
 
+    newGTFE_Ship() {
+        return new GTFE_Ship(this);
+    },
+
     newGTFE_Tile(tileId) {
         return new GTFE_Tile(this, tileId);
+    },
+
+    objToAjax(obj) {
+        // serialize an object for returning to back-end
+        // to be decoded in action.php with type AT_base64 and (array)json_decode(base64_decode(arg))
+        return btoa(JSON.stringify(obj));
     },
 
     updateTimer: function() {
@@ -953,7 +966,7 @@ function (dojo, declare) {
         dojo.style(mobile, "top", top + "px");
         dojo.style(mobile, "left", left + "px");
         dojo.style( mobile, "position", "absolute" );
-        console.log("sliding with top/left", top, left);
+
         box.l += box.w-cbox.w;
         box.t += box.h-cbox.h;
         return box;
@@ -1342,6 +1355,18 @@ function (dojo, declare) {
         this.ajaxAction( 'planetChoice', {});
     },
 
+    onValidateChooseCargo: function(evt) {
+        console.log('onValidateChooseCargo', evt.currentTarget);
+        dojo.stopEvent(evt);
+        if (!this.checkAction('cargoChoice'))
+            return;
+
+        var goodsOnTile = this.card.onValidateChooseCargo();
+        console.log("onValidateChooseCargo response", goodsOnTile);
+        this.ajaxAction( 'cargoChoice', 
+            {goodsOnTile: this.objToAjax(goodsOnTile)} );
+    },
+
     onGoOn: function( evt ) {
         console.log( 'onGoOn' );
         dojo.stopEvent( evt );
@@ -1402,6 +1427,7 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'loseContent', 1500 );
         dojo.subscribe( 'planetChoice', this, "notif_planetChoice");
         this.notifqueue.setSynchronous( 'planetChoice', 1000 );
+        dojo.subscribe( 'chooseCargo', this, "notif_chooseCargo");
 
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
@@ -1833,6 +1859,11 @@ function (dojo, declare) {
     notif_planetChoice: function(notif) {
         console.log("notif_planetChoice", notif);
         this.card.notif_planetChoice(notif.args);
+    },
+
+    notif_chooseCargo: function(notif) {
+        console.log("notif_chooseCargo", notif.args);
+        this.card.notif_chooseCargo(notif.args);
     },
 
     notif_newRound: function( notif ) {

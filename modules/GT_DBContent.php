@@ -5,7 +5,7 @@ class GT_DBContent {
     public function __construct() {
     }
 
-    function insertContentSql($rows) {
+    function insertContentSql($rows, $update=TRUE) {
         // Sql for update database rows to match input $content
         // component_id required
         // assume that all records have the same keys, in the same order
@@ -26,14 +26,18 @@ class GT_DBContent {
         }
         $sql .= implode(',',$values);
 
-        $updates = array();
-        foreach ($fields as $field) {
-            $updates[] = "$field=VALUES($field)";
+        if ($update) {
+            $updates = array();
+            foreach ($fields as $field) {
+                $updates[] = "$field=VALUES($field)";
+            }
+
+            $sql .= " ON DUPLICATE KEY UPDATE " . implode(',', $updates);
         }
-        $sql .= " ON DUPLICATE KEY UPDATE " . implode(',', $updates);
 
         return $sql;
     }
+
 }
 
 

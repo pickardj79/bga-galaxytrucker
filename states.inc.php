@@ -325,11 +325,11 @@ $machinestates = array(
     STATE_PLACE_GOODS => array(
         "name" => "placeGoods",
         "description" => clienttranslate('${actplayer} may reorganize their goods'),
-        "descriptionmyturn" => clienttranslate('${you} may reorganize your goods (not implemented yet)'),
+        "descriptionmyturn" => clienttranslate('${you} may reorganize your goods'),
         "type" => "activeplayer",
         "args" => "argPlaceGoods",
-        "possibleactions" => array( "removeGood", "placeGood", "choiceMade", "pass" ),
-        "transitions" => array( "choiceMade" => STATE_ABANDONED )
+        "possibleactions" => array( "cargoChoice" ),
+        "transitions" => array( "cargoChoicePlanet" => STATE_CHOOSE_PLANET )
     ),
 
 //    40 => array(

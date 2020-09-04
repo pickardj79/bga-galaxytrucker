@@ -35,7 +35,7 @@ class GT_ActionsCard extends APP_GameClass {
                 // This player sends ALL their remaining crew members
                 // Remove all crew members:
                 $plyrContent = $game->newPlayerContent($plId);
-                $plyrContent->loseContent($plyrContent->getCrew(), 'crew', true);
+                $plyrContent->loseContent($plyrContent->getContent('crew'), 'crew', true);
 
                 $game->notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
                     'sends their whole crew to the abandoned ship and will have to give up'),
@@ -95,7 +95,7 @@ class GT_ActionsCard extends APP_GameClass {
             $game->throw_bug_report( "Several batteries with the same id. " .var_export( $battChoices, true));
 
         foreach ( $battChoices as $battId ) {
-            $plyrContent->checkContent($battId, 'cell');
+            $plyrContent->checkContentById($battId, 'cell');
         }
 
         if ( $nbBatt > $nbDoubleEngines )
@@ -151,6 +151,84 @@ class GT_ActionsCard extends APP_GameClass {
             ) );
 
         return 'placeGoods';
+    }
+
+    function chooseCargo( $game, $plId, $cardId, $goodsOnTile ) {
+        $player = GT_DBPlayer::getPlayer($game, $plId);
+        $plyrContent = $game->newPlayerContent($plId);
+
+        // note original content ids to remove those not chosen
+        $origContentIds = array_map(function($i) { return $i['content_id']; },
+            $plyrContent->getContent('goods'));
+
+        // $goodsOnTile is all goods on the ship. Clear places in preparation
+        // This allows us to not care about order of moving stuff around
+        $plyrContent->clearAllPlaces('goods');
+
+        // Split goods for each tile into new goods (from the card) or moved goods (already in DB) 
+        // Rely on transactions to roll back database changes if any validation fails
+        $seenPlanetIdx = array();
+        $allMovedGoodsIds = array();
+        $movedTileContent = array();
+        $newTileContent = array();
+        foreach ( $goodsOnTile as $tile => $goods) {
+            $newGoods = array(); // array of goods subtypes
+            $movedGoodsIds = array();
+            foreach ( $goods as $goodId ) {
+                if (strpos($goodId,"planetcargo")) {
+                    // goodId on card: cargo_planetcargo_X_Y: X is planet #, Y is goods #
+                    list($t1, $t2, $planet, $idx) = explode("_", $goodId);
+                    if ($planet != $player['card_action_choice'])
+                        $game->throw_bug_report("Cargo ($goodId) has wrong planet, should be ({$player['card_action_choice']})", $goodsOnTile);
+                    if (in_array($idx, $seenPlanetIdx))
+                        $game->throw_bug_report("Cargo idx ($idx) appears twice", $goodsOnTile);
+                    $seenPlanetIdx[] = $idx;
+                    $newGoods[] = $game->card[$cardId]['planets'][$planet][$idx - 1];
+                }
+                else {
+                    $id = explode("_", $goodId)[1];
+                    $movedGoodsIds[] = $id;
+                    unset($unseenContent[$id]);
+                }
+            }
+            $tileId = explode("_", $tile)[1];
+            if ($movedGoodsIds)
+                $plyrContent->moveContent($tileId, 'goods', $movedGoodsIds);
+            if ($newGoods)
+                $newGoodsIds = $plyrContent->newContent($tileId, 'goods', null, $newGoods);
+            
+            $allMovedGoodsIds = array_merge($allMovedGoodsIds, $movedGoodsIds);
+
+            // prep args to send back to front-end
+            $movedTileContent[$tile] = $movedGoodsIds;
+            $newTileContent[$tile] = array_map(
+                function($id) { return 'content_' . $id; },
+                $newGoodsIds
+            );
+        }
+
+        // remove existing goods not "moved". They went to the trash
+        $toDel = array_diff($origContentIds, $allMovedGoodsIds);
+        if ($toDel) {
+            $sql = "DELETE FROM content WHERE content_id IN (" . implode(",", $toDel) . ")";
+            $game->log("Deleting with $sql");
+            $game->DbQuery($sql);
+        }
+
+        // Do a final consistency check/validation on the database 
+        $game->newPlayerContent($plId)->checkAll($game->newPlayerBoard($plId));
+
+        // notifyAllPlayers
+        // send goodsOnTile ($tileId -> $goodId), $toDel(array($goodId)) 
+        $game->notifyAllPlayers('chooseCargo',
+            clienttranslate( '${player_name} places cargo from planet number ${planet_number}'),
+            array( 'player_name' => $player['player_name'],
+                'planet_number' => $player['card_action_choice'],
+                'movedTileContent' => $movedTileContent,
+                'newTileContent' => $newTileContent,
+                'deleteContent' => $toDel
+            )
+        );
     }
 
 }

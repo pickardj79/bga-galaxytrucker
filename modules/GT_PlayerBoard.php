@@ -143,14 +143,11 @@ class GT_PlayerBoard extends APP_GameClass {
     }
 
     function getTileType($tileid) {
-        return $this->game->tiles[ $tileid ]['type'];
+        return $this->game->getTileType($tileid);
     }
 
     function getTileHold($tileid) {
-        $tileType = $this->game->tiles[ $tileid ];
-        if (array_key_exists('hold', $tileType))
-            return $tileType['hold'];
-        return 0;
+        return $this->game->getTileHold($tileid);
     }
 
     // ###################################################################

@@ -1,9 +1,17 @@
 <?php
 /* Collection of utilities to interface with component table */
 
-class GT_DBComponent {
+class GT_DBComponent extends APP_GameClass {
     public function __construct() {
     }
+
+    function getActiveComponent($game, $component_id) {
+        return $game->getObjectFromDB ( "
+            SELECT component_id, component_player, component_x, component_y,
+            component_orientation
+            FROM component WHERE component_id = $component_id and component_x > 0");
+    }
+
 
     function newTile($id, $pl=Null, $x=Null, $y=Null, $o=Null) {
         $tile = array('component_id' => $id );

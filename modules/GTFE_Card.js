@@ -137,7 +137,7 @@ class GTFE_Card {
 
     }
 
-    /// ################# PLANET #########################
+    /// ################# GOODS #########################
     placeGoods(cardType, planetIdx) {
         let game = this.game;
         if (cardType['type'] == 'planets') {
@@ -172,17 +172,11 @@ class GTFE_Card {
         });
 
         // activate all tiles for clicking
-        // add cargo or hazard class to all cargo tiles - those are the activatable ones
-        for (let tile of dojo.query('.tile', 'my_ship')) {
-            let id = tile.id.split('_')[1];
-            let type = this.game.tiles[id]['type']; 
-            if (type != 'cargo' && type != 'hazard')
-                continue;
-            dojo.addClass(tile, type);
+        this.game.newGTFE_Ship().cargoTiles().forEach( tile => {
             dojo.addClass(tile, 'available');
             dojo.connect(tile, 'onclick', 
                 dojo.partial(this.onSelectTile_PlaceGoods, this));
-        }  
+        });
 
         // activate Air Lock for clicks
         dojo.addClass('trash_box', 'available');
@@ -238,11 +232,11 @@ class GTFE_Card {
         // Class of content on tile is of form pXonY where Y is hold of tile
         let i = 1;
         for (let good of goodsToPlace) {
+            game.slideToDomNode(good, nodeId, 500, 100*i);
             dojo.removeClass(good, this_card.ALL_PLANET_GOODS_CLASSES);
             dojo.removeClass(good, this_card.ALL_TRASH_GOODS_CLASSES);
             dojo.removeClass(good, tileObj.ALL_TILE_CONTENT_CLASSES);
             dojo.addClass(good, tileObj.getEmptyContentClass());
-            game.slideToDomNode(good, nodeId, 500, 100*i);
             i += 1;
         }
 
@@ -259,7 +253,7 @@ class GTFE_Card {
         if (goodsToPlace.length == 0)
             return;
 
-        let bogus_tile = game.newGTFE_Tile(1); // for static function calls
+        let bogus_tile = game.newGTFE_Tile('1'); // for static function calls
         console.log("TILE CONTENT", bogus_tile.ALL_TILE_CONTENT_CLASSES);
 
         let idx = 1;
@@ -268,10 +262,10 @@ class GTFE_Card {
         console.log("idx in trash", goodsInTrash);
         for (let good of goodsToPlace) {
             dojo.removeClass(good, 'selected');
+            game.slideToDomNode(good, nodeId, 500, delayCtr * 100);
             dojo.removeClass(good, this_card.ALL_PLANET_GOODS_CLASSES);
             dojo.removeClass(good, bogus_tile.ALL_TILE_CONTENT_CLASSES);
             dojo.removeClass(good, this_card.ALL_TRASH_GOODS_CLASSES);
-            game.slideToDomNode(good, nodeId, 500, delayCtr * 100);
             delayCtr += 1;
 
             // find next available spot in the trash
@@ -293,6 +287,57 @@ class GTFE_Card {
 
             console.log("placing good", i, good);
             dojo.addClass(good, tgt_class); 
+        }
+    }
+
+    onValidateChooseCargo() {
+        // find all cargo on my_ship
+        // validate red on hazard and no more than hold on each tile
+        // return content and tiles for the ajax
+        let cargo = {}; 
+        this.game.newGTFE_Ship().cargoTiles().forEach( tile => {
+            let tileObj = this.game.newGTFE_Tile(tile.id);
+            let goods = tileObj.queryGoods();
+            
+            // Some basic checks which should never happen and will be repeated on the back-end
+            // These are superfluous but could catch a client-side error
+            if (goods.length > tileObj.hold) {
+                game.showMessage(_("Not enough cargo space on tile " + tileObj.id), "error");
+                return;
+            }
+
+            // red cargo must go on hazard cargo holds
+            if (goods.filter( node => dojo.hasClass(node, "red")).length > 0 
+                && tileObj.type != 'hazard')
+            {
+                game.showMessage(_("Red goods must go on hazardous cargo hold, tile " . tileObj.id), "error");
+                return;
+            }
+            
+            cargo[tile.id] = goods.map( x => x.id );
+        });
+        return cargo;
+    }
+
+    notif_chooseCargo(args) {
+        // TODO: implement
+        // active player doesn't need much animated -> just place the 
+        // other players needs goods flying from card, to trash, and on player's ship
+
+        // TODO: make these args
+        args.movedTileContent; // tileid => array(content_ids: int)
+        args.deleteContent; // content_ids
+        args.newTileContent; // tileid => array(contentids: int)
+
+        if (this.game.isCurrentPlayerActive()) {
+            // add newTileContent
+            // delete deleteContent --> use slideToObjectAndDestroy, "current_card"
+            // nothing to animate 
+        }
+        else {
+            // delete deleteContent --> use slideToObjectAndDestroy, "current_card"
+            // add newTileContent
+            // slide newTileContent and movedTileContent to respective tiles
         }
     }
 

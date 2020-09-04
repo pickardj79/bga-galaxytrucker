@@ -367,18 +367,29 @@ class GalaxyTrucker extends Table {
     return self::getCollectionFromDB( "SELECT * FROM content WHERE player_id=$plId" );
   }
 
-  function newPlayerBoard( $player_id, $plBoard=null ) {
+  function newPlayerBoard( int $player_id, $plBoard=null ) {
     if ( $plBoard )
       return new GT_PlayerBoard($this, $plBoard, $player_id);
     else
       return new GT_PlayerBoard($this, self::getPlayerBoard($player_id), $player_id);
   }
 
-  function newPlayerContent( $player_id, $plContent=null ) {
+  function newPlayerContent( int $player_id, $plContent=null ) {
     if ($plContent )
       return new GT_PlayerContent($this, $plContent, $player_id );
     else
       return new GT_PlayerContent($this, self::getPlContent($player_id), $player_id );
+  }
+
+  function getTileType(int $id) {
+      return $this->tiles[ $id ]['type'];
+  }
+
+  function getTileHold(int $id) {
+        $tile = $this->tiles[ $id ];
+        if (array_key_exists('hold', $tile))
+            return $tile['hold'];
+        return $this->tileHoldCnt[$this->getTileType($id)];
   }
 
   function resetUndoPossible( $plId, $action="" ) {
@@ -1096,12 +1107,20 @@ class GalaxyTrucker extends Table {
 
   function planetChoice( $choice ) {
       self::checkAction('planetChoice');
-      self::dump_var("Action planetChoice ", $choice);
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $nextState = GT_ActionsCard::planetChoice($this, $plId, $cardId, $choice);
 
       $this->gamestate->nextState( $nextState ); 
+  }
+
+  function chooseCargo( $goodsOnTile ) {
+      self::checkAction('cargoChoice');
+      self::dump_var("Action planetChoice ", $goodsOnTile);
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      GT_ActionsCard::chooseCargo($this, $plId, $cardId, $goodsOnTile);
+      // $this->gamestate->nextState('cargoChoicePlanet');
   }
 
   function goOn( ) {
