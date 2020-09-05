@@ -1114,13 +1114,13 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( $nextState ); 
   }
 
-  function chooseCargo( $goodsOnTile ) {
+  function cargoChoice( $goodsOnTile ) {
       self::checkAction('cargoChoice');
       self::dump_var("Action planetChoice ", $goodsOnTile);
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
-      GT_ActionsCard::chooseCargo($this, $plId, $cardId, $goodsOnTile);
-      // $this->gamestate->nextState('cargoChoicePlanet');
+      GT_ActionsCard::cargoChoice($this, $plId, $cardId, $goodsOnTile);
+      $this->gamestate->nextState('cargoChoicePlanet');
   }
 
   function goOn( ) {
@@ -1497,7 +1497,6 @@ class GalaxyTrucker extends Table {
 
   // ########### CARD-BASED STATES ############## 
   function stDrawCard() {
-      GT_DBPlayer::clearCardProgress($this);
       $nextState = GT_StatesCard::stDrawCard($this);
       $this->gamestate->nextState( $nextState );
   }

@@ -22,8 +22,9 @@ define([
   "ebg/zone",
   "ebg/stock",
   g_gamethemeurl + "modules/GTFE_Card.js",
+  g_gamethemeurl + "modules/GTFE_Goods.js",
+  g_gamethemeurl + "modules/GTFE_Ship.js",
   g_gamethemeurl + "modules/GTFE_Tile.js",
-  g_gamethemeurl + "modules/GTFE_Ship.js"
 ],
 function (dojo, declare) {
   return declare("bgagame.galaxytrucker", ebg.core.gamegui, {
@@ -33,6 +34,7 @@ function (dojo, declare) {
       // Example:
       // this.myGlobalValue = 0;
 
+      this.PLANET_PREFIX = 'planet';
       // ship coordinates definition: the first index is the ship class, and in each ship
       // class array the indexes are the row numbers ships coordinates definition for x must
       // begin at 3, i.e. the first digit on each line corresponds to column no3 of ship board
@@ -450,8 +452,8 @@ function (dojo, declare) {
             if ( this.isCurrentPlayerActive() ) {
                 dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                dojo.style( 'trash_box', 'display', 'block' );
-                this.card.placeGoods(args.args.cardType, args.args.planetIdx);
+                let goods = new GTFE_Goods(this);
+                goods.placeGoods(args.args.cardType, args.args.planetIdx);
             }
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
@@ -520,8 +522,10 @@ function (dojo, declare) {
             }
             break;
         case 'choosePlanet':
+            this.card.onLeavingChoosePlanet
         case 'placeGoods':
-            this.card.onLeavingPlanets();
+            let goods = new GTFE_Goods(this);
+            goods.onLeavingPlaceGoods();
             break;
         case 'dummmy':
             break;
@@ -1366,7 +1370,8 @@ function (dojo, declare) {
         if (!this.checkAction('cargoChoice'))
             return;
 
-        var goodsOnTile = this.card.onValidateChooseCargo();
+        let goods = new GTFE_Goods(this);
+        var goodsOnTile = goods.onValidateChooseCargo();
         console.log("onValidateChooseCargo response", goodsOnTile);
         this.ajaxAction( 'cargoChoice', 
             {goodsOnTile: this.objToAjax(goodsOnTile)} );
@@ -1432,7 +1437,7 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'loseContent', 1500 );
         dojo.subscribe( 'planetChoice', this, "notif_planetChoice");
         this.notifqueue.setSynchronous( 'planetChoice', 1000 );
-        dojo.subscribe( 'chooseCargo', this, "notif_chooseCargo");
+        dojo.subscribe( 'cargoChoice', this, "notif_cargoChoice");
 
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
@@ -1836,9 +1841,10 @@ function (dojo, declare) {
         this.card.notif_planetChoice(notif.args);
     },
 
-    notif_chooseCargo: function(notif) {
-        console.log("notif_chooseCargo", notif.args);
-        this.card.notif_chooseCargo(notif.args);
+    notif_cargoChoice: function(notif) {
+        console.log("notif_cargoChoice", notif.args);
+        let goods = new GTFE_Goods(this);
+        goods.notif_cargoChoice(notif.args);
     },
 
     notif_newRound: function( notif ) {

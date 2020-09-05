@@ -10,6 +10,8 @@ class GT_StatesCard extends APP_GameClass {
 
     function stDrawCard($game) {
 
+        GT_DBPlayer::clearCardProgress($game);
+
         $cardOrderInFlight = $game->getGameStateValue( 'cardOrderInFlight' );
         $cardOrderInFlight++;
         $game->setGameStateValue( 'cardOrderInFlight', $cardOrderInFlight );
@@ -102,7 +104,7 @@ class GT_StatesCard extends APP_GameClass {
         return $nextState;
     }
 
-    function stAbandoned() {
+    function stAbandoned($game) {
         $nextState = "nextCard"; // Will be changed to exploreAbandoned  if someone
                                   // has a big enough crew
         $cardId = $game->getGameStateValue( 'currentCard' );
@@ -143,6 +145,20 @@ class GT_StatesCard extends APP_GameClass {
             break; 
         }
   
+        // No one else to choose - move all ships based on card, furthest back first
+        if ($nextState == "nextCard") {
+            $players = GT_DBPlayer::getPlayersInFlight($game, 'AND card_action_choice > 0', $order='ASC');
+            $nbDays = -($game->card[$cardId]['days_loss']);
+            foreach ($players as $plId => $player) {
+                $newPlPos = $game->moveShip( $plId, $nbDays, $players );
+                if ( $newPlPos !== null ) {
+                    //update this player's position so that it is taken into account if other
+                    // ships move in the same action
+                    $players[$plId]['player_position'] = $newPlPos;
+                }
+            }
+        }
+
         return $nextState;
     }
 

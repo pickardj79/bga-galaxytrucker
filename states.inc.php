@@ -329,7 +329,7 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPlaceGoods",
         "possibleactions" => array( "cargoChoice" ),
-        "transitions" => array( "cargoChoicePlanet" => STATE_CHOOSE_PLANET )
+        "transitions" => array( "cargoChoicePlanet" => STATE_PLANETS)
     ),
 
 //    40 => array(

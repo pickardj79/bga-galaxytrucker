@@ -54,10 +54,6 @@ class GT_DBCard extends APP_GameClass {
         return $game->getCollectionFromDB("SELECT card_action_choice, player_id player_id FROM player");
     }
 
-    function setActionChoice($game, $plId, $choice) {
-        $game->DbQuery("UPDATE player set card_action_choice = $choice 
-                                    WHERE player_id = $plId");
-    }
 }
 
 ?>

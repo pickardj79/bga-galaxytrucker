@@ -141,7 +141,7 @@ class GT_ActionsCard extends APP_GameClass {
             $game->throw_bug_report("Planet choice ($choice) already chosen", $chosenIdx);
 
         // Update DB, front-end, move state to placeGoods
-        GT_DBCard::setActionChoice($game, $plId, $choice);
+        GT_DBPlayer::setCardChoice($game, $plId, $choice);
         $game->notifyAllPlayers( "planetChoice",
             clienttranslate( '${player_name} choses planet number ${planetId}'),
             array ( 'player_name' => $player['player_name'],
@@ -153,7 +153,7 @@ class GT_ActionsCard extends APP_GameClass {
         return 'placeGoods';
     }
 
-    function chooseCargo( $game, $plId, $cardId, $goodsOnTile ) {
+    function cargoChoice( $game, $plId, $cardId, $goodsOnTile ) {
         $player = GT_DBPlayer::getPlayer($game, $plId);
         $plyrContent = $game->newPlayerContent($plId);
 
@@ -213,8 +213,10 @@ class GT_ActionsCard extends APP_GameClass {
         // Do a final consistency check/validation on the database 
         $game->newPlayerContent($plId)->checkAll($game->newPlayerBoard($plId));
 
+        GT_DBPlayer::setCardDone($game, $plId);
+
         // notifyAllPlayers
-        $game->notifyAllPlayers('chooseCargo',
+        $game->notifyAllPlayers('cargoChoice',
             clienttranslate( '${player_name} places cargo from planet number ${planet_number}'),
             array( 'player_name' => $player['player_name'],
                 'planet_number' => $player['card_action_choice'],
