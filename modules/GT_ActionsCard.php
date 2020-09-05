@@ -188,23 +188,18 @@ class GT_ActionsCard extends APP_GameClass {
                 else {
                     $id = explode("_", $goodId)[1];
                     $movedGoodsIds[] = $id;
-                    unset($unseenContent[$id]);
                 }
             }
             $tileId = explode("_", $tile)[1];
-            if ($movedGoodsIds)
-                $plyrContent->moveContent($tileId, 'goods', $movedGoodsIds);
-            if ($newGoods)
-                $newGoodsIds = $plyrContent->newContent($tileId, 'goods', null, $newGoods);
-            
+
+            $movedGoods = $plyrContent->moveContent($tileId, 'goods', $movedGoodsIds);
+            $newGoods = $plyrContent->newContent($tileId, 'goods', null, $newGoods);
+
             $allMovedGoodsIds = array_merge($allMovedGoodsIds, $movedGoodsIds);
 
             // prep args to send back to front-end
-            $movedTileContent[$tile] = $movedGoodsIds;
-            $newTileContent[$tile] = array_map(
-                function($id) { return 'content_' . $id; },
-                $newGoodsIds
-            );
+            $movedTileContent[$tileId] = $movedGoods;
+            $newTileContent[$tileId] = $newGoods;
         }
 
         // remove existing goods not "moved". They went to the trash
@@ -219,14 +214,13 @@ class GT_ActionsCard extends APP_GameClass {
         $game->newPlayerContent($plId)->checkAll($game->newPlayerBoard($plId));
 
         // notifyAllPlayers
-        // send goodsOnTile ($tileId -> $goodId), $toDel(array($goodId)) 
         $game->notifyAllPlayers('chooseCargo',
             clienttranslate( '${player_name} places cargo from planet number ${planet_number}'),
             array( 'player_name' => $player['player_name'],
                 'planet_number' => $player['card_action_choice'],
                 'movedTileContent' => $movedTileContent,
                 'newTileContent' => $newTileContent,
-                'deleteContent' => $toDel
+                'deleteContent' => array_values($toDel),
             )
         );
     }

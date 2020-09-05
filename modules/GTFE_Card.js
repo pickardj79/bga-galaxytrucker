@@ -86,13 +86,9 @@ class GTFE_Card {
         // Deselect this planet if it's already selected
         if (dojo.hasClass(id, 'selected'))
             dojo.removeClass(id, 'selected');
-        // If this element is available, select it, deselected all others
+        // If this element is available, select it, deselect all others
         else {
-            dojo.query('.selected', 'current_card').forEach(
-                dojo.hitch(this.game, (node) => {
-                    dojo.removeClass(node, 'selected')
-                })
-            );
+            dojo.query('.selected', 'current_card').removeClass('selected');
             dojo.addClass(id, 'selected');
         }
     }
@@ -137,6 +133,25 @@ class GTFE_Card {
 
     }
 
+    onLeavingPlanets() {
+        console.log("ON LEAVING PLANETS");
+        // // remove all classes, onClicks, and extraneous markers
+        // dojo.query('.selected').removeClass('selected');
+        // dojo.query('.available').forEach( n=> {
+        //     dojo.disconnect(n, 'onclick');
+        //     removeClass(n, 'available');
+        // });
+
+        // // onclick should be removed by .available query above, but just in case
+        // dojo.query('.planet').forEach( n => dojo.disconnect(n, 'onclick') );
+        // dojo.query('.tile').forEach( n => dojo.disconnect(n, 'onclick') );
+        // dojo.query('.content').forEach( n => dojo.disconnect(n, 'onclick') );
+
+        // // clean up markers needed for this card
+        // dojo.query('.planet_goods').forEach( n => dojo.destroy(n) );
+        // dojo.query('.ship_marker', 'current_card').forEach( n => dojo.destroy(n) );
+    }
+
     /// ################# GOODS #########################
     placeGoods(cardType, planetIdx) {
         let game = this.game;
@@ -148,7 +163,7 @@ class GTFE_Card {
             for (let type of cardType['planets'][planetIdx]) {
                 dojo.place( game.format_block( 'jstpl_content', {
                     content_id: "planetcargo_" + planetIdx + "_" + goodsIdx,
-                    classes: 'goods planet_goods_' + goodsIdx + " " + type,
+                    classes: 'goods planet_goods planet_goods_' + goodsIdx + " " + type,
                 } ), game.makePartId(this.PLANET_PREFIX, planetIdx) ); 
                 goodsIdx += 1;
             }
@@ -199,7 +214,7 @@ class GTFE_Card {
         let game = this_card.game;
         let nodeId = evt.currentTarget.id;
         
-        // This could be a click on goods
+        // This could be a click on goods, we only want tile clicks
         if (!nodeId.startsWith('tile_'))
             return;
 
@@ -232,11 +247,9 @@ class GTFE_Card {
         // Class of content on tile is of form pXonY where Y is hold of tile
         let i = 1;
         for (let good of goodsToPlace) {
-            game.slideToDomNode(good, nodeId, 500, 100*i);
+            tileObj.slideContent(good, null, 500, 100*i);
             dojo.removeClass(good, this_card.ALL_PLANET_GOODS_CLASSES);
             dojo.removeClass(good, this_card.ALL_TRASH_GOODS_CLASSES);
-            dojo.removeClass(good, tileObj.ALL_TILE_CONTENT_CLASSES);
-            dojo.addClass(good, tileObj.getEmptyContentClass());
             i += 1;
         }
 
@@ -302,7 +315,7 @@ class GTFE_Card {
             // Some basic checks which should never happen and will be repeated on the back-end
             // These are superfluous but could catch a client-side error
             if (goods.length > tileObj.hold) {
-                game.showMessage(_("Not enough cargo space on tile " + tileObj.id), "error");
+                this.game.showMessage(_("Not enough cargo space on tile " + tileObj.id), "error");
                 return;
             }
 
@@ -310,7 +323,7 @@ class GTFE_Card {
             if (goods.filter( node => dojo.hasClass(node, "red")).length > 0 
                 && tileObj.type != 'hazard')
             {
-                game.showMessage(_("Red goods must go on hazardous cargo hold, tile " . tileObj.id), "error");
+                this.game.showMessage(_("Red goods must go on hazardous cargo hold, tile " . tileObj.id), "error");
                 return;
             }
             
@@ -320,25 +333,31 @@ class GTFE_Card {
     }
 
     notif_chooseCargo(args) {
-        // TODO: implement
-        // active player doesn't need much animated -> just place the 
-        // other players needs goods flying from card, to trash, and on player's ship
+        // Note - animations are mostly done for active player
 
-        // TODO: make these args
-        args.movedTileContent; // tileid => array(content_ids: int)
-        args.deleteContent; // content_ids
-        args.newTileContent; // tileid => array(contentids: int)
+        // Deletes (array[content_ids: int])
+        let toCard = !this.game.isCurrentPlayerActive();
+        for (let id of args.deleteContent)
+            this.game.newGTFE_Tile(1).loseContent({"id":id}, toCard);
 
-        if (this.game.isCurrentPlayerActive()) {
-            // add newTileContent
-            // delete deleteContent --> use slideToObjectAndDestroy, "current_card"
-            // nothing to animate 
+        // New Content (tileId: [{cont1},{cont2}])
+        let slideFrom = this.game.isCurrentPlayerActive() ? null : 'current_card';
+        for (let [tileId, allContent] of Object.entries(args.newTileContent)) {
+            let tile = this.game.newGTFE_Tile(tileId);
+            for (let cont of allContent) {
+                tile.placeContent(cont, slideFrom);
+            }
         }
-        else {
-            // delete deleteContent --> use slideToObjectAndDestroy, "current_card"
-            // add newTileContent
-            // slide newTileContent and movedTileContent to respective tiles
+
+        // Moved Content (tileId: [{cont1},{cont2}])
+        for (let [tileId, allContent] of Object.entries(args.movedTileContent)) {
+            let tile = this.game.newGTFE_Tile(tileId);
+            for (let cont of allContent) {
+                tile.slideContent('content_' + cont.content_id, cont.place);
+            }
         }
+
+        dojo.query('.')
     }
 
 }

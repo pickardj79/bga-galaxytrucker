@@ -279,19 +279,20 @@ function (dojo, declare) {
             }
         }
 
+        // Save gamedatas to this for future use
+        this.players = gamedatas.players;
+        this.tiles = gamedatas.tiles;
+
         this.ship = new GTFE_Ship(this);
 
-        for( var i in gamedatas.content )
-            this.ship.placeContent ( gamedatas.content[i] );
+        for( var i in gamedatas.content ) {
+            tile = new GTFE_Tile(this, gamedatas.content[i].tile_id);
+            tile.placeContent(gamedatas.content[i]);
+        }
 
         this.card = new GTFE_Card(this, gamedatas.currentCard).setupImage();
 
         this.addTooltip( 'sandTimer', '', _('Click here to flip the timer when it is finished.') );
-
-        // Save gamedatas to this for future use
-        this.players = gamedatas.players;
-        this.tiles = gamedatas.tiles;
-        this.tilesCargo = this.tiles.filter( t => t['type'] == 'cargo' || t['type'] == 'hazard');
         
         // Setup game notifications to handle (see "setupNotifications" method below)
         this.setupNotifications();
@@ -517,6 +518,10 @@ function (dojo, declare) {
                               dojo.removeClass( node, 'selected');
                               } ) );
             }
+            break;
+        case 'choosePlanet':
+        case 'placeGoods':
+            this.card.onLeavingPlanets();
             break;
         case 'dummmy':
             break;
@@ -1798,7 +1803,8 @@ function (dojo, declare) {
         }
 
         for ( var i in notif.args.ship_content_update ) {
-            this.ship.placeContent( notif.args.ship_content_update[i] );
+            tile = new GTFE_Tile(this, notif.args.ship_content_update[i].tile_id);
+            tile.placeContent(notif.args.ship_content_update[i]);
         }
     },
 
@@ -1820,39 +1826,8 @@ function (dojo, declare) {
           dojo.query('.selected', 'my_ship').removeClass('selected');
       }
       for ( var i in notif.args.content ) {
-        var cont = notif.args.content[i];
-        dojo.style( cont.divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
-        if ( cont.toCard ) {
-            this.slideToObjectAndDestroy( cont.divId, "current_card", 500, i*200 );
-        }
-        else {
-            switch ( cont.orient ) {
-              case '90':
-                var top = "-100";
-                var left = "400";
-                break;
-              case '180':
-                var top = "-400";
-                var left = "-100";
-                break;
-              case '270':
-                var top = "100";
-                var left = "-400";
-                break;
-              case '0':
-              default:
-                var top = "400";
-                var left = "100";
-                break;
-            }
-            var anim = dojo.fx.combine([
-                dojo.fx.slideTo({ node:cont.divId, left:left, top:top,
-                                  units:"px", duration: 1700, delay:i*200 }),
-                dojo.fadeOut({ node:cont.divId, duration: 1700, delay:i*200 })
-            ]);
-            dojo.connect( anim, "onEnd", function(){  dojo.destroy( cont.divId ); } );
-            anim.play();
-        }
+          tile = new GTFE_Tile(this, notif.args.content[i].tile_id);
+          tile.loseContent(notif.args.content[i]);
       }
     },
 

@@ -176,6 +176,7 @@ class GT_GameState {
             array_push($tiles, $cargo);
             array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above that
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
+            array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
             array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));
         }
         else if ($variant == 2) {

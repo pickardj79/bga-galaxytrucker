@@ -37,7 +37,7 @@ class GT_PlayerContent extends APP_GameClass {
             // check tile_id/place is unique
             $tile_place = $cont['tile_id'] . "_" . $cont['place'];
             if (array_key_exists($tile_place, $tilePlaces))
-                $this->game->throw_bug_report_dump("Place used multiple times on tile (tile_place $tile_place)");
+                $this->game->throw_bug_report("Place used multiple times on tile (tile_place $tile_place)");
             else
                 $tilePlaces[$tile_place] = 1;
         }
@@ -149,6 +149,7 @@ class GT_PlayerContent extends APP_GameClass {
             $capacity = $this->game->getTileHold($tileId);
             $place = $this->nextPlace($tileId);
             $rows[] = array(
+                "content_id" => $id,
                 "tile_id" => $tileId,
                 "square_x" => $tile['component_x'], 
                 "square_y" => $tile['component_y'],
@@ -161,9 +162,12 @@ class GT_PlayerContent extends APP_GameClass {
             $this->plContent[$id]['place'] = $place;
             $this->plContent[$id]['capacity'] = $capacity;
         }
-        $sql = GT_DBContent::insertContentSql($rows);
-        $this->game->log("moving content with $sql");
-        $this->game->DbQuery($sql);
+        if ($rows) {
+            $sql = GT_DBContent::insertContentSql($rows);
+            $this->game->log("moving content with $sql");
+            $this->game->DbQuery($sql);
+        }
+        return $rows;
     }
 
     function newContent($tileId, $type, $cnt, $subtypes) {
@@ -175,7 +179,7 @@ class GT_PlayerContent extends APP_GameClass {
         
         $tile = GT_DBComponent::getActiveComponent($this->game, $tileId);
 
-        $newIds = array();
+        $newContent = array();
         foreach ($subtypes as $subtype) {
             $place = $this->nextPlace($tileId);
             $content = array(
@@ -194,11 +198,11 @@ class GT_PlayerContent extends APP_GameClass {
             $this->game->DbQuery($sql);
             $id = $this->game->DbGetLastId();
             $content['content_id'] = $id;
-            $newIds[] = $id;
+            $newContent[] = $content;
             $this->plContent[$id] = $content;
         }
 
-        return $newIds;
+        return $newContent;
     }
 
     function loseContent($ids, $expType, $toCard) {
@@ -212,7 +216,7 @@ class GT_PlayerContent extends APP_GameClass {
             $curCont = $this->plContent[$id];
             $tileId = $curCont['tile_id'];
             $contentLost[] = array ( 'orient' => $tileOrient[$tileId],
-                            'divId' => 'content_'.$id,
+                            'id' => $id,
                             'toCard' => $toCard);
             $type = $curCont['content_subtype'] 
                 ? $curCont['content_subtype'] : $curCont['content_type'];
