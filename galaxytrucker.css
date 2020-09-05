@@ -269,6 +269,13 @@ html {
     display: inline-block;
     margin: 20px;
 }
+#trash_box {
+    display: none;
+    position: relative;
+    width: 165px;
+    height: 60px;
+    margin: 10px;
+}
 
 #pile {
     display: none;
@@ -403,12 +410,13 @@ html {
 .content {
     background-image: url('img/content.png');
 }
-.square .content {
-    position: absolute;
+.content.goods {
+    background-image: url('img/30_30_wooden_cubes.png')
 }
-.log .content {
-    display: inline-block;
-}
+.square .content { position: absolute; }
+.planet .content { position: absolute; }
+#trash_box .content { position: absolute; }
+.log .content { display: inline-block; }
 
 .notouch-device .content.available:hover,
 .notouch-device .content.selected:hover {
@@ -432,6 +440,19 @@ html {
 .square .cell {
     top: 18px;
 }
+.goods {
+    width: 29px;
+    height: 29px;
+    transform: scale(.47);
+    -ms-transform: scale(.47);
+    -webkit-transform: scale(.47);
+    -moz-transform: scale(.47);
+    -o-transform: scale(.47);
+}
+.goods.blue { background-position: -29px 0px; }
+.goods.red { background-position: -59px 0px; }
+.goods.yellow { background-position: -89px 0px; }
+.goods.green { background-position: -119px 0px; }
 .human {
     width: 15px;
     height: 20px;
@@ -502,11 +523,57 @@ html {
 .cell.p1on3 { left: 10px; }
 .cell.p2on3 { left: 20px; }
 .cell.p3on3 { left: 30px; }
+.goods.p1on1 { left: 10px; top: 7px; }
+.goods.p1on2 { left: 10px; top: 2px; }
+.goods.p2on2 { left: 10px; top: 19px; }
+.goods.p1on3 { left: 10px; top: 2px; } /* not tested */
+.goods.p2on3 { left: 10px; top: 7px; } /* not tested */
+.goods.p3on3 { left: 10px; top: 12px; } /* not tested */
+.goods.trash_1 { left: 0px; }
+.goods.trash_2 { left: 20px; }
+.goods.trash_3 { left: 40px; }
+.goods.trash_4 { left: 60px; }
+.goods.trash_5 { left: 80px; }
+.goods.trash_6 { left: 100px; }
+.goods.trash_7 { left: 120px; }
+.goods.trash_8 { left: 140px; }
+.goods.trash_9 { left: 160px; }
+.planet_goods_1 { left: 35px; top: 3px }
+.planet_goods_2 { left: 57px; top: 3px }
+.planet_goods_3 { left: 78px; top: 3px }
+.planet_goods_4 { left: 100px; top: 3px }
+.planet_goods_5 { left: 121px; top: 3px }
 .human.p1on2 { left: 10px; }
 .human.p2on2 { left: 25px; }
 .alien_choice.p1on3 { left: 4px; } /* on3: includes human_choice */
 .alien_choice.p2on3 { left: 27px; }
 .alien_choice.p1on2 { left: 14px; }
+
+.planet {
+    position: absolute;
+}
+
+.planet.available{
+    width: 38px;
+    height: 38px;
+    -webkit-border-radius: 20px;
+    -moz-border-radius: 20px;
+    border-radius: 20px;
+    border: 2px solid red;
+}
+.planet.available:hover{
+    cursor: pointer;
+    border-color: yellow;
+}
+.planet.available.selected{
+    cursor: pointer;
+    border-color: blueviolet;
+}
+.ship_marker {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+}
 
 .opponent {
     width: 223px;

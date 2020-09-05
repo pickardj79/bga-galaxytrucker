@@ -88,6 +88,7 @@ ALTER TABLE `player` ADD `min_cann_x2` TINYINT unsigned DEFAULT NULL;
 ALTER TABLE `player` ADD `max_cann_x2` TINYINT unsigned DEFAULT NULL;
 -- Multiplied by 2 in order to avoid float imprecision when comparing
 ALTER TABLE `player` ADD `card_line_done` TINYINT unsigned NOT NULL DEFAULT 0;
+ALTER TABLE `player` ADD `card_action_choice` TINYINT unsigned NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS `content` (
   `content_id` SMALLINT unsigned NOT NULL AUTO_INCREMENT,

@@ -67,10 +67,29 @@ $this->flightVariant = array (
 $this->orient = array( 0 => 'n', 90 => 'e', 180 => 's', 270 => 'w');
 $this->start_tiles = array( 31 => "0000ff", 32 => "008000", 33 => "ffff00", 34 => "ff0000" );
 
+// Map tile types to the types of content they can hold
+$this->tileHoldTypes = array(
+    'battery' => 'cell',
+    'cargo' => 'goods',
+    'hazard' => 'goods',
+    'crew' => 'crew',
+    'brown' => 'crew',
+    'purple' => 'crew'
+);
+
+// For tiles without an explict hold, define how much they hold
+$this->tileHoldCnt = array(
+    'crew' => 2,
+    'brown' => 1,
+    'purple' => 1,
+    'structure' => 0,
+    'shield' => 0,
+);
+
 $this->tiles = array();
 for( $i=1 ; $i<=144 ; $i++)
   {
-    $this->tiles[$i] = array();
+    $this->tiles[$i] = array('id' => $i);
     /* $this->tiles[$i]['e'] = 0; */
     /* $this->tiles[$i]['w'] = 0; */
     /* $this->tiles[$i]['s'] = 0; */
@@ -138,6 +157,7 @@ $this->tiles[109]['type'] = 'crew';
 $this->tiles[110]['type'] = 'structure';
 $this->tiles[111]['type'] = 'structure';
 $this->tiles[112]['type'] = 'hazard';
+$this->tiles[112]['hold'] = 1;
 $this->tiles[113]['type'] = 'engine';
 $this->tiles[113]['hold'] = 1;
 $this->tiles[114]['type'] = 'purple';
@@ -403,72 +423,36 @@ $this->card = array (
                 'id' => 11,
                 'type' => 'planets',
                 'planets' => array ( 
-                       1 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       2 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       3 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       4 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
+                       1 => array ('red', 'green', 'blue', 'blue', 'blue'),
+                       2 => array ('red','yellow','blue'),
+                       3 => array ('red','blue','blue','blue'),
+                       4 => array ('red','green')
                        ),
                 'days_loss' => 3, ),
   12 => array ( 'round' => 1,
                 'id' => 12,
                 'type' => 'planets',
                 'planets' => array ( 
-                       1 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       2 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       3 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
+                       1 => array ('red','red'),
+                       2 => array ('red','blue','blue'),
+                       3 => array ('yellow'), 
                        ),
                 'days_loss' => 2, ),
   13 => array ( 'round' => 1,
                 'id' => 13,
                 'type' => 'planets',
                 'planets' => array ( 
-                       1 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       2 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
+                       1 => array ('yellow','green','blue','blue'),
+                       2 => array ('yellow','yellow')
                        ),
                 'days_loss' => 3, ),
   14 => array ( 'round' => 1,
                 'id' => 14,
                 'type' => 'planets',
                 'planets' => array ( 
-                       1 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       2 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
-                       3 => array ( 'red' => 1,
-                                   'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1 ),
+                       1 => array ('green','green'),
+                       2 => array ('yellow'),
+                       3 => array ('blue','blue','blue')
                        ),
                 'days_loss' => 2, ),
   15 => array ( 'round' => 1,
@@ -547,16 +531,40 @@ $this->card = array (
                 'type' => 'meteoric', ),
   31 => array ( 'round' => 2,
                 'id' => 31,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('red', 'red', 'red', 'yellow'),
+                       2 => array ('red', 'red', 'green', 'green'),
+                       3 => array ('red', 'blue', 'blue', 'blue','blue'),
+                       ),
+                'days_loss' => 4, ),
   32 => array ( 'round' => 2,
                 'id' => 32,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('red', 'red'),
+                       2 => array ('green', 'green', 'green', 'green'),
+                       ),
+                'days_loss' => 3, ),
   33 => array ( 'round' => 2,
                 'id' => 33,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('red', 'yellow'),
+                       2 => array ('yellow', 'green', 'blue'),
+                       3 => array ('green', 'green'),
+                       4 => array ('yellow'),
+                       ),
+                'days_loss' => 2, ),
   34 => array ( 'round' => 2,
                 'id' => 34,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('green', 'green', 'green', 'green'),
+                       2 => array ('yellow', 'yellow'),
+                       3 => array ('blue', 'blue'),
+                       ),
+                'days_loss' => 3, ),
   35 => array ( 'round' => 2,
                 'id' => 35,
                 'type' => 'combatzone', ),
@@ -621,16 +629,40 @@ $this->card = array (
                 'type' => 'meteoric', ),
   51 => array ( 'round' => 3,
                 'id' => 51,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('yellow', 'yellow','yellow','yellow','yellow'),
+                       2 => array ('red', 'yellow','yellow'),
+                       3 => array ('red', 'red'),
+                       ),
+                'days_loss' => 5, ),
   52 => array ( 'round' => 3,
                  'id' => 52,
-                 'type' => 'planets', ),
+                 'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('green','blue', 'blue', 'blue','blue'),
+                       2 => array ('yellow', 'blue'),
+                       ),
+                'days_loss' => 1, ),
   53 => array ( 'round' => 3,
                 'id' => 53,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('red', 'yellow', 'blue'),
+                       2 => array ('red', 'green','blue','blue'),
+                       3 => array ('red', 'blue','blue','blue','blue'),
+                       ),
+                'days_loss' => 2, ),
   54 => array ( 'round' => 3,
                 'id' => 54,
-                'type' => 'planets', ),
+                'type' => 'planets',
+                'planets' => array ( 
+                       1 => array ('red', 'red', 'red'),
+                       2 => array ('yellow', 'yellow', 'yellow'),
+                       3 => array ('green', 'green', 'green'),
+                       4 => array ('blue', 'blue','blue'),
+                       ),
+                'days_loss' => 3, ),
   55 => array ( 'round' => 3,
                 'id' => 55,
                 'type' => 'combatzone', ),

@@ -44,6 +44,7 @@
         $this->tpl['MY_SHIP'] = self::_("My ship");
         $this->tpl['CARDS'] = self::_("Round cards, timer and order tiles");
         $this->tpl['PILE'] = self::_("Components pile");
+        $this->tpl['AIR_LOCK'] = self::_("Air Lock (Trash)");
         //$this->tpl['FLIGHT'] = self::_("Flight board");
         $this->tpl['BUILD_MESSAGE'] = self::_("You can pick and place components, look at ".
                 "some cards, flip the timer if it is finished, or take an order tile (usually ".

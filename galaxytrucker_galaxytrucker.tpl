@@ -98,6 +98,7 @@
 
     <div id="info_box" class="darkblock"></div>
     <div id="current_card"></div>
+    <div id="trash_box" class="darkblock"><h3>{AIR_LOCK}</h3></div>
 
 
   </div>
@@ -124,9 +125,13 @@ var jstpl_square='<div class="square${cssClasses}" id="square_${plId}_${x}_${y}"
 var jstpl_overlay_tile='<div class="overlay_tile" id="overlaytile_${i}"></div>';
 var jstpl_rev_space='<div id="rev_space_${i}" class="rev_space additional"></div>';
 
+// generic circle - used for planet selection options
+var jstpl_circle='<div class="circle ${classes}" id="planet_${idx}" style="left:7px; top:${top}px;"></div>';
+
 var jstpl_order_tile='<div class="order_tile" id="order_tile_${i}"></div>';
 var jstpl_ord_tile_slot='<div class="order_tile_slot" id="ordTileSlotOnShip_${id}"></div>';
 var jstpl_ship_marker='<div class="ship_marker clr${color}" id="ship_marker_${plId}"></div>';
+var jstpl_card_marker='<div class="ship_marker clr${color}" id="card_marker_${plId}"></div>';
 
 var jstpl_content='<div class="content ${classes}" id="content_${content_id}"></div>';
 //var jstpl_cell='<div class="content cell ${posClass}" id="tile_${tile_id}_cell_${place}"></div>';
@@ -134,7 +139,7 @@ var jstpl_content='<div class="content ${classes}" id="content_${content_id}"></
 //var jstpl_human='<div class="content human ${posClass}" id="tile_${tile_id}_human_${place}"></div>';
 //var jstpl_alien='<div class="content alien ${al_color}" id="tile_${tile_id}_${al_color}""></div>'; // TODO change into crew? (common with human, but we must check if al_color in this id is useful)
 //var jstpl_alienChoice='<div class="content alien_choice ${al_color} ${posClass}" id="tile_${tile_id}_alChoice_${al_color}"></div>';
-// var jstpl_alienChoiceClickDiv='<div class="alien_choice_clickdiv" id="tile_${tile_id}_alChoiceClick_${al_color}"></div>';
+//var jstpl_alienChoiceClickDiv='<div class="alien_choice_clickdiv" id="tile_${tile_id}_alChoiceClick_${al_color}"></div>';
 //var jstpl_humanChoice='<div class="content human_choice" id="tile_${tile_id}_alChoice_human"></div>';
 
 var jstpl_plBoardItem=

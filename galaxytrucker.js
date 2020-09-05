@@ -20,7 +20,11 @@ define([
   "ebg/core/gamegui",
   "ebg/counter",
   "ebg/zone",
-  "ebg/stock"
+  "ebg/stock",
+  g_gamethemeurl + "modules/GTFE_Card.js",
+  g_gamethemeurl + "modules/GTFE_Goods.js",
+  g_gamethemeurl + "modules/GTFE_Ship.js",
+  g_gamethemeurl + "modules/GTFE_Tile.js",
 ],
 function (dojo, declare) {
   return declare("bgagame.galaxytrucker", ebg.core.gamegui, {
@@ -30,6 +34,7 @@ function (dojo, declare) {
       // Example:
       // this.myGlobalValue = 0;
 
+      this.PLANET_PREFIX = 'planet';
       // ship coordinates definition: the first index is the ship class, and in each ship
       // class array the indexes are the row numbers ships coordinates definition for x must
       // begin at 3, i.e. the first digit on each line corresponds to column no3 of ship board
@@ -88,6 +93,8 @@ function (dojo, declare) {
               "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>";
       this.chooseCrewInfoHtml = "<p><span id='curr_sel'>${curr}</span> / "+
               "<span id='needed_sel'>${needed}</span></p>";
+      this.choosePlanetInfoHtml = "<p><span id='curr_sel'>${curr}</span></p>";
+      this.blankInfoHtml = "<p><span id='curr_sel'></span></p>";
       this.noBuildMessage = false; // Set to true if a player doesn't want to see
                                     // the build message
       this.stateName = null; // Is updated in every onEnteringState
@@ -110,7 +117,6 @@ function (dojo, declare) {
                                           // connected in followMouse(), dojo.style sets the tile position
                                           // only when the mouse move, until which the tile is not visible)
       this.sandTimerHandle = null; // Used to connect and disconnect the timer to onFlipTimer
-      this.currentCard = null;
       this.baseStrength = null;
       this.nbSelected = null;
       this.maxSelected = null;
@@ -134,7 +140,7 @@ function (dojo, declare) {
 
     setup: function( gamedatas ) {
         console.log( "Starting game setup" );
-        console.log( gamedatas );
+        console.log( "gamedatas", gamedatas );
         var bWaitBuildOrTakeOrderPhase = ( gamedatas.gamestate.name == 'waitForPlayers'
                     || gamedatas.gamestate.name == 'buildPhase'
                     || gamedatas.gamestate.name == 'takeOrderTiles');
@@ -171,6 +177,7 @@ function (dojo, declare) {
                         { plId: player.id, color: player.color } ), 'flight_pos_'+shipPos );
             }
         }
+
 
         this.setupPlacedTiles( gamedatas.placed_tiles, bWaitBuildOrTakeOrderPhase );
 
@@ -274,14 +281,18 @@ function (dojo, declare) {
             }
         }
 
-        for( var i in gamedatas.content )
-            this.placeContent ( gamedatas.content[i] );
+        // Save gamedatas to this for future use
+        this.players = gamedatas.players;
+        this.tiles = gamedatas.tiles;
 
-        if ( gamedatas.currentCard !== "-1" ) {
-            this.currentCard = gamedatas.currentCard;
-            var cardBg = this.cardBg( gamedatas.currentCard );
-            dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
+        this.ship = new GTFE_Ship(this);
+
+        for( var i in gamedatas.content ) {
+            tile = new GTFE_Tile(this, gamedatas.content[i].tile_id);
+            tile.placeContent(gamedatas.content[i]);
         }
+
+        this.card = new GTFE_Card(this, gamedatas.currentCard).setupImage();
 
         this.addTooltip( 'sandTimer', '', _('Click here to flip the timer when it is finished.') );
         
@@ -300,6 +311,7 @@ function (dojo, declare) {
         //
     onEnteringState: function( stateName, args ) {
         console.log( 'Entering state: '+stateName );
+        console.log( 'args for state: ', args.args);
         this.stateName = stateName;
 
         switch( stateName ) {
@@ -397,11 +409,7 @@ function (dojo, declare) {
                                         max: args.args.maxStr
                                     } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
-                dojo.query('.cell', 'my_ship').forEach(
-                    dojo.hitch( this, function( node ) {
-                        this.connect( node, 'onclick', 'onSelectContent');
-                        dojo.addClass( node, 'available');
-                        } ) );
+                this.prepareContentChoice('cell');
                 this.baseStrength = Number(args.args.baseStr);
                 this.maxSelected = Number(args.args.maxSel);
                 this.typeToSelect = "cell";
@@ -427,10 +435,28 @@ function (dojo, declare) {
                 this.typeToSelect = "crew";
             }
             break;
+        case 'choosePlanet':
+            if ( this.isCurrentPlayerActive() ) {
+                dojo.place( this.format_string( this.choosePlanetInfoHtml, {
+                                        curr: 0,
+                                    } ), "info_box", "only" );
+                dojo.style( 'info_box', 'display', 'block' );
+                this.card.placePlanetAvail(args.args.planetIdxs);
+            }
+            this.card.placeCardMarkers(args.args.planetIdxs);
+            break;
         case 'powerShield':
         case 'loseGoods':
-        case 'choosePlanet':
+            break;
         case 'placeGoods':
+            if ( this.isCurrentPlayerActive() ) {
+                dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
+                dojo.style( 'info_box', 'display', 'block' );
+                let goods = new GTFE_Goods(this);
+                goods.placeGoods(args.args.cardType, args.args.planetIdx);
+            }
+            this.card.placeCardMarkers(args.args.planetIdxs);
+            break;
         case 'takeReward':
             dojo.style( 'current_card', 'display', 'block' );
             break;
@@ -495,6 +521,12 @@ function (dojo, declare) {
                               } ) );
             }
             break;
+        case 'choosePlanet':
+            this.card.onLeavingChoosePlanet
+        case 'placeGoods':
+            let goods = new GTFE_Goods(this);
+            goods.onLeavingPlaceGoods();
+            break;
         case 'dummmy':
             break;
         }
@@ -536,8 +568,11 @@ function (dojo, declare) {
             this.addActionButton( 'button_nextCard', _('Go on'), 'onGoOn' );
             break;
         case 'choosePlanet' :
-            // this.addActionButton( 'button_planetChosen', _('Validate'), 'onPlanetChosen' );
-            this.addActionButton( 'button_nextRound', _('Test Next Round'), 'onTestNextRound' );
+            this.addActionButton('button_choosePlanet',_('Choose Planet'), 'onConfirmPlanet');
+            this.addActionButton('button_passChoosePlanet',_('Pass'), 'onPassChoosePlanet'); 
+            break;
+        case 'placeGoods' :
+            this.addActionButton( 'button_validateCargo', _('Validate'), 'onValidateChooseCargo');
             break;
         }
       }
@@ -553,15 +588,39 @@ function (dojo, declare) {
 
         */
 
+    throw_bug_report: function(msg) {
+        this.showMessage ( _("Internal error - this should not happen. " + msg + this.plReportBug), 'error' ); 
+    },
+
+    // makePartId and getPartFromId form a companion pair of functions for creating/getting div or part ids for various game components
+    makePartId: function(base, i) {
+        return base + "_" + i;
+    },
+
+    getPartFromId: function( word ) {
+        var arr = word.split('_');
+        if (arr.length > 2)
+            this.throw_bug_report("partId has too many parts.");
+        return arr[1];
+    },
+
     getPart: function( word, i ) {
         var arr = word.split('_');
         return arr[i];
     },
 
-    cardBg: function( cardId ) {
-        var x = (cardId%20) * -165;
-        var y = ( Math.floor(cardId/20) ) * -253;
-        return { x: x, y: y };
+    newGTFE_Ship() {
+        return new GTFE_Ship(this);
+    },
+
+    newGTFE_Tile(tileId) {
+        return new GTFE_Tile(this, tileId);
+    },
+
+    objToAjax(obj) {
+        // serialize an object for returning to back-end
+        // to be decoded in action.php with type AT_base64 and (array)json_decode(base64_decode(arg))
+        return btoa(JSON.stringify(obj));
     },
 
     updateTimer: function() {
@@ -721,7 +780,7 @@ function (dojo, declare) {
     setupRevealedCards: function( cards ) {
         for( var id in cards ) {
           //var thisCard = cards[i][id];
-          var cardBg = this.cardBg( cards[id].id );
+          var cardBg = GTFE_Card.cardBg( cards[id].id );
           dojo.place ( this.format_block( 'jstpl_card', {
                             id: id, // useless?
                             x: cardBg.x,
@@ -850,63 +909,6 @@ function (dojo, declare) {
                     'basic_pile', "first" );
     },
 
-    placeContent: function ( tileContent )
-    {
-        var divId = tileContent.content_id;
-        var tileId = tileContent.tile_id;
-        var ctType = tileContent.content_type;
-        var ctSubtype = tileContent.content_subtype;
-        //var error = false;
-        //var alien = false;
-        var rotWithTile = false;
-
-        switch( ctSubtype )
-        {
-          case 'cell':
-            rotWithTile = true;
-            var classes = 'cell';
-            break;
-          case 'human':
-            var classes = 'crew human';
-            break;
-          case 'purple':
-          case 'brown':
-            //alien = true;
-            var classes = 'crew alien '+ctSubtype;
-            break;
-          case 'ask_purple':
-          case 'ask_brown':
-            // This tile is special: we must place humans and alien(s) icons,
-            // to show that the owner of this tile will have to make a choice
-            var classes = 'crew alien_choice '+this.getPart( ctSubtype, 1); // color
-            break;
-          case 'ask_human':
-            var classes = 'crew human_choice';
-            break;
-          case 'red':
-          case 'yellow':
-          case 'green':
-          case 'blue':
-            rotWithTile = true;
-            var classes = 'goods '+ctSubtype;
-            break;
-
-          default:
-            this.showMessage( "Error: unrecognized content type: "+
-                        ctSubtype+" "+this.plReportBug, "error" );
-            return;
-        }
-
-        var destDivId = ( rotWithTile ) ? 'tile_'+tileId : 'overlaytile_'+tileId;
-        // position (given by CSS, eg. class p2on3) will depend on the
-        // tile (eg. 2 cells batteries vs 3 cells batteries)
-        //var posClass = ( alien ) ? 'p1on1' : 'p'+tileContent.place+'on'+tileContent.capacity;
-        classes += ' p'+tileContent.place+'on'+tileContent.capacity;
-        dojo.place( this.format_block( 'jstpl_content', {
-                        content_id: divId,
-                        classes: classes,
-                    } ), destDivId );
-    },
 
     connectAlienChoices: function() {
         dojo.query( '.alien_choice', 'my_ship' ).forEach(
@@ -973,12 +975,13 @@ function (dojo, declare) {
         dojo.style(mobile, "top", top + "px");
         dojo.style(mobile, "left", left + "px");
         dojo.style( mobile, "position", "absolute" );
+
         box.l += box.w-cbox.w;
         box.t += box.h-cbox.h;
         return box;
     },
 
-    slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd ) {
+    slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd, targetxy ) {
         console.log("Entering slideToDomNode");
         stylesOnEnd = (typeof stylesOnEnd !== "undefined") ? stylesOnEnd : {};
         this.attachToNewParentNoDestroy( mobile, newParent );
@@ -992,7 +995,15 @@ function (dojo, declare) {
             if ( typeof stylesOnEnd[key] == "undefined" )
                 stylesOnEnd[key] = "";
         }
-        var anim = this.slideToObject( mobile, newParent, duration, delay ); 
+        if (targetxy) {
+            // stylesOnEnd['left'] = targetxy['x'];
+            // stylesOnEnd['top'] = targetxy['y'];
+            var anim = this.slideToObjectPos( mobile, newParent, 
+                targetxy['x'], targetxy['y'], duration, delay ); 
+        }
+        else
+            var anim = this.slideToObject( mobile, newParent, duration, delay ); 
+
         dojo.connect(anim, "onEnd", function(mobile) {
             dojo.style( mobile, stylesOnEnd );
         });
@@ -1215,6 +1226,7 @@ function (dojo, declare) {
         } ) );
     },
 
+
     onCrewPlacementDone: function( evt ) {
       console.log( 'onCrewPlacementDone' );
       dojo.stopEvent( evt );
@@ -1332,6 +1344,39 @@ function (dojo, declare) {
         this.ajaxAction( 'cancelExplore', {} );
     },
 
+    onConfirmPlanet: function (evt) {
+        console.log('onConfirmPlanet', evt.currentTarget);
+        dojo.stopEvent(evt);
+        if (!this.checkAction('planetChoice'))
+            return;
+
+        var idx = this.card.onConfirmPlanet();
+        this.ajaxAction( 'planetChoice', {idx: idx} );
+    },
+
+    onPassChoosePlanet: function (evt) {
+        console.log('onConfirmPlanet', evt.currentTarget);
+        dojo.stopEvent(evt);
+        if (!this.checkAction('planetChoice'))
+            return;
+        if (! (this.card.onPassChoosePlanet()))
+            return;
+        this.ajaxAction( 'planetChoice', {});
+    },
+
+    onValidateChooseCargo: function(evt) {
+        console.log('onValidateChooseCargo', evt.currentTarget);
+        dojo.stopEvent(evt);
+        if (!this.checkAction('cargoChoice'))
+            return;
+
+        let goods = new GTFE_Goods(this);
+        var goodsOnTile = goods.onValidateChooseCargo();
+        console.log("onValidateChooseCargo response", goodsOnTile);
+        this.ajaxAction( 'cargoChoice', 
+            {goodsOnTile: this.objToAjax(goodsOnTile)} );
+    },
+
     onGoOn: function( evt ) {
         console.log( 'onGoOn' );
         dojo.stopEvent( evt );
@@ -1390,6 +1435,10 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'moveShip', 800 );
         dojo.subscribe( 'loseContent', this, "notif_loseContent" );
         this.notifqueue.setSynchronous( 'loseContent', 1500 );
+        dojo.subscribe( 'planetChoice', this, "notif_planetChoice");
+        this.notifqueue.setSynchronous( 'planetChoice', 1000 );
+        dojo.subscribe( 'cargoChoice', this, "notif_cargoChoice");
+
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
         // Example 1: standard notification handling
@@ -1759,67 +1808,43 @@ function (dojo, declare) {
         }
 
         for ( var i in notif.args.ship_content_update ) {
-            this.placeContent( notif.args.ship_content_update[i] );
+            tile = new GTFE_Tile(this, notif.args.ship_content_update[i].tile_id);
+            tile.placeContent(notif.args.ship_content_update[i]);
         }
     },
 
     notif_cardDrawn: function( notif ) {
-        console.log( 'notif_cardDrawn' );
-        console.log( notif );
-        this.currentCard = notif.args.cardId;
-        var cardBg = this.cardBg( notif.args.cardId );
-        dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
+        console.log( 'notif_cardDrawn', notif );
+        this.card.setId(notif.args.cardId).setupImage();
     },
 
     notif_moveShip: function( notif ) {
-        console.log( 'notif_moveShip' );
-        console.log( notif );
+        console.log( 'notif_moveShip', notif );
         var shipPos = ( +(notif.args.newPlPos)+400 ) % 40;
         this.slideToDomNode( 'ship_marker_'+notif.args.player_id, 
                               'flight_pos_'+shipPos, 800 );
     },
 
     notif_loseContent: function( notif ) {
-      console.log( 'notif_loseContent' );
-      console.log( notif );
+      console.log( 'notif_loseContent', notif );
       if ( this.isCurrentPlayerActive() ) {
           dojo.query('.selected', 'my_ship').removeClass('selected');
       }
       for ( var i in notif.args.content ) {
-        var cont = notif.args.content[i];
-        dojo.style( cont.divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
-        if ( cont.toCard ) {
-            this.slideToObjectAndDestroy( cont.divId, "current_card", 500, i*200 );
-        }
-        else {
-            switch ( cont.orient ) {
-              case '90':
-                var top = "-100";
-                var left = "400";
-                break;
-              case '180':
-                var top = "-400";
-                var left = "-100";
-                break;
-              case '270':
-                var top = "100";
-                var left = "-400";
-                break;
-              case '0':
-              default:
-                var top = "400";
-                var left = "100";
-                break;
-            }
-            var anim = dojo.fx.combine([
-                dojo.fx.slideTo({ node:cont.divId, left:left, top:top,
-                                  units:"px", duration: 1700, delay:i*200 }),
-                dojo.fadeOut({ node:cont.divId, duration: 1700, delay:i*200 })
-            ]);
-            dojo.connect( anim, "onEnd", function(){  dojo.destroy( cont.divId ); } );
-            anim.play();
-        }
+          tile = new GTFE_Tile(this, notif.args.content[i].tile_id);
+          tile.loseContent(notif.args.content[i]);
       }
+    },
+
+    notif_planetChoice: function(notif) {
+        console.log("notif_planetChoice", notif);
+        this.card.notif_planetChoice(notif.args);
+    },
+
+    notif_cargoChoice: function(notif) {
+        console.log("notif_cargoChoice", notif.args);
+        let goods = new GTFE_Goods(this);
+        goods.notif_cargoChoice(notif.args);
     },
 
     notif_newRound: function( notif ) {
@@ -1845,7 +1870,7 @@ function (dojo, declare) {
             dojo.query('.rev_space.additional').forEach(dojo.destroy);
             dojo.query('.plBoardSpan').forEach(dojo.empty); // Maybe not all,
                                                 // depending on what we add
-            this.currentCard = null; // Here? In onEnteringState or onLeavingState? Is it important?
+            this.card.setId(null);
         }
 
         dojo.style( 'pile', 'display', 'block' );

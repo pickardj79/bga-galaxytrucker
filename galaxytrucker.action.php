@@ -177,6 +177,21 @@
       self::ajaxResponse( );
   }
 
+  public function planetChoice() {
+      self::setAjaxMode();
+      $choice = self::getArg("idx", AT_posint, false);
+      $this->game->planetChoice($choice);
+      self::ajaxResponse( );
+  }
+
+  public function cargoChoice() {
+      self::setAjaxMode();
+      $encoded = self::getArg("goodsOnTile", AT_base64, true);
+      $decoded = (array)json_decode(base64_decode($encoded));
+      $this->game->cargoChoice($decoded);
+      self::ajaxResponse( );
+  }
+
   public function goOn() {
       self::setAjaxMode();
       $this->game->goOn( );

@@ -143,14 +143,11 @@ class GT_PlayerBoard extends APP_GameClass {
     }
 
     function getTileType($tileid) {
-        return $this->game->tiles[ $tileid ]['type'];
+        return $this->game->getTileType($tileid);
     }
 
     function getTileHold($tileid) {
-        $tileType = $this->game->tiles[ $tileid ];
-        if (array_key_exists('hold', $tileType))
-            return $tileType['hold'];
-        return 0;
+        return $this->game->getTileHold($tileid);
     }
 
     // ###################################################################
@@ -352,11 +349,11 @@ class GT_PlayerBoard extends APP_GameClass {
     }
 
     function countSingleEngines() {
-        return countTileType('engine', 1); 
+        return $this->countTileType('engine', 1); 
     }
 
     function countDoubleEngines() {
-        return countTileType('engine', 2); 
+        return $this->countTileType('engine', 2); 
     }
 
     function getMinMaxStrengthX2 ( $plyrContent, $type ) {
