@@ -12,6 +12,8 @@ class GTFE_Card {
         this.id = id;
         this.type = type;
 
+        // onclick connects
+        this.connects = {};
 
         // varData holds variable data about the state of the card
         // what it holds is dependent on the type of card and state of the game
@@ -50,6 +52,18 @@ class GTFE_Card {
         return this;
     }
 
+    connect(node, func) {
+        // assume all onclicks, for simplicity
+        let handle = dojo.connect(node, 'onclick', func);
+        this.connects[node.id] = handle;
+        return handle;
+    }
+
+    disconnectAll() {
+        for ( let [nodeId, handle] of Object.entries(this.connects) )
+            dojo.disconnect(handle);
+    }
+
     /// ################# PLANET #########################
     placePlanetAvail(planetIdxs) {
         let game = this.game;
@@ -61,7 +75,7 @@ class GTFE_Card {
 
             dojo.addClass(partId, "available");
             game.addTooltip(partId, '', _('Click to select or deselect this planet.'));
-            game.connect($(partId), 'onclick', this.onSelectPlanet);
+            this.connect($(partId), this.onSelectPlanet);
         }
     }
 
@@ -117,8 +131,6 @@ class GTFE_Card {
         let game = this.game;
         let plId = args.plId;
 
-        dojo.query('.selected', 'current_card').removeClass('selected');
-        dojo.query('.available', 'current_card').removeClass('available');
         dojo.place( game.format_block( 'jstpl_card_marker',
             { plId: plId, color: game.players[plId]['color'] } ), 
             'overall_player_board_'+plId );
@@ -135,21 +147,18 @@ class GTFE_Card {
 
     onLeavingPlanets() {
         console.log("ON LEAVING PLANETS");
-        // // remove all classes, onClicks, and extraneous markers
-        // dojo.query('.selected').removeClass('selected');
-        // dojo.query('.available').forEach( n=> {
-        //     dojo.disconnect(n, 'onclick');
-        //     removeClass(n, 'available');
-        // });
+        this.disconnectAll();
 
-        // // onclick should be removed by .available query above, but just in case
-        // dojo.query('.planet').forEach( n => dojo.disconnect(n, 'onclick') );
-        // dojo.query('.tile').forEach( n => dojo.disconnect(n, 'onclick') );
-        // dojo.query('.content').forEach( n => dojo.disconnect(n, 'onclick') );
+        // remove all classes, onClicks, and extraneous markers
+        dojo.query('.selected').removeClass('selected');
+        dojo.query('.available').forEach( n=> {
+            // dojo.disconnect(n, 'onclick');
+            dojo.removeClass(n, 'available');
+        });
 
-        // // clean up markers needed for this card
-        // dojo.query('.planet_goods').forEach( n => dojo.destroy(n) );
-        // dojo.query('.ship_marker', 'current_card').forEach( n => dojo.destroy(n) );
+        // clean up markers needed for this card
+        dojo.query('.planet_goods').forEach( n => dojo.destroy(n) );
+        dojo.query('.ship_marker', 'current_card').forEach( n => dojo.destroy(n) );
     }
 
     /// ################# GOODS #########################
@@ -177,25 +186,24 @@ class GTFE_Card {
 
     activateGoods() {
         dojo.query('.goods', 'my_ship').forEach( node => {
-            dojo.connect( node, 'onclick', this.onSelectGoods);
+            this.connect( node, this.onSelectGoods);
             dojo.addClass(node, 'available');
         });
 
         dojo.query('.goods', 'current_card').forEach( node => {
-            dojo.connect( node, 'onclick', this.onSelectGoods);
+            this.connect( node, this.onSelectGoods);
             dojo.addClass(node, 'available');
         });
 
         // activate all tiles for clicking
         this.game.newGTFE_Ship().cargoTiles().forEach( tile => {
             dojo.addClass(tile, 'available');
-            dojo.connect(tile, 'onclick', 
-                dojo.partial(this.onSelectTile_PlaceGoods, this));
+            this.connect(tile, dojo.partial(this.onSelectTile_PlaceGoods, this));
         });
 
         // activate Air Lock for clicks
         dojo.addClass('trash_box', 'available');
-        dojo.connect($('trash_box'), 'onclick', dojo.partial(this.onSelectTrash_PlaceGoods, this));
+        this.connect($('trash_box'), dojo.partial(this.onSelectTrash_PlaceGoods, this));
     }
 
     onSelectGoods(evt) {
