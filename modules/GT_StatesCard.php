@@ -17,13 +17,14 @@ class GT_StatesCard extends APP_GameClass {
         $game->setGameStateValue( 'cardOrderInFlight', $cardOrderInFlight );
         $currentCard = $game->getUniqueValueFromDB ( "SELECT card_id id FROM card ".
                                         "WHERE card_order=$cardOrderInFlight" );
-        $game->setGameStateValue( 'currentCard', $currentCard );
 
         if ( is_null($currentCard) ) { 
             // no more cards, this flight is done
             $nextState = 'cardsDone' ;
+            $game->setGameStateValue( 'currentCard', -1 );
         }
         else {
+            $game->setGameStateValue( 'currentCard', $currentCard );
             // temp, so that there is an active player when going to notImpl state
             if ( $game->getUniqueValueFromDB('SELECT global_value FROM global WHERE global_id=2') == 0 )// temp
                 $game->myActiveNextPlayer();// temp
@@ -52,13 +53,10 @@ class GT_StatesCard extends APP_GameClass {
     function stStardust($game) {
         $players = GT_DBPlayer::getPlayersInFlight($game, '', $order='ASC');
         
+        $flBrd = $game->newFlightBoard($players);
+
         foreach ( $players as $plId => $player ) {
-            $newPlPos = $game->moveShip( $plId, -($player['exp_conn']), $players );
-            if ( $newPlPos !== null ) {
-                //update this player's position so that it is taken into account if other
-                // ships move in the same action
-                $players[$plId]['player_position'] = $newPlPos;
-            }
+            $newPlPos = $flBrd->moveShip( $plId, -($player['exp_conn']), $players );
         }
         return 'nextCard';
     }
@@ -67,6 +65,10 @@ class GT_StatesCard extends APP_GameClass {
         $nextState = "nextCard"; // Will be changed to powerEngines if someone
                                     // needs to choose if they use batteries
         $players = GT_DBPlayer::getPlayersForCard($game);
+
+        // Do not pass $players to flightBoard. We need to consider all players still in flight,
+        //    $players here is only those who still have yet to act 
+        $flBrd = $game->newFlightBoard();
 
         foreach ( $players as $plId => $player ) {
             if ( $player['max_eng'] == 0 ) {
@@ -79,14 +81,7 @@ class GT_StatesCard extends APP_GameClass {
             }
             elseif ( $player['min_eng'] == $player['max_eng'] ) {
                 // No choice to do for this player, so we move it now and notify players.
-                // Do not pass $players to moveShip. We need to consider all players still in flight,
-                //    $players here is only those who still have yet to act 
-                $newPlPos = $game->moveShip( $plId, (int)$player['min_eng'] );
-                if ( $newPlPos !== null ) {
-                    //update this player's position so that it is taken into account if other
-                    // ships move in the same action
-                    $players[$plId]['player_position'] = $newPlPos;
-                }
+                $flBrd->moveShip( $plId, (int)$player['min_eng'] );
                 GT_DBPlayer::setCardDone($game, $plId);
             }
             else {
@@ -147,15 +142,14 @@ class GT_StatesCard extends APP_GameClass {
   
         // No one else to choose - move all ships based on card, furthest back first
         if ($nextState == "nextCard") {
-            $players = GT_DBPlayer::getPlayersInFlight($game, 'AND card_action_choice > 0', $order='ASC');
+            $players = GT_DBPlayer::getPlayersInFlight($game, '', $order='ASC');
+            $flBrd = $game->newFlightBoard($players);
+
             $nbDays = -($game->card[$cardId]['days_loss']);
             foreach ($players as $plId => $player) {
-                $newPlPos = $game->moveShip( $plId, $nbDays, $players );
-                if ( $newPlPos !== null ) {
-                    //update this player's position so that it is taken into account if other
-                    // ships move in the same action
-                    $players[$plId]['player_position'] = $newPlPos;
-                }
+                if ($player['card_action_choice'] == '0')
+                    continue;
+                $flBrd->moveShip($plId, $nbDays);
             }
         }
 

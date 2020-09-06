@@ -11,6 +11,12 @@ class GT_DBPlayer extends APP_GameClass {
             FROM player WHERE player_id = $plId");
     }
 
+    function addCredits($game, $plId, $credits) {
+        $game->DbQuery("UPDATE player SET credits = GREATEST(0, credits + ($credits)) WHERE player_id = $plId");
+    }
+
+    ########### Card-based queries ##########
+
     function getPlayersForCard($game) {
         return self::getPlayersInFlight($game, ' AND card_line_done != 2');
     }
@@ -28,6 +34,10 @@ class GT_DBPlayer extends APP_GameClass {
             ORDER BY player_position $order" );
     }
 
+    function setPlayerGiveUp($game, $plId) {
+        $game->DbQuery( "UPDATE player SET still_flying = 0, player_position = null WHERE player_id = $plId" );
+    }
+
     function clearCardProgress($game) {
         $game->DbQuery( "UPDATE player SET card_line_done=0, card_action_choice=0" );
     }
@@ -36,8 +46,16 @@ class GT_DBPlayer extends APP_GameClass {
         $game->DbQuery( "UPDATE player SET card_action_choice=$choice WHERE player_id=$plId" );
     }
 
+    function getCardChoices($game) {
+        return $game->getCollectionFromDB("SELECT card_action_choice, player_id player_id FROM player");
+    }
+
     function setCardDone($game, $plId) {
         $game->DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
+    }
+
+    function setCardAllDone($game) {
+        $game->DbQuery( "UPDATE player SET card_line_done=2" );
     }
 
     function setCardInProgress($game, $plId) {

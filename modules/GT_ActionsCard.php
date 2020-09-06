@@ -14,28 +14,30 @@ class GT_ActionsCard extends APP_GameClass {
 
         // Sanity checks TODO: do we need to check something else?
         if ( $player['card_line_done'] != '1' )
-            $game->throw_bug_report("Explore choice: wrong value for card done (".
-                    var_export($player['card_line_done'], true)."). ");
+            $game->throw_bug_report("Explore choice: wrong value for card done ({$player['card_line_done']})");
 
         if ( !in_array( $choice, array(0,1) ) )
-            $game->throw_bug_report("Explore choice: wrong value for choice (".
-                    var_export($choice, true)."). ");
+            $game->throw_bug_report("Explore choice: wrong value for choice ($choice)");
 
         if ( $choice == 0 ) {
-            $game->noExplore( $plId, $player['player_name'] );
+            GT_DBPlayer::setCardDone($game, $plId);
+            self::noStopMsg($game);
             return 'nextPlayer';
         }
         elseif ( $game->card[$cardId]['type'] == 'abship' ) {
             if ( $player['nb_crew'] > $game->card[$cardId]['crew'] ) {
-                // This player has to choose which crew members to lose
-                // TODO: Is a quiet notif needed?
                 return 'chooseCrew';
             }
             elseif ( $player['nb_crew'] == $game->card[$cardId]['crew'] ) {
                 // This player sends ALL their remaining crew members
                 // Remove all crew members:
                 $plyrContent = $game->newPlayerContent($plId);
-                $plyrContent->loseContent($plyrContent->getContent('crew'), 'crew', true);
+                $crewIds= array_map(function($i) { return $i['content_id']; },
+                    $plyrContent->getContent('crew'));
+                $plyrContent->loseContent($crewIds, 'crew', true);
+
+                GT_DBPlayer::addCredits($game, $plId, $game->card[$cardId]['reward']);
+                ( $game->newFlightBoard() )->giveUp( $plId, 'sent whole crew to the abandoned ship');
 
                 $game->notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
                     'sends their whole crew to the abandoned ship and will have to give up'),
@@ -43,8 +45,7 @@ class GT_ActionsCard extends APP_GameClass {
                 return 'nextCard';
             }
             else {
-                $game->throw_bug_report("Explore choice: not enough crew members (".
-                    var_export($player['nb_crew'], true)."). ");
+                $game->throw_bug_report("Explore choice: not enough crew members ({$player['nb_crew']})");
             }
         }
         elseif ( $game->card[$cardId]['type'] == 'abstation' ) {
@@ -55,12 +56,11 @@ class GT_ActionsCard extends APP_GameClass {
 
             // TODO: TEMP, end of card, since placeGoods is not implemented yet:
             $nbDays = -($game->card[$cardId]['days_loss']);
-            $game->moveShip( $plId, $nbDays );
+            ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
             return 'placeGoods';
         }
         else
-            $game->throw_bug_report("Explore choice: wrong value for card type (".
-                    var_export($game->card[$cardId]['type'], true)."). ");
+            $game->throw_bug_report("Explore choice: wrong value for card type ({$game->card[$cardId]['type']}).");
     }
 
     function crewChoice($game, $plId, $cardId, $crewChoices) {
@@ -72,14 +72,18 @@ class GT_ActionsCard extends APP_GameClass {
         //$tileOrient = ( ! $orientNeeded ) ? null
         //                                : self::getCollectionFromDB( "SELECT component_id, ".
         //                "orientation FROM component WHERE component_player=$plId", true );
-        // TODO see if it's possible to have a common function with battChoice() and slavers and combat zones (maybe only one or two things will differ: number of batteries consistent with number of cannons, moveShip (forward) vs gainCredits and moveShip backwards, ...)
 
+        // TODO see if it's possible to have a common function with battChoice() 
+        //  and slavers and combat zones (maybe only one or two things will differ:
+        //  number of batteries consistent with number of cannons, moveShip (forward)
+        //  vs gainCredits and moveShip backwards, ...)
 
         $plyrContent->loseContent($crewChoices, 'crew', $bToCard);
-        // TODO credits
+
+        GT_DBPlayer::addCredits($game, $plId, $game->card[$cardId]['reward']);
 
         $nbDays = -($game->card[$cardId]['days_loss']);
-        $game->moveShip( $plId, $nbDays );
+        ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
     }
 
 
@@ -113,15 +117,13 @@ class GT_ActionsCard extends APP_GameClass {
         if ( $nbBatt > 0 )
             $plyrContent->loseContent($battChoices, 'cell', false);
 
-        $game->moveShip( $plId, $nbDays );
+        ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
     }
 
     function planetChoice($game, $plId, $cardId, $choice) {
-        $player = GT_DBPlayer::getPlayer($game, $plId);
         if (!$choice) {
             GT_DBPlayer::setCardDone($game, $plId);
-            $game->notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-                'doesn\'t stop'), array ( 'player_name' => $player['player_name'] ) );
+            self::noStopMsg($game);
             return 'nextPlayer'; 
         }
 
@@ -132,7 +134,8 @@ class GT_ActionsCard extends APP_GameClass {
         $choice = (int)$choice;
 
         $allIdx = array_keys($game->card[$cardId]['planets']);
-        $chosenIdx = GT_DBCard::getActionChoices($game);
+        $chosenIdx = array_filter(array_map(function($row) { return $row['card_action_choice']; },
+            GT_DBCard::getCardChoices($game) ));
        
         if (!in_array($choice, $allIdx))
             $game->throw_bug_report("Planet choice ($choice) not possible for this planet ($cardId)");
@@ -144,9 +147,8 @@ class GT_ActionsCard extends APP_GameClass {
         GT_DBPlayer::setCardChoice($game, $plId, $choice);
         $game->notifyAllPlayers( "planetChoice",
             clienttranslate( '${player_name} choses planet number ${planetId}'),
-            array ( 'player_name' => $player['player_name'],
+            array ( 'player_name' => $game->getActivePlayerName(),
                 'plId' => $plId,
-                'plColor' => $player['player_color'],
                 'planetId' => $choice
             ) );
 
@@ -227,6 +229,15 @@ class GT_ActionsCard extends APP_GameClass {
         );
     }
 
+    ################# HELPERS #####################
+    function noStopMsg($game) {
+        $player_name = $game->getActivePlayerName();
+        $game->notifyAllPlayers( 
+            "onlyLogMessage", 
+            clienttranslate( '${player_name} '. 'doesn\'t stop'), 
+            array ( 'player_name' => $player_name ) 
+        );
+    }
 }
 
 ?>

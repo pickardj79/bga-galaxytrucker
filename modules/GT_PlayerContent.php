@@ -214,9 +214,11 @@ class GT_PlayerContent extends APP_GameClass {
         foreach ( $ids as $id) {
             $this->checkContentById($id, $expType);
             $curCont = $this->plContent[$id];
+            unset($this->plContent[$id]);
             $tileId = $curCont['tile_id'];
             $contentLost[] = array ( 'orient' => $tileOrient[$tileId],
                             'id' => $id,
+                            'tile_id' => $tileId,
                             'toCard' => $toCard);
             $type = $curCont['content_subtype'] 
                 ? $curCont['content_subtype'] : $curCont['content_type'];
@@ -231,6 +233,6 @@ class GT_PlayerContent extends APP_GameClass {
                                         'content_icons' => $contentHtml,
                                     )
                             );
-        $this->game->updNotifPlInfos( $this->player_id );
+        $this->game->updNotifPlInfos( $this->player_id, null, $this->plContent );
     }
 }
