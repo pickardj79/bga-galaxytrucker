@@ -453,7 +453,7 @@ function (dojo, declare) {
                 dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
                 dojo.style( 'info_box', 'display', 'block' );
                 let goods = new GTFE_Goods(this);
-                goods.placeGoods(args.args.cardType, args.args.planetIdx);
+                goods.placeGoods(args.args.cardType, args.args.planetIdx, this.getActivePlayerId());
             }
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
