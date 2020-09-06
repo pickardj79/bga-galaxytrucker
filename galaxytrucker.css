@@ -443,11 +443,11 @@ html {
 .goods {
     width: 29px;
     height: 29px;
-    transform: scale(.47);
-    -ms-transform: scale(.47);
-    -webkit-transform: scale(.47);
-    -moz-transform: scale(.47);
-    -o-transform: scale(.47);
+    transform: scale(.65);
+    -ms-transform: scale(.65);
+    -webkit-transform: scale(.65);
+    -moz-transform: scale(.65);
+    -o-transform: scale(.65);
 }
 .goods.blue { background-position: -29px 0px; }
 .goods.red { background-position: -59px 0px; }
@@ -523,7 +523,7 @@ html {
 .cell.p1on3 { left: 10px; }
 .cell.p2on3 { left: 20px; }
 .cell.p3on3 { left: 30px; }
-.goods.p1on1 { left: 10px; top: 7px; }
+.goods.p1on1 { left: 10px; top: 10px; }
 .goods.p1on2 { left: 10px; top: 2px; }
 .goods.p2on2 { left: 10px; top: 19px; }
 .goods.p1on3 { left: 10px; top: 2px; } /* not tested */

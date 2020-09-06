@@ -39,18 +39,23 @@ class GTFE_Goods {
     }
 
     /// ################# GOODS #########################
-    placeGoods(cardType, planetIdx) {
+    placeGoods(cardType, planetIdx, plId) {
         let game = this.game;
         if (cardType['type'] == 'planets') {
             if (!planetIdx in cardType['planets'])
                 game.throw_bug_report("planetIdx invalid in GTFE_Card.placeGoods: " + planetIdx);
-            // place the goods with the given planet
+            // place the goods on the given planet
             let goodsIdx = 1;
-            for (let type of cardType['planets'][planetIdx]) {
+            for (let goodsType of cardType['planets'][planetIdx]) {
+                let idSuffix = "planetcargo_" + planetIdx + "_" + goodsIdx;
+                let goodId = "content_" + idSuffix;
+                let planetId = game.makePartId(game.PLANET_PREFIX, planetIdx); 
                 dojo.place( game.format_block( 'jstpl_content', {
-                    content_id: "planetcargo_" + planetIdx + "_" + goodsIdx,
-                    classes: 'goods planet_goods planet_goods_' + goodsIdx + " " + type,
-                } ), game.makePartId(game.PLANET_PREFIX, planetIdx) ); 
+                    content_id: idSuffix,
+                    classes: 'goods planet_goods planet_goods_' + goodsIdx + " " + goodsType,
+                } ), 'overall_player_board_' + plId );
+                game.slideToDomNode(goodId, planetId, 500, goodsIdx * 100);
+                
                 goodsIdx += 1;
             }
         }
