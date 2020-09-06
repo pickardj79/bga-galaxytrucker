@@ -279,11 +279,11 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must decide whether to explore this derelict'),
         "type" => "activeplayer",
         "args" => "argExploreAbandoned",
-        "possibleactions" => array( "exploreChoice", "pass" ),
+        "possibleactions" => array( "exploreChoice" ),
         "transitions" => array( 
             "nextPlayer" => STATE_ABANDONED,
-            "nextCard" => STATE_DRAW_CARD,
             "chooseCrew" => STATE_CHOOSE_CREW,
+            "nextCard"   => STATE_DRAW_CARD,
             "placeGoods" => STATE_NOT_IMPL,  )
     ),
 
@@ -304,7 +304,7 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must decide on which planet to land'),
         "type" => "activeplayer",
         "args" => "argChoosePlanet",
-        "possibleactions" => array( "planetChoice", "pass" ),
+        "possibleactions" => array( "planetChoice" ),
         "transitions" => array(
             "nextPlayer" => STATE_PLANETS,
             "placeGoods" => STATE_PLACE_GOODS )
@@ -396,7 +396,7 @@ $machinestates = array(
         "transitions" => array( "choiceMade" => 40 )
     ),
 
-    80 => array(
+    STATE_JOURNEYS_END => array(
         "name" => "journeysEnd",
         "description" => '',
         "type" => "game",

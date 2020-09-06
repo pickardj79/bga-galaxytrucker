@@ -22,6 +22,7 @@ require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
 require_once('modules/GT_DBPlayer.php');
 require_once('modules/GT_GameStates.php');
+require_once('modules/GT_FlightBoard.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
 require_once('modules/GT_StatesCard.php');
@@ -369,18 +370,25 @@ class GalaxyTrucker extends Table {
 
   function newPlayerBoard( int $player_id, $plBoard=null ) {
     if ( $plBoard )
-      return new GT_PlayerBoard($this, $plBoard, $player_id);
+        return new GT_PlayerBoard($this, $plBoard, $player_id);
     else
-      return new GT_PlayerBoard($this, self::getPlayerBoard($player_id), $player_id);
+        return new GT_PlayerBoard($this, self::getPlayerBoard($player_id), $player_id);
   }
 
   function newPlayerContent( int $player_id, $plContent=null ) {
     if ($plContent )
-      return new GT_PlayerContent($this, $plContent, $player_id );
+        return new GT_PlayerContent($this, $plContent, $player_id );
     else
-      return new GT_PlayerContent($this, self::getPlContent($player_id), $player_id );
+        return new GT_PlayerContent($this, self::getPlContent($player_id), $player_id );
   }
 
+  function newFlightBoard( $players=null ) {
+    if ($players) 
+        return new GT_FlightBoard($this, $players);
+    else 
+        return new GT_FlightBoard($this, GT_DBPlayer::getPlayersInFlight($this));
+  }
+  
   function getTileType(int $id) {
       return $this->tiles[ $id ]['type'];
   }
@@ -451,7 +459,7 @@ class GalaxyTrucker extends Table {
                                       'placeInRevealedPile' => $firstAvailSp ) );
   }
 
-  function updNotifPlInfos( $plId, $plBoard=null, $plContent=null, $bNbCrew=false, $bExpConn=false )
+  function updNotifPlInfos( $plId, $plBoard=null, $plContent=null)
   {
     // This function is called each time a player loses batteries, aliens, components
     // (in this last case $bExpConn is true), and once when ships are built and content
@@ -476,16 +484,15 @@ class GalaxyTrucker extends Table {
                          ),
                     );
     $sql = "UPDATE player SET ";
-    if ( $bNbCrew ) {
-      $nbCrewMembers = $plyrContent->nbOfCrewMembers();
-      $sql .= "nb_crew=".$nbCrewMembers.", ";
-      $items[] = array ( 'type' => "nbCrew", 'value' => $nbCrewMembers );
-    }
-    if ( $bExpConn ) {
-      $nbExp = $brd->nbOfExposedConnectors();
-      $sql .= "exp_conn=".$nbExp.", ";
-      $items[] = array ( 'type' => "expConn", 'value' => $nbExp );
-    }
+
+    $nbCrewMembers = $plyrContent->nbOfCrewMembers();
+    $sql .= "nb_crew=".$nbCrewMembers.", ";
+    $items[] = array ( 'type' => "nbCrew", 'value' => $nbCrewMembers );
+
+    $nbExp = $brd->nbOfExposedConnectors();
+    $sql .= "exp_conn=".$nbExp.", ";
+    $items[] = array ( 'type' => "expConn", 'value' => $nbExp );
+
     $sql .= "min_cann_x2=".$minMaxCann['min'].", max_cann_x2=".$minMaxCann['max'].", ".
             "min_eng=".($minMaxEng['min']/2).", max_eng=".($minMaxEng['max']/2)." ".
             "WHERE player_id=$plId";
@@ -495,57 +502,6 @@ class GalaxyTrucker extends Table {
                   'items' => $items,
                   ) );
   }
-
-  function computeNewPlayerPos( $players, $playerId, $nbDays ){
-    $newPlPos = $players[$playerId]['player_position'];
-    $otherPlPos = array();
-    foreach ( $players as $player ) {
-        if ( $player['player_id'] != $playerId ) {
-            $otherPlPos[] = $player['player_position'];
-        }
-    }
-
-    for ( $i = 1; $i <= abs($nbDays); $i++ ) {
-        do {
-            if ( $nbDays > 0 )
-                $newPlPos++;
-            else
-                $newPlPos--;
-        } while ( in_array( $newPlPos, $otherPlPos ) ); // Note: this does not check if players are on the same space but one lap behind / ahead
-    }
-    // TODO check if players are getting lapped
-    return $newPlPos;
-  }
-
-  // To avoid problems due to transtyping, $nbDays must be an integer
-  function moveShip( $plId, $nbDays, $players=null ) {
-    if (!$players)
-      $players = GT_DBPlayer::getPlayersInFlight($this);
-
-    $plName = $players[$plId]['player_name'];
-    if ( $nbDays === 0 ) {
-        self::notifyAllPlayers( "onlyLogMessage",
-                                clienttranslate( '${player_name} doesn\'t move'),
-                                array ( 'player_name' => $plName ) );
-        return null;
-    }
-    else {
-        $trslStr = ($nbDays>0) ? clienttranslate('${player_name} gains ${numDays} flight days')
-                  : clienttranslate('${player_name} loses ${numDays} flight days');
-        $newPlPos = self::computeNewPlayerPos( $players, $plId, $nbDays );
-        self::DbQuery("UPDATE player SET player_position=$newPlPos WHERE player_id=$plId");
-        self::notifyAllPlayers( "moveShip", $trslStr,
-                            array(
-                              'player_id' => $plId,
-                              'player_name' => $plName,
-                              'numDays' => abs($nbDays),
-                              'newPlPos' => $newPlPos,
-                            ) );
-        //TODO check if lapping or getting lapped here?
-        return $newPlPos; // used to update $players array when other ships will move in the same action
-    }
-  }
-
 
   function getConnectorType( $tile, $side ) {
     // compute side presented by this tile
@@ -1060,7 +1016,7 @@ class GalaxyTrucker extends Table {
       ) );
 
       // Update of min / max strength (DB and notif)
-      self::updNotifPlInfos( $plId, null, null, true );
+      self::updNotifPlInfos($plId);
       $this->gamestate->nextState( 'crewPlacementDone' );
   }
 
@@ -1087,11 +1043,8 @@ class GalaxyTrucker extends Table {
   function cancelExplore() {
     self::checkAction( 'cancelExplore' );
     $plId = self::getActivePlayerId();
-    $player_name = self::getActivePlayerName();
     GT_DBPlayer::setCardDone($this, $plId);
-    self::notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-          'doesn\'t stop'), array ( 'player_name' => $player_name ) );
-
+    GT_ActionsCard::noStopMsg($this);
     $this->gamestate->nextState( 'nextPlayer');
   }
 
@@ -1236,7 +1189,7 @@ class GalaxyTrucker extends Table {
         //    and remove those that have already been chosen by another player  
         $currentCard = self::getGameStateValue( 'currentCard' );
         $card = $this->card[$currentCard];
-        $alreadyChosen = GT_DBCard::getActionChoices($this);
+        $alreadyChosen = GT_DBPlayer::getCardChoices($this);
 
         $this->dump_var("alreadyChosen", $alreadyChosen);
 

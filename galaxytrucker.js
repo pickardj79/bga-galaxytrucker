@@ -1256,7 +1256,7 @@ function (dojo, declare) {
     },
 
     onSelectContent: function( evt ) {
-        console.log( 'onSelectContent' );
+        console.log( 'onSelectContent', evt.currentTarget );
         dojo.stopEvent( evt );
         if ( this.nbSelected === this.maxSelected )
             return;
@@ -1274,7 +1274,7 @@ function (dojo, declare) {
     },
 
     onUnselectContent: function( evt ) {
-        console.log( 'onUnselectContent' );
+        console.log( 'onUnSelectContent', evt.currentTarget );
         dojo.stopEvent( evt );
         var contId = evt.currentTarget.id;
         dojo.removeClass( contId, 'selected');
@@ -1433,6 +1433,8 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'cardDrawn', 1000 );
         dojo.subscribe( 'moveShip', this, "notif_moveShip" );
         this.notifqueue.setSynchronous( 'moveShip', 800 );
+        dojo.subscribe( 'giveUp', this, "notif_giveUp" );
+        this.notifqueue.setSynchronous( 'giveUp', 800 );
         dojo.subscribe( 'loseContent', this, "notif_loseContent" );
         this.notifqueue.setSynchronous( 'loseContent', 1500 );
         dojo.subscribe( 'planetChoice', this, "notif_planetChoice");
@@ -1823,6 +1825,12 @@ function (dojo, declare) {
         var shipPos = ( +(notif.args.newPlPos)+400 ) % 40;
         this.slideToDomNode( 'ship_marker_'+notif.args.player_id, 
                               'flight_pos_'+shipPos, 800 );
+    },
+
+    notif_giveUp: function( notif ) {
+        console.log( 'notif_giveUp', notif );
+        this.slideToObjectAndDestroy( 'ship_marker_'+notif.args.player_id, 
+                              'overall_player_board_' + notif.args.player_id );
     },
 
     notif_loseContent: function( notif ) {

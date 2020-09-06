@@ -188,6 +188,11 @@ for( $i=136 ; $i<=140 ; $i++)
 for( $i=141 ; $i<=144 ; $i++)
     $this->tiles[$i]['type'] = 'shield';
 
+foreach( $this->tiles as &$tile ) {
+    if (!array_key_exists('hold', $tile))
+        $tile['hold'] = $this->tileHoldCnt[$tile['type']];
+}
+
 // 0 for no connector, 1 for simple, 2 for double, 3 for universal
 $tileConnectors = array (
   1 => array ( 'w' => 3, 'n' => 0, 'e' => 0, 's' => 0 ),
@@ -487,14 +492,13 @@ $this->card = array (
                 'id' => 18,
                 'type' => 'abstation',
                 'crew' => 5,
-                'reward' => array ( 'yellow' => 1,
-                                  'green' => 1 ),
+                'reward' => array ( 'yellow', 'green' ),
                 'days_loss' => 1, ),
   19 => array ( 'round' => 1,
                 'id' => 19,
                 'type' => 'abstation',
                 'crew' => 6,
-                'reward' => array ( 'red' => 2 ),
+                'reward' => array ( 'red', 'red' ),
                 'days_loss' => 1, ),
   20 => array ( 'round' => 2,
                 'id' => 20,
@@ -584,15 +588,13 @@ $this->card = array (
                 'id' => 38,
                 'type' => 'abstation',
                 'crew' => 8,
-                'reward' => array ( 'yellow' => 2,
-                                  'green' => 1 ),
+                'reward' => array ( 'yellow', 'yellow', 'green' ),
                 'days_loss' => 2, ),
   39 => array ( 'round' => 2,
                 'id' => 39,
                 'type' => 'abstation',
                 'crew' => 7,
-                'reward' => array ( 'red' => 1,
-                                  'yellow' => 1 ),
+                'reward' => array ( 'red', 'yellow' ),
                 'days_loss' => 1, ),
   40 => array ( 'round' => 3,
                 'id' => 40,
@@ -682,17 +684,13 @@ $this->card = array (
                 'id' => 58,
                 'type' => 'abstation',
                 'crew' => 9,
-                'reward' => array ( 'red' => 1,
-                                  'yellow' => 1,
-                                  'green' => 1,
-                                  'blue' => 1 ),
+                'reward' => array ( 'red', 'yellow', 'green', 'blue' ),
                 'days_loss' => 2, ),
   59 => array ( 'round' => 3,
                 'id' => 59,
                 'type' => 'abstation',
                 'crew' => 10,
-                'reward' => array ( 'yellow' => 2,
-                                  'green' => 2 ),
+                'reward' => array ( 'yellow', 'yellow', 'green', 'green'),
                 'days_loss' => 2, ),
   );
 

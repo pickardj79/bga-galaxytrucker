@@ -44,15 +44,6 @@ class GT_DBCard extends APP_GameClass {
         $game->DbQuery( $sql );
     }
 
-    function getActionChoices($game) {
-        // returns ints-array of player action choices associated with card
-        // zero is no card chosen and is filtered out
-        // return array_filter(array_map(
-            // function($x) { return (int)$x['card_action_choice']; },
-            // $game->getCollectionFromDB("SELECT card_action_choice, player_id player_id FROM player")
-        // ));
-        return $game->getCollectionFromDB("SELECT card_action_choice, player_id player_id FROM player");
-    }
 
 }
 

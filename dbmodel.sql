@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS `card` (
   PRIMARY KEY (`card_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ;
 
+ALTER TABLE `player` ADD `credits` TINYINT DEFAULT 0;
 ALTER TABLE `player` ADD `turn_order` TINYINT DEFAULT NULL;
 ALTER TABLE `player` ADD `player_position` INT DEFAULT NULL;
 -- 0 should be starting position of the player with number 1
