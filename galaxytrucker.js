@@ -89,12 +89,6 @@ function (dojo, declare) {
 
       this.plReportBug = "This shouldn't happen, please report this bug with the full error message.";
       this.statesWithoutOverlayTiles = [ 'buildPhase', 'takeOrderTiles', 'repairShips' ];
-      this.powEngInfoHtml = "<p>"+_('Engine strength:')+" <span id='curr_str'>${curr}</span></p>"+
-              "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>";
-      this.chooseCrewInfoHtml = "<p><span id='curr_sel'>${curr}</span> / "+
-              "<span id='needed_sel'>${needed}</span></p>";
-      this.choosePlanetInfoHtml = "<p><span id='curr_sel'>${curr}</span></p>";
-      this.blankInfoHtml = "<p><span id='curr_sel'></span></p>";
       this.noBuildMessage = false; // Set to true if a player doesn't want to see
                                     // the build message
       this.stateName = null; // Is updated in every onEnteringState
@@ -118,9 +112,6 @@ function (dojo, declare) {
                                           // only when the mouse move, until which the tile is not visible)
       this.sandTimerHandle = null; // Used to connect and disconnect the timer to onFlipTimer
       this.baseStrength = null;
-      this.nbSelected = null;
-      this.maxSelected = null;
-      this.typeToSelect = null; // can be "crew", "cell", "goods"
       this.wholeCrewWillLeave = false; // used to display a confirmation dialog if exploring an
                                         // abandoned ship will cause to give up
     },
@@ -399,50 +390,22 @@ function (dojo, declare) {
         case 'epidemic':
         case 'sabotage':
         case 'powerCannons':
-            dojo.style( 'current_card', 'display', 'block' );
             break;
         case 'powerEngines':
-            dojo.style( 'current_card', 'display', 'block' );
-            if ( this.isCurrentPlayerActive() ) {
-                dojo.place( this.format_string( this.powEngInfoHtml, {
-                                        curr: args.args.baseStr,
-                                        max: args.args.maxStr
-                                    } ), "info_box", "only" );
-                dojo.style( 'info_box', 'display', 'block' );
-                this.prepareContentChoice('cell');
-                this.baseStrength = Number(args.args.baseStr);
-                this.maxSelected = Number(args.args.maxSel);
-                this.typeToSelect = "cell";
-            }
+            if ( this.isCurrentPlayerActive() )
+                this.ship.prepareContentChoice('engine', args.args.baseStr, args.args.maxStr);
             break;
         case 'exploreAbandoned':
-            dojo.style( 'current_card', 'display', 'block' );
-            if ( this.isCurrentPlayerActive() ) {
+            if ( this.isCurrentPlayerActive() ) 
                 this.wholeCrewWillLeave = args.args.wholeCrewWillLeave;
-            }
             break;
         case 'chooseCrew':
-            dojo.style( 'current_card', 'display', 'block' );
-            if ( this.isCurrentPlayerActive() ) {
-                dojo.place( this.format_string( this.chooseCrewInfoHtml, {
-                                        curr: 0,
-                                        needed: args.args.nbCrewMembers
-                                    } ), "info_box", "only" );
-                dojo.style( 'info_box', 'display', 'block' );
-                this.prepareContentChoice( 'crew' ); // Connects and adds 'available' CSS class
-                this.nbSelected = 0;
-                this.maxSelected = Number(args.args.nbCrewMembers);
-                this.typeToSelect = "crew";
-            }
+            if ( this.isCurrentPlayerActive() ) 
+                this.ship.prepareContentChoice('crew', 0, args.args.nbCrewMembers, true);
             break;
         case 'choosePlanet':
-            if ( this.isCurrentPlayerActive() ) {
-                dojo.place( this.format_string( this.choosePlanetInfoHtml, {
-                                        curr: 0,
-                                    } ), "info_box", "only" );
-                dojo.style( 'info_box', 'display', 'block' );
+            if ( this.isCurrentPlayerActive() ) 
                 this.card.placePlanetAvail(args.args.planetIdxs);
-            }
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
         case 'powerShield':
@@ -450,15 +413,12 @@ function (dojo, declare) {
             break;
         case 'placeGoods':
             if ( this.isCurrentPlayerActive() ) {
-                dojo.place( this.format_string( this.blankInfoHtml, { } ), "info_box", "only" );
-                dojo.style( 'info_box', 'display', 'block' );
                 let goods = new GTFE_Goods(this);
                 goods.placeGoods(args.args.cardType, args.args.planetIdx, this.getActivePlayerId());
             }
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
         case 'takeReward':
-            dojo.style( 'current_card', 'display', 'block' );
             break;
 
         case 'dummmy':
@@ -509,20 +469,11 @@ function (dojo, declare) {
             break;
         case 'powerEngines':
         case 'chooseCrew':
-            if ( this.isCurrentPlayerActive() ) {
-                this.nbSelected = this.maxSelected = this.typeToSelect = this.baseStrength = null;
-                dojo.style( 'info_box', 'display', 'none' );
-                dojo.empty( 'info_box' );
-                dojo.query('.content', 'my_ship').forEach(
-                          dojo.hitch( this, function( node ) {
-                              this.disconnect( node, 'onclick' );
-                              dojo.removeClass( node, 'available');
-                              dojo.removeClass( node, 'selected');
-                              } ) );
-            }
+            this.ship.onLeavingContentChoice();
             break;
         case 'choosePlanet':
-            this.card.onLeavingChoosePlanet
+            this.card.onLeavingChoosePlanet();
+            break;
         case 'placeGoods':
             let goods = new GTFE_Goods(this);
             goods.onLeavingPlaceGoods();
@@ -548,12 +499,10 @@ function (dojo, declare) {
             this.addActionButton( 'button_undoCrewPl', _('Undo'), 'onUndoCrewPlacement' );
             break;
         case 'repairShips' :
-            this.addActionButton( 'button_finishRepairs', _('Validate repairs'),
-                                    'onFinishRepairs' );
+            this.addActionButton( 'button_finishRepairs', _('Validate repairs'), 'onFinishRepairs' );
             break;
         case 'powerEngines' :
-            this.addActionButton( 'button_contentChoice', _('Validate'),
-                                    'onValidateContentChoice' );
+            this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
           case 'exploreAbandoned' :
             this.addActionButton( 'button_explore_1', _('Yes'), 'onExploreChoice' );
@@ -561,8 +510,7 @@ function (dojo, declare) {
             break;
         case 'chooseCrew' :
             this.addActionButton( 'button_cancelExplore', _('Cancel'), 'onCancelExplore' );
-            this.addActionButton( 'button_contentChoice', _('Validate'),
-                                    'onValidateContentChoice' );
+            this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'notImpl' :
             this.addActionButton( 'button_nextCard', _('Go on'), 'onGoOn' );
@@ -918,35 +866,6 @@ function (dojo, declare) {
                   } ) );
     },
 
-    prepareContentChoice: function( type ) {
-        dojo.query('.'+type, 'my_ship').forEach(
-            dojo.hitch( this, function( node ) {
-                this.connect( node, 'onclick', 'onSelectContent');
-                dojo.addClass( node, 'available');
-                } ) );
-    },
-
-    updateInfoBox: function() {
-        switch ( this.gamedatas.gamestate.name ) {
-          case 'powerEngines':
-            var currentStrength = this.baseStrength + this.nbSelected*2;
-            console.log('base strength: ', this.baseStrength);
-            console.log('current strength: ', currentStrength);
-            // dojo.query is temporary, I'll use something more reliable when
-            // the changes in content table are done.
-            if ( this.baseStrength==0 && this.nbSelected>0 && dojo.query('.brown','my_ship').length ) {
-                // baseStrength == 0 means that the alien bonus (if present) is not counted
-                // in baseStrength (because no simple engine/cannon), so we must add it if
-                // at least one cell is selected
-                currentStrength += 2;
-            }
-            $("curr_str").innerHTML = currentStrength;
-            break;
-          case 'chooseCrew':
-            $("curr_sel").innerHTML = this.nbSelected;
-            break;
-        }
-    },
 
     attachToNewParentNoDestroy : function(mobile, new_parent) {
         if (mobile === null) {
@@ -1226,7 +1145,6 @@ function (dojo, declare) {
         } ) );
     },
 
-
     onCrewPlacementDone: function( evt ) {
       console.log( 'onCrewPlacementDone' );
       dojo.stopEvent( evt );
@@ -1255,67 +1173,20 @@ function (dojo, declare) {
         this.connectAlienChoices();
     },
 
-    onSelectContent: function( evt ) {
-        console.log( 'onSelectContent', evt.currentTarget );
-        dojo.stopEvent( evt );
-        if ( this.nbSelected === this.maxSelected )
-            return;
-        var contId = evt.currentTarget.id;
-        dojo.replaceClass( contId, 'selected', 'available');
-        this.disconnect( $(contId), 'onclick' );
-        this.connect( $(contId), 'onclick', 'onUnselectContent');
-        this.nbSelected++;
-        console.log('nbSelected after ++: ', this.nbSelected);
-        if ( this.nbSelected === this.maxSelected ) {
-            dojo.query('.available.content').removeClass('available');
-            // no need to disconnect all now, they'll be disconnected in notif
-        }
-        this.updateInfoBox(); // current strength in powerEngines, nbSelected in chooseCrew, etc.
-    },
-
-    onUnselectContent: function( evt ) {
-        console.log( 'onUnSelectContent', evt.currentTarget );
-        dojo.stopEvent( evt );
-        var contId = evt.currentTarget.id;
-        dojo.removeClass( contId, 'selected');
-        this.disconnect( $(contId), 'onclick' );
-        this.connect( $(contId), 'onclick', 'onSelectContent');
-        this.nbSelected--;
-        if ( this.nbSelected === (this.maxSelected-1) ) {
-            // all content divs were previously marked as unselectable in onSelectContent(),
-            // so we add available class back to them
-            dojo.query('.'+this.typeToSelect+':not(.selected)').addClass('available');
-        }
-        else {
-            dojo.addClass( contId, 'available' );
-        }
-        this.updateInfoBox(); // current strength in powerEngines, nbSelected in chooseCrew, etc.
-    },
 
     onValidateContentChoice: function( evt ) {
         console.log( 'onValidateContentChoice' );
         dojo.stopEvent( evt );
-        if( this.checkAction( 'contentChoice' ) ) {
-            var contArray = [];
-            dojo.query( '.selected', 'my_ship' ).forEach( 
-                    dojo.hitch( this, function( node ) {
-                        contArray.push( this.getPart( node.id, 1) );
-                    } ) );
-            switch ( this.typeToSelect ) {
-              case 'cell':
-                var action = 'battChoice';
-              break;
-              case 'crew':
-                if ( this.nbSelected !== this.maxSelected ) {
-                    this.showMessage( _("Wrong number of crew members selected"), 'error' );
-                    return;
-                }
-                var action = 'crewChoice';
-              break;
-            }
-            this.ajaxAction( 'contentChoice', { contList: contArray.join(),
-                                                actionName: action } );
-        }
+        if(! this.checkAction( 'contentChoice' ) )
+            return;
+
+        let payload = this.ship.onValidateContentChoice();
+        console.log("onValidateChooseChoice response", payload);
+
+        if (!payload) 
+            return;
+
+        this.ajaxAction( 'contentChoice', payload );
     },
 
     onExploreChoice: function( evt ) {
@@ -1341,6 +1212,8 @@ function (dojo, declare) {
     onCancelExplore: function( evt ) {
         console.log( 'onCancelExplore' );
         dojo.stopEvent( evt );
+        if(! this.checkAction( 'contentChoice' ) )
+            return;
         this.ajaxAction( 'cancelExplore', {} );
     },
 

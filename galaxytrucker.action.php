@@ -140,7 +140,7 @@
 
   public function contentChoice() {
       self::setAjaxMode();
-      $contChoiceRaw = self::getArg( "contList", AT_numberlist, true );
+      $contChoiceRaw = self::getArg( "ids", AT_numberlist, true );
       if ( $contChoiceRaw === "" ) {
           $contChoices = array();
       }
@@ -153,11 +153,11 @@
 //                                    'place' => $cont[1] );
 //          }
       }
-      switch ( self::getArg( "actionName", AT_alphanum, true ) ) {
-        case 'battChoice':
+      switch ( self::getArg( "contentType", AT_alphanum, true ) ) {
+        case 'cell':
           $this->game->battChoice( $contChoices );
           break;
-        case 'crewChoice':
+        case 'crew':
           $this->game->crewChoice( $contChoices );
           break;
       }
