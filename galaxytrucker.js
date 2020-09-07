@@ -1309,11 +1309,14 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'moveShip', 800 );
         dojo.subscribe( 'giveUp', this, "notif_giveUp" );
         this.notifqueue.setSynchronous( 'giveUp', 800 );
+        dojo.subscribe( 'gainContent', this, "notif_gainContent" );
+        this.notifqueue.setSynchronous( 'gainContent', 800 );
         dojo.subscribe( 'loseContent', this, "notif_loseContent" );
-        this.notifqueue.setSynchronous( 'loseContent', 1500 );
+        this.notifqueue.setSynchronous( 'loseContent', 800 );
         dojo.subscribe( 'planetChoice', this, "notif_planetChoice");
         this.notifqueue.setSynchronous( 'planetChoice', 1000 );
         dojo.subscribe( 'cargoChoice', this, "notif_cargoChoice");
+        this.notifqueue.setSynchronous( 'cargoChoice', 100 );
 
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
@@ -1705,6 +1708,11 @@ function (dojo, declare) {
         console.log( 'notif_giveUp', notif );
         this.slideToObjectAndDestroy( 'ship_marker_'+notif.args.player_id, 
                               'overall_player_board_' + notif.args.player_id );
+    },
+
+    notif_gainContent: function(notif) {
+        console.log('notif_gainContent');
+        // currently do nothing, just a log message
     },
 
     notif_loseContent: function( notif ) {

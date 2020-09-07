@@ -78,29 +78,6 @@ class GTFE_Goods {
             goodsIdx += 1;
         }
 
-        // if (cardType['type'] == 'planets') {
-        //     if (!planetIdx in cardType['planets'])
-        //         game.throw_bug_report("planetIdx invalid in GTFE_Card.placeGoods: " + planetIdx);
-        //     // place the goods on the given planet
-        //     let goodsIdx = 1;
-        //     for (let goodsType of cardType['planets'][planetIdx]) {
-        //         let idSuffix = "cardgoods_" + planetIdx + "_" + goodsIdx;
-        //         let goodId = "content_" + idSuffix;
-        //         let planetId = game.makePartId(game.PLANET_PREFIX, planetIdx); 
-        //         dojo.place( game.format_block( 'jstpl_content', {
-        //             content_id: idSuffix,
-        //             classes: 'goods planet_goods planet_goods_' + goodsIdx + " " + goodsType,
-        //         } ), 'overall_player_board_' + plId );
-        //         game.slideToDomNode(goodId, planetId, 500, goodsIdx * 100);
-                
-        //         goodsIdx += 1;
-        //     }
-        // }
-        // else if (cardType['type'] == 'abstation') {
-        //     for (let goodsType of cardType['planets'][planetIdx]) {
-        //     }
-        //     game.throw_bug_report("abstation placeGoods not implemented");
-        // }
         this.activateGoods();
     }
 

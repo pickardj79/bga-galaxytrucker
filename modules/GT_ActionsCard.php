@@ -213,21 +213,33 @@ class GT_ActionsCard extends APP_GameClass {
         // remove existing goods not "moved". They went to the trash
         $toDel = array_diff($origContentIds, $allMovedGoodsIds);
         if ($toDel) {
-            $sql = "DELETE FROM content WHERE content_id IN (" . implode(",", $toDel) . ")";
-            $game->log("Deleting with $sql");
-            $game->DbQuery($sql);
+            $plyrContent->loseContent($toDel, 'goods', FALSE);
+            // $sql = "DELETE FROM content WHERE content_id IN (" . implode(",", $toDel) . ")";
+            // $game->log("Deleting with $sql");
+            // $game->DbQuery($sql);
         }
 
         // Do a final consistency check/validation on the database 
-        $game->newPlayerContent($plId)->checkAll($game->newPlayerBoard($plId));
+        $plyrContent_refresh = $game->newPlayerContent($plId);
+        $plyrContent_refresh->checkAll($game->newPlayerBoard($plId));
 
         GT_DBPlayer::setCardDone($game, $plId);
 
         // notifyAllPlayers
+        switch($game->card[$cardId]['type']) {
+            case 'planets': $desc = "planet number {$player['card_action_choice']}"; break;
+            case 'abstation': $desc = "abandoned station"; break;
+            case 'smugglers': $desc = "defeated smugglers"; break;
+            default:
+                $game->throw_bug_report("Unknown cardtype in cargoChoice for card $cardId");
+        }
+
+        $plyrContent->newContentNotif($newTileContent, $player['player_name']);
+
         $game->notifyAllPlayers('cargoChoice',
-            clienttranslate( '${player_name} places cargo from planet number ${planet_number}'),
+            clienttranslate( '${player_name} places cargo from ${desc}'),
             array( 'player_name' => $player['player_name'],
-                'planet_number' => $player['card_action_choice'],
+                'desc' => $desc, 
                 'movedTileContent' => $movedTileContent,
                 'newTileContent' => $newTileContent,
                 'deleteContent' => array_values($toDel),
