@@ -1,7 +1,8 @@
 
 class GTFE_Goods {
 
-    ALL_PLANET_GOODS_CLASSES = [1,2,3,4,5].map( i => "planet_goods_" + i).join(" ");
+    ALL_CARD_GOODS_CLASSES = [1,2,3,4,5].map( i => "card_goods_" + i).join(" ");
+    ALL_CARD_TOTAL_REWARDS_CLASSES = [1,2,3,4,5].map( i => "card_total_rewards_" + i).join(" ");
     ALL_TRASH_GOODS_CLASSES = [...Array(15).keys()].map( i => "trash_" + i).join(" ");
 
     constructor(game) {
@@ -34,34 +35,49 @@ class GTFE_Goods {
         dojo.style( 'trash_box', 'display', null);
 
         // clean up markers needed for this card
-        dojo.query('.planet_goods').forEach( n => dojo.destroy(n) );
+        dojo.query('.card_goods').forEach( n => dojo.destroy(n) );
         dojo.query('.ship_marker', 'current_card').forEach( n => dojo.destroy(n) );
+        dojo.query('#card_rewards').removeClass(this.ALL_CARD_TOTAL_REWARDS_CLASSES);
     }
 
     /// ################# GOODS #########################
     placeGoods(cardType, planetIdx, plId) {
         let game = this.game;
+
+        let idSuffix = "cardgoods";
+        let classPrefix = undefined;
+        let goods = undefined;
+        let tgtNodeId = undefined;
         if (cardType['type'] == 'planets') {
             if (!planetIdx in cardType['planets'])
                 game.throw_bug_report("planetIdx invalid in GTFE_Card.placeGoods: " + planetIdx);
-            // place the goods on the given planet
-            let goodsIdx = 1;
-            for (let goodsType of cardType['planets'][planetIdx]) {
-                let idSuffix = "planetcargo_" + planetIdx + "_" + goodsIdx;
-                let goodId = "content_" + idSuffix;
-                let planetId = game.makePartId(game.PLANET_PREFIX, planetIdx); 
-                dojo.place( game.format_block( 'jstpl_content', {
-                    content_id: idSuffix,
-                    classes: 'goods planet_goods planet_goods_' + goodsIdx + " " + goodsType,
-                } ), 'overall_player_board_' + plId );
-                game.slideToDomNode(goodId, planetId, 500, goodsIdx * 100);
-                
-                goodsIdx += 1;
-            }
+
+            idSuffix += "_" + planetIdx;   
+            classPrefix = 'planet_goods';
+            goods = cardType['planets'][planetIdx];   
+            tgtNodeId = game.makePartId(game.PLANET_PREFIX, planetIdx); 
         }
-        else if (cardType['type'] == 'abstation') {
-            game.throw_bug_report("abstation placeGoods not implemented");
+        else {
+            classPrefix = 'card_reward';
+            goods = cardType['reward'];
+            dojo.query('#card_rewards').addClass("card_total_rewards_" + goods.length);
+            tgtNodeId = 'card_rewards';
         }
+
+        let goodsIdx = 1;
+        for (let goodsType of goods) {
+            let fullIdSuffix = idSuffix + "_" + goodsIdx;
+            let goodId = "content_" + fullIdSuffix;
+            let goodsClass = classPrefix + "_" + goodsIdx;
+            dojo.place( game.format_block( 'jstpl_content', {
+                content_id: fullIdSuffix,
+                classes: 'goods card_goods ' + goodsClass + " " + goodsType,
+            } ), 'overall_player_board_' + plId );
+            game.slideToDomNode(goodId, tgtNodeId, 500, goodsIdx * 100);
+            
+            goodsIdx += 1;
+        }
+
         this.activateGoods();
     }
 
@@ -139,7 +155,7 @@ class GTFE_Goods {
         let i = 1;
         for (let good of goodsToPlace) {
             tileObj.slideContent(good, null, 500, 100*i);
-            dojo.removeClass(good, this_obj.ALL_PLANET_GOODS_CLASSES);
+            dojo.removeClass(good, this_obj.ALL_CARD_GOODS_CLASSES);
             dojo.removeClass(good, this_obj.ALL_TRASH_GOODS_CLASSES);
             i += 1;
         }
@@ -167,7 +183,7 @@ class GTFE_Goods {
         for (let good of goodsToPlace) {
             dojo.removeClass(good, 'selected');
             game.slideToDomNode(good, nodeId, 500, delayCtr * 100);
-            dojo.removeClass(good, this_obj.ALL_PLANET_GOODS_CLASSES);
+            dojo.removeClass(good, this_obj.ALL_CARD_GOODS_CLASSES);
             dojo.removeClass(good, bogus_tile.ALL_TILE_CONTENT_CLASSES);
             dojo.removeClass(good, this_obj.ALL_TRASH_GOODS_CLASSES);
             delayCtr += 1;

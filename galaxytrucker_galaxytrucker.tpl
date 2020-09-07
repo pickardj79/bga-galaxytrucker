@@ -96,7 +96,7 @@
       </div>
     </div>
 
-    <div id="current_card"></div>
+    <div id="current_card"><div id="card_rewards"></div></div>
     <div id="info_box" class="darkblock"></div>
     <div id="trash_box" class="darkblock"><h3>{AIR_LOCK}</h3></div>
 
@@ -125,7 +125,7 @@ var jstpl_square='<div class="square${cssClasses}" id="square_${plId}_${x}_${y}"
 var jstpl_overlay_tile='<div class="overlay_tile" id="overlaytile_${i}"></div>';
 var jstpl_rev_space='<div id="rev_space_${i}" class="rev_space additional"></div>';
 
-// generic circle - used for planet selection options
+// markers on card to aid in goods placement; circle - used for planet selection options
 var jstpl_circle='<div class="circle ${classes}" id="planet_${idx}" style="left:7px; top:${top}px;"></div>';
 
 var jstpl_order_tile='<div class="order_tile" id="order_tile_${i}"></div>';

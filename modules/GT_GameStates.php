@@ -64,7 +64,8 @@ class GT_GameState {
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
-        $this->setCardOrder(16,1); // abship card
+        // $this->setCardOrder(16,1); // abship card
+        $this->setCardOrder(58,1); // abship card (18)
 
         // Add cargo to ships
         $sql = "INSERT INTO content (player_id, tile_id, square_x, square_y, content_type, content_subtype, place, capacity) VALUES";

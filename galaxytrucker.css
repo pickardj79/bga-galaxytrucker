@@ -416,6 +416,7 @@ html {
 .square .content { position: absolute; }
 .planet .content { position: absolute; }
 #trash_box .content { position: absolute; }
+#card_rewards .content {position: absolute;}
 .log .content { display: inline-block; }
 
 .notouch-device .content.available:hover,
@@ -543,11 +544,29 @@ html {
 .planet_goods_3 { left: 78px; top: 3px }
 .planet_goods_4 { left: 100px; top: 3px }
 .planet_goods_5 { left: 121px; top: 3px }
+.card_total_rewards_2 { left: 47px }
+.card_total_rewards_3 { left: 39px }
+.card_total_rewards_4 { left: 19px }
+.card_total_rewards_5 { left: 0px }
+.card_reward_1 { left: 0px }
+.card_reward_2 { left: 23px }
+.card_reward_3 { left: 46px }
+.card_reward_4 { left: 69px }
+.card_reward_5 { left: 91px }
 .human.p1on2 { left: 10px; }
 .human.p2on2 { left: 25px; }
 .alien_choice.p1on3 { left: 4px; } /* on3: includes human_choice */
 .alien_choice.p2on3 { left: 27px; }
 .alien_choice.p1on2 { left: 14px; }
+
+#card_rewards {
+    /* to place rewards goods, this defines distance from top, 
+       then .cards_total_rewards_X defines how far to go right for the first goods
+       then card_rewards_X defines how far left each one should go from there
+    */
+    position: absolute;
+    top: 203px;
+}
 
 .planet {
     position: absolute;

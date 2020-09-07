@@ -284,7 +284,7 @@ $machinestates = array(
             "nextPlayer" => STATE_ABANDONED,
             "chooseCrew" => STATE_CHOOSE_CREW,
             "nextCard"   => STATE_DRAW_CARD,
-            "placeGoods" => STATE_NOT_IMPL,  )
+            "placeGoods" => STATE_PLACE_GOODS,  )
     ),
 
     STATE_POWER_ENGINES => array(
@@ -329,7 +329,9 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPlaceGoods",
         "possibleactions" => array( "cargoChoice" ),
-        "transitions" => array( "cargoChoicePlanet" => STATE_PLANETS)
+        "transitions" => array( 
+            "nextCard" => STATE_DRAW_CARD,
+            "cargoChoicePlanet" => STATE_PLANETS)
     ),
 
 //    40 => array(

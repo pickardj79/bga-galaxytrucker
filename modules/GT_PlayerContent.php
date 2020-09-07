@@ -173,11 +173,14 @@ class GT_PlayerContent extends APP_GameClass {
     function newContent($tileId, $type, $cnt, $subtypes) {
         // Creates newContent on $tileId (a number)
         // Specify either $cnt (e.g. for cells) or array of $subtypes (e.g. for cargo)
-        // Does NOT update local content (should repull from DB)
+        $game = $this->game;
         if ($cnt)
-            $this->game->throw_bug_report("newContent by cnt not implemented");
+            $game->throw_bug_report("newContent by cnt not implemented");
         
-        $tile = GT_DBComponent::getActiveComponent($this->game, $tileId);
+        if (!$subtypes)
+            return; 
+        
+        $tile = GT_DBComponent::getActiveComponent($game, $tileId);
 
         $newContent = array();
         foreach ($subtypes as $subtype) {
@@ -190,19 +193,47 @@ class GT_PlayerContent extends APP_GameClass {
                 'square_x' => $tile['component_x'],
                 'square_y' => $tile['component_y'],
                 'place' => $place,
-                'capacity' => $this->game->getTileHold($tileId) 
+                'capacity' => $game->getTileHold($tileId) 
             );
             $this->checkContentTile($content, $tileId, $checkHold=FALSE);
+
             $sql = GT_DBContent::insertContentSql(array($content), $update=FALSE);
-            $this->game->log("adding content with $sql");
-            $this->game->DbQuery($sql);
-            $id = $this->game->DbGetLastId();
+            $game->log("adding content with $sql");
+            $game->DbQuery($sql);
+            $id = $game->DbGetLastId();
             $content['content_id'] = $id;
-            $newContent[] = $content;
             $this->plContent[$id] = $content;
+
+            $newContent[] = $content;
         }
 
         return $newContent;
+    }
+
+    function newContentNotif($tileContent, $pName = null) {
+        // $tileContent is map of tileId => array($contents)
+
+        $contentHtml = '';
+        foreach($tileContent as $tileId => $contents) {
+            foreach ($contents as $cont) {
+                // Could also look up in $this->plContent by id
+                $type = $cont['content_type'];
+                $subtype = $cont['content_subtype'];
+                $contentHtml .= "<img class='content $type $subtype'></img> ";
+            }
+        }
+
+        if (!$pName) {
+            $player = GT_DBPlayer::getPlayer($this->game, $this->player_id);
+            $pName = $player['player_name'];
+        }
+
+        $this->game->notifyAllPlayers("gainContent",
+            clienttranslate( '${player_name} gains ${content_icons}'),
+            array(  'player_name' => $pName,
+                    'content_icons' => $contentHtml,
+                )
+        );
     }
 
     function loseContent($ids, $expType, $toCard) {
@@ -210,7 +241,7 @@ class GT_PlayerContent extends APP_GameClass {
         $contentHtml = "";
         $tileOrient = $this->game->getCollectionFromDB( "SELECT component_id, component_orientation ".
                     "FROM component WHERE component_player={$this->player_id}", true );
-        $player = GT_DBPlayer::getPlayer($this->game, $this->player_id);
+
         foreach ( $ids as $id) {
             $this->checkContentById($id, $expType);
             $curCont = $this->plContent[$id];
@@ -220,12 +251,16 @@ class GT_PlayerContent extends APP_GameClass {
                             'id' => $id,
                             'tile_id' => $tileId,
                             'toCard' => $toCard);
-            $type = $curCont['content_subtype'] 
-                ? $curCont['content_subtype'] : $curCont['content_type'];
+            // TODO: test this with cell and crew
+            $type = $curCont['content_type'] . " " . $curCont['content_subtype'];
+            // $type = $curCont['content_subtype'] 
+                // ? $curCont['content_subtype'] : $curCont['content_type'];
             $contentHtml .= "<img class='content $type'></img> ";
         }
         $sql = "DELETE FROM content WHERE content_id IN (".implode(',', $ids).")";
         $this->game->DbQuery( $sql );
+
+        $player = GT_DBPlayer::getPlayer($this->game, $this->player_id);
         $this->game->notifyAllPlayers( "loseContent",
                                 clienttranslate( '${player_name} loses ${content_icons}'),
                                 array( 'player_name' => $player['player_name'],

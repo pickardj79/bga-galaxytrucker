@@ -3,7 +3,6 @@
 /* Collection of function to handle player actions in response to cards */
 
 require_once('GT_DBPlayer.php');
-require_once('GT_DBCard.php');
 
 class GT_ActionsCard extends APP_GameClass {
     public function __construct() {
@@ -45,14 +44,12 @@ class GT_ActionsCard extends APP_GameClass {
                 return 'nextCard';
             }
             else {
-                $game->throw_bug_report("Explore choice: not enough crew members ({$player['nb_crew']})");
+                $game->throw_bug_report_dump("Explore choice: not enough crew members", $player);
             }
         }
         elseif ( $game->card[$cardId]['type'] == 'abstation' ) {
-            // Check nb of crew members or not? Should have been checked in stAbandoned
-            // If we need informations from the player table, we can get also nb_crew
-            // Should we check if this player has NO CARGO AT ALL? (no placeGoods state)
-            // Is a quiet notif needed?
+            if ($player['nb_crew'] < $game->card[$cardId]['crew'])
+                $game->throw_bug_report_dump("Explore choice: not enough crew members", $player);
 
             // TODO: TEMP, end of card, since placeGoods is not implemented yet:
             $nbDays = -($game->card[$cardId]['days_loss']);
@@ -135,7 +132,7 @@ class GT_ActionsCard extends APP_GameClass {
 
         $allIdx = array_keys($game->card[$cardId]['planets']);
         $chosenIdx = array_filter(array_map(function($row) { return $row['card_action_choice']; },
-            GT_DBCard::getCardChoices($game) ));
+            GT_DBPlayer::getCardChoices($game) ));
        
         if (!in_array($choice, $allIdx))
             $game->throw_bug_report("Planet choice ($choice) not possible for this planet ($cardId)");
@@ -169,7 +166,7 @@ class GT_ActionsCard extends APP_GameClass {
 
         // Split goods for each tile into new goods (from the card) or moved goods (already in DB) 
         // Rely on transactions to roll back database changes if any validation fails
-        $seenPlanetIdx = array();
+        $seenGoodsIdx = array();
         $allMovedGoodsIds = array();
         $movedTileContent = array();
         $newTileContent = array();
@@ -177,15 +174,24 @@ class GT_ActionsCard extends APP_GameClass {
             $newGoods = array(); // array of goods subtypes
             $movedGoodsIds = array();
             foreach ( $goods as $goodId ) {
-                if (strpos($goodId,"planetcargo")) {
-                    // goodId on card: cargo_planetcargo_X_Y: X is planet #, Y is goods #
-                    list($t1, $t2, $planet, $idx) = explode("_", $goodId);
-                    if ($planet != $player['card_action_choice'])
-                        $game->throw_bug_report("Cargo ($goodId) has wrong planet, should be ({$player['card_action_choice']})", $goodsOnTile);
-                    if (in_array($idx, $seenPlanetIdx))
+                if (strpos($goodId,"cardgoods")) {
+
+                    $idx = null;
+                    if ($game->card[$cardId]['type'] == 'planets') {
+                        // goodId on card: cargo_planetcargo_X_Y: X is planet #, Y is goods #
+                        list($t1, $t2, $planet, $idx) = explode("_", $goodId);
+                        if ($planet != $player['card_action_choice'])
+                            $game->throw_bug_report("Cargo ($goodId) has wrong planet, should be ({$player['card_action_choice']})", $goodsOnTile);
+                        $newGoods[] = $game->card[$cardId]['planets'][$planet][$idx - 1];
+                    }
+                    else {
+                        $idx = explode("_", $goodId)[2];
+                        $newGoods[] = $game->card[$cardId]['reward'][$idx - 1];
+                    }
+
+                    if (in_array($idx, $seenGoodsIdx))
                         $game->throw_bug_report("Cargo idx ($idx) appears twice", $goodsOnTile);
-                    $seenPlanetIdx[] = $idx;
-                    $newGoods[] = $game->card[$cardId]['planets'][$planet][$idx - 1];
+                    $seenGoodsIdx[] = $idx;
                 }
                 else {
                     $id = explode("_", $goodId)[1];
@@ -207,21 +213,33 @@ class GT_ActionsCard extends APP_GameClass {
         // remove existing goods not "moved". They went to the trash
         $toDel = array_diff($origContentIds, $allMovedGoodsIds);
         if ($toDel) {
-            $sql = "DELETE FROM content WHERE content_id IN (" . implode(",", $toDel) . ")";
-            $game->log("Deleting with $sql");
-            $game->DbQuery($sql);
+            $plyrContent->loseContent($toDel, 'goods', FALSE);
+            // $sql = "DELETE FROM content WHERE content_id IN (" . implode(",", $toDel) . ")";
+            // $game->log("Deleting with $sql");
+            // $game->DbQuery($sql);
         }
 
         // Do a final consistency check/validation on the database 
-        $game->newPlayerContent($plId)->checkAll($game->newPlayerBoard($plId));
+        $plyrContent_refresh = $game->newPlayerContent($plId);
+        $plyrContent_refresh->checkAll($game->newPlayerBoard($plId));
 
         GT_DBPlayer::setCardDone($game, $plId);
 
         // notifyAllPlayers
+        switch($game->card[$cardId]['type']) {
+            case 'planets': $desc = "planet number {$player['card_action_choice']}"; break;
+            case 'abstation': $desc = "abandoned station"; break;
+            case 'smugglers': $desc = "defeated smugglers"; break;
+            default:
+                $game->throw_bug_report("Unknown cardtype in cargoChoice for card $cardId");
+        }
+
+        $plyrContent->newContentNotif($newTileContent, $player['player_name']);
+
         $game->notifyAllPlayers('cargoChoice',
-            clienttranslate( '${player_name} places cargo from planet number ${planet_number}'),
+            clienttranslate( '${player_name} places cargo from ${desc}'),
             array( 'player_name' => $player['player_name'],
-                'planet_number' => $player['card_action_choice'],
+                'desc' => $desc, 
                 'movedTileContent' => $movedTileContent,
                 'newTileContent' => $newTileContent,
                 'deleteContent' => array_values($toDel),
