@@ -7,6 +7,8 @@ class GTFE_Card {
     constructor(game, id, type, varData) {
         this.game = game;
         this.id = id;
+
+        // unclear if this is ever set
         this.type = type;
 
         // onclick connects
@@ -76,9 +78,13 @@ class GTFE_Card {
         }
     }
 
-    placeCardMarkers(planetIdxs) {
+    placeCardMarkers(markerIdxs) {
+        // this is intended for planets only, to place ship markers on the planets card
+        if(!markerIdxs)
+            return;
+
         let game = this.game;
-        for ( let [idx, plId] of Object.entries(planetIdxs) ) {
+        for ( let [idx, plId] of Object.entries(markerIdxs) ) {
             if (!plId)
                 continue;
             let partId = game.makePartId(game.PLANET_PREFIX, idx);

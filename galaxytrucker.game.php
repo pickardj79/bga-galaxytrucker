@@ -38,7 +38,8 @@ class GalaxyTrucker extends Table {
         //  If your game has options (variants), you also have to associate here a label to
         //  the corresponding ID in gameoptions.inc.php.
         // Note: afterwards, you can get/set the global variables with getGameStateValue/setGameStateInitialValue/setGameStateValue
-        parent::__construct();self::initGameStateLabels( array(
+            parent::__construct();
+            self::initGameStateLabels( array(
                 "flight" => 10,
                 "round" => 11, // 'round' is only the round 'level', i.e. 1 for class I,
                             // 3 for class III or IIIa, etc., and is used to know which cards
@@ -57,8 +58,7 @@ class GalaxyTrucker extends Table {
                 // flight_variants is a game option (gameoptions.inc.php)
                 // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
                 "flight_variants" => 100,
-        ) );
-
+            ) );
         }
 
   protected function getGameName( ) {
@@ -1069,11 +1069,13 @@ class GalaxyTrucker extends Table {
 
   function cargoChoice( $goodsOnTile ) {
       self::checkAction('cargoChoice');
-      self::dump_var("Action planetChoice ", $goodsOnTile);
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       GT_ActionsCard::cargoChoice($this, $plId, $cardId, $goodsOnTile);
-      $this->gamestate->nextState('cargoChoicePlanet');
+      if ($this->card[$cardId]['type'] == 'planets')
+          $this->gamestate->nextState('cargoChoicePlanet');
+      else
+          $this->gamestate->nextState('nextCard');
   }
 
   function goOn( ) {
@@ -1211,12 +1213,18 @@ class GalaxyTrucker extends Table {
 
     function argPlaceGoods() {
         $currentCard = self::getGameStateValue( 'currentCard' );
-        $args = $this->argChoosePlanet();
+
+        $allPlayerChoices = NULL;
+        if ($this->card[$currentCard]['type'] == 'planets') {
+            $args = $this->argChoosePlanet();
+            $allPlayerChoices = $args['planetIdxs'];
+        }
+
         $plId = self::getActivePlayerId();
         $player = GT_DBPlayer::getPlayer($this, $plId);
         return array(
-            "planetIdx" => $player['card_action_choice'], 
-            "planetIdxs" => $args['planetIdxs'],
+            "playerChoice" => $player['card_action_choice'], 
+            "allPlayerChoices" => $allPlayerChoices,
             "cardType" => $this->card[$currentCard]);
     }
 

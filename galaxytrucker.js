@@ -412,11 +412,12 @@ function (dojo, declare) {
         case 'loseGoods':
             break;
         case 'placeGoods':
+            console.log("placing goods", args.args);
             if ( this.isCurrentPlayerActive() ) {
                 let goods = new GTFE_Goods(this);
-                goods.placeGoods(args.args.cardType, args.args.planetIdx, this.getActivePlayerId());
+                goods.placeGoods(args.args.cardType, args.args.playerChoice, this.getActivePlayerId());
             }
-            this.card.placeCardMarkers(args.args.planetIdxs);
+            this.card.placeCardMarkers(args.args.allPlayerChoices);
             break;
         case 'takeReward':
             break;
