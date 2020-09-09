@@ -63,9 +63,9 @@ class GT_GameState {
         // Set cards - put planet card id 11 first
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
-        // $this->setCardOrder(4,1); // openspace card
-        // $this->setCardOrder(16,1); // abship card
-        $this->setCardOrder(58,1); // abship card (18)
+        $this->setCardOrder(4,1); // openspace card
+        // $this->setCardOrder(17,1); // abship card
+        // $this->setCardOrder(18,1); // abstation card 
 
         // Add cargo to ships
         $sql = "INSERT INTO content (player_id, tile_id, square_x, square_y, content_type, content_subtype, place, capacity) VALUES";
@@ -185,7 +185,7 @@ class GT_GameState {
             $cargo = self::newTile(58, 7, 6, 0); // hazard cargo north
             array_push($tiles, $cargo);
             array_push($tiles, self::newTile(88, 7, 5, 0)); // laser above that
-            array_push($tiles, self::newTile(3, 8, 6, 0)); // battery to east of cargo
+            array_push($tiles, self::newTile(3, 6, 6, 270)); // battery to west of cargo
             array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
         }
         return array($tiles, $content);

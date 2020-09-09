@@ -80,7 +80,7 @@ class GT_FlightBoard extends APP_GameClass {
 
         GT_DBPlayer::setPlayerGiveUp($this->game, $plId);
         $this->game->notifyAllPlayers( "giveUp",
-            clienttranslate( '${player_name} will have to give up: $reason'),
+            clienttranslate( '${player_name} will have to give up: ${reason}'),
             array( 'player_name' => $this->players[$plId]['player_name'],
                    'player_id' => $plId,
                    'reason' => $reason

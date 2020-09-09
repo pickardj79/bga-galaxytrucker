@@ -63,6 +63,22 @@ class GTFE_Card {
             dojo.disconnect(handle);
     }
 
+    /// ################# MISC #########################
+    processContentChoice(payload) {
+        // Returns false if payload was not processed
+        if (! payload['contentType'] in ['engine', 'crew']) {
+            this.game.throw_bug_report("Unknown content type in GTFE_Card.processContentChoice");
+            return true;
+        }
+        if (payload['contentType'] == 'engine' && payload['str'] == 0) {
+            let msg = 'Are you sure you do not want to power any engines?'
+            this.game.giveUpDialog(msg, 'contentChoice.html', payload);
+            return true;
+        }
+
+        return false;
+    }
+
     /// ################# PLANET #########################
     placePlanetAvail(planetIdxs) {
         let game = this.game;

@@ -1022,13 +1022,13 @@ class GalaxyTrucker extends Table {
 
   // ############ CARD ACTIONS ############### 
 
-  function battChoice( $battChoices ) {
+  function powerEngines( $battChoices ) {
       // current this is setup only for powering engines during open space
       self::checkAction( 'contentChoice' );
       $plId = self::getActivePlayerId();
-      GT_ActionsCard::battChoice($this, $plId, $battChoices); 
+      GT_ActionsCard::powerEngines($this, $plId, $battChoices); 
       GT_DBPlayer::setCardDone($this, $plId);
-      $this->gamestate->nextState( 'battChosen' );
+      $this->gamestate->nextState( 'nextPlayer' );
   }
 
   function exploreChoice( $choice ) {
@@ -1165,8 +1165,10 @@ class GalaxyTrucker extends Table {
         $nbDoubleEngines = $this->newPlayerBoard($plId)->countDoubleEngines( $plId );
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
-        return array( 'baseStr' => $player['min_eng'], 'maxStr' => $player['max_eng'],
-                        'maxSel' => ( min( $nbDoubleEngines, $nbCells ) ) );
+        return array( 'baseStr' => $player['min_eng'], 
+                      'maxStr' => $player['max_eng'],
+                      'maxSel' => ( min( $nbDoubleEngines, $nbCells ) ),
+                      'hasAlien' => $plyrContent->checkIfAlien('brown')  ) ;
     }
 
     function argExploreAbandoned() {

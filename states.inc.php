@@ -291,11 +291,10 @@ $machinestates = array(
         "name" => "powerEngines",
         "description" => clienttranslate('${actplayer} must choose batteries to use'),
         "descriptionmyturn" => clienttranslate('${you} must choose batteries to use'),
-        //"descriptionmyturn" => clienttranslate('${you} can use up to ${nbr} batteries'),
         "type" => "activeplayer",
         "args" => "argPowerEngines",
-        "possibleactions" => array( "contentChoice", "pass" ),
-        "transitions" => array( "battChosen" => STATE_OPEN_SPACE ) // or "enginesPowered"?
+        "possibleactions" => array( "contentChoice" ),
+        "transitions" => array( "nextPlayer" => STATE_OPEN_SPACE ) // or "enginesPowered"?
     ),
 
     STATE_CHOOSE_PLANET => array(

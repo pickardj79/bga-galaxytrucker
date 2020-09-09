@@ -140,26 +140,17 @@
 
   public function contentChoice() {
       self::setAjaxMode();
-      $contChoiceRaw = self::getArg( "ids", AT_numberlist, true );
-      if ( $contChoiceRaw === "" ) {
-          $contChoices = array();
-      }
-      else {
-          $contChoices = explode( ',', $contChoiceRaw );
-//          $contChoiceSplit = explode( ';', $contChoiceRaw );
-//          foreach ( $contChoiceSplit as $contStr ) {
-//              $cont = explode ( ',', $contStr );
-//              $contChoices[] = array( 'tile_id' => $cont[0],
-//                                    'place' => $cont[1] );
-//          }
-      }
-      switch ( self::getArg( "contentType", AT_alphanum, true ) ) {
-        case 'cell':
-          $this->game->battChoice( $contChoices );
-          break;
+      $contChoiceRaw = self::getArg( "ids", AT_numberlist, false, "" );
+      $contChoices = $contChoiceRaw === "" ? array() : explode( ',', $contChoiceRaw );
+
+      $contType = self::getArg( "contentType", AT_alphanum, true );
+      switch ($contType) { 
+        case 'engine':
+          $this->game->powerEngines( $contChoices ); break;
         case 'crew':
-          $this->game->crewChoice( $contChoices );
-          break;
+          $this->game->crewChoice( $contChoices ); break;
+        default:
+          $this->game->throw_bug_report("Unknown contentType `$contType` in action.php contentChoice");
       }
       self::ajaxResponse( );
   }

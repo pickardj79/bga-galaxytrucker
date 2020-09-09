@@ -72,11 +72,7 @@ class GT_StatesCard extends APP_GameClass {
 
         foreach ( $players as $plId => $player ) {
             if ( $player['max_eng'] == 0 ) {
-                // TODO ouch! This player has to give up
-                $game->notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-                        'has no activable engine, but is lucky because giving up is not '.
-                        'implemented yet'),
-                        array ( 'player_name' => $player['player_name'] ) );
+                $flBrd->giveUp($plId, 'cannot power engines for Open Space');
                 GT_DBPlayer::setCardDone($game, $plId);
             }
             elseif ( $player['min_eng'] == $player['max_eng'] ) {
