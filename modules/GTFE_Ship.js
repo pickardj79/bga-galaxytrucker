@@ -14,10 +14,11 @@ class GTFE_Ship {
         this.connects = {};
 
         // var to keep track of selections
-        this._maxSelected = undefined;
+        this._maxAllowed = undefined;
         this._typeToSelect = undefined;
         this._nbSelected = undefined;
         this._maxRequired = undefined;
+        this._hasAlien = undefined;
     }
 
     connect(node, func) {
@@ -47,7 +48,7 @@ class GTFE_Ship {
     ////////////////////////////////////////////////////////////
     ////////////////// CONTENT CHOOSING ////////////////////////
 
-    prepareContentChoice(type, baseStr, max, maxRequired) {
+    prepareContentChoice(type, maxSel, maxRequired, baseStr, maxStr, hasAlien) {
         // type: type of thing, see QA check below for options
         // baseStr: base strength with nothing selected
         // max: max available to select
@@ -57,10 +58,11 @@ class GTFE_Ship {
             this.game.throw_bug_report("Unexpected content type: " + type);
 
         this._nbSelected = 0;
-        this._maxSelected = max;
+        this._maxAllowed = parseInt(maxSel);
         this._typeToSelect = type;
         this._maxRequired = maxRequired;
-        this._baseStrength = baseStr;
+        this._baseStrength = parseInt(baseStr);
+        this._hasAlien = hasAlien;
 
         let typeClass = type == 'engine' || type == 'cannon' ? 'cell' : type;
 
@@ -71,7 +73,7 @@ class GTFE_Ship {
 
         dojo.place( this.game.format_string( this.INFOHTML[type], {
                                 curr: baseStr,
-                                max: max
+                                max: maxStr
                             } ), "info_box", "only" );
         dojo.style( 'info_box', 'display', 'block' );
     }
@@ -86,27 +88,28 @@ class GTFE_Ship {
             dojo.removeClass( contId, 'selected');
             dojo.addClass( contId, 'available' );
             this_ship._nbSelected--;
-            if ( this_ship._nbSelected === (this_ship._maxSelected-1) ) 
+            if ( this_ship._nbSelected === (this_ship._maxAllowed-1) ) 
                 // all content divs were previously marked as unselectable because max
                 // were selected; we add available class back to them
                 dojo.query('.'+this_ship._typeToSelect+':not(.selected)').addClass('available');
         }
         // Else this element is available, select it
         else {
-            if ( this_ship._nbSelected === this_ship._maxSelected )
+            if ( this_ship._nbSelected === this_ship._maxAllowed )
                 return;
 
             dojo.removeClass( contId, 'available');
             dojo.addClass( contId, 'selected');
             this_ship._nbSelected++;
-            if ( this_ship._nbSelected === this_ship._maxSelected ) 
+            if ( this_ship._nbSelected === this_ship._maxAllowed ) 
                 dojo.query('.available.content').removeClass('available');
         }
 
         this_ship.updateInfoBox();
     }
 
-    updateInfoBox() {
+    selectedStr() {
+        // strength of selected items including aliens and base strength
         switch ( this._typeToSelect ) {
             case 'engine':
                 var currentStrength = this._baseStrength + this._nbSelected*2;
@@ -114,24 +117,28 @@ class GTFE_Ship {
                 console.log('current strength: ', currentStrength);
                 // dojo.query is temporary, I'll use something more reliable when
                 // the changes in content table are done.
-                if ( this._baseStrength==0 && this._nbSelected>0 && dojo.query('.brown','my_ship').length ) {
+                if ( this._baseStrength==0 && this._nbSelected>0 && this._hasAlien ) {
                     // baseStrength == 0 means that the alien bonus (if present) is not counted
                     // in baseStrength (because no simple engine/cannon), so we must add it if
                     // at least one cell is selected
                     currentStrength += 2;
                 }
                 $("curr_sel").innerHTML = currentStrength;
-                break;
+                return currentStrength;
             case 'crew':
-                $("curr_sel").innerHTML = this._nbSelected;
-                break;
+                return this._nbSelected; 
         }
+    }
+
+    updateInfoBox() {
+        $("curr_sel").innerHTML = this.selectedStr();
     }
 
     onValidateContentChoice() {
         
-        if (this._maxRequired && this._nbSelected != this._maxSelected) {
-            this.game.showMessage( _("Wrong number of crew members selected"), 'error' );
+        if (this._maxRequired && this._nbSelected != this._maxAllowed) {
+            let type = this._typeToSelect;
+            this.game.showMessage( _("Wrong number of " + this._typeToSelect + " selected"), 'error' );
             return;
         }
 
@@ -145,13 +152,14 @@ class GTFE_Ship {
 
         return {
             ids: ids,
-            contentType: this._typeToSelect
+            contentType: this._typeToSelect,
+            str: this.selectedStr()
         }
     }
 
     onLeavingContentChoice() {
-        this._nbSelected = this._maxSelected = this._typeToSelect 
-            = this._maxRequired = undefined;
+        this._nbSelected = this._maxAllowed = this._typeToSelect 
+            = this._maxRequired = this._hasAlien = undefined;
 
         dojo.style( 'info_box', 'display', 'none' );
         dojo.empty( 'info_box' );

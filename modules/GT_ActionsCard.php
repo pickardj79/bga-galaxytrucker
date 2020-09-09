@@ -84,7 +84,7 @@ class GT_ActionsCard extends APP_GameClass {
     }
 
 
-    function battChoice($game, $plId, $battChoices ) {
+    function powerEngines($game, $plId, $battChoices ) {
         $brd = $game->newPlayerBoard($plId);
         $plyrContent = $game->newPlayerContent($plId);
         $nbDoubleEngines = $brd->countDoubleEngines();
@@ -108,13 +108,15 @@ class GT_ActionsCard extends APP_GameClass {
         if ( $nbDays > 0 && $plyrContent->checkIfAlien( 'brown' ) )
             $nbDays += 2;
 
-        // else TODO if $nbDays == 0 (exception or allow them to
-        // give up before the end of the card? ask vlaada / cge)
+        if ( $nbDays == 0 ) {
+            ( $game->newFlightBoard() )->giveUp( $plId, 'did not have any engine power for Open Space');
+        }
+        else {
+            if ( $nbBatt > 0 )
+                $plyrContent->loseContent($battChoices, 'cell', false);
 
-        if ( $nbBatt > 0 )
-            $plyrContent->loseContent($battChoices, 'cell', false);
-
-        ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
+            ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
+        }
     }
 
     function planetChoice($game, $plId, $cardId, $choice) {

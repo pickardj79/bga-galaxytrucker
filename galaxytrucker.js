@@ -393,7 +393,9 @@ function (dojo, declare) {
             break;
         case 'powerEngines':
             if ( this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('engine', args.args.baseStr, args.args.maxStr);
+                this.ship.prepareContentChoice('engine', 
+                    args.args.maxSel, false, 
+                    args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
         case 'exploreAbandoned':
             if ( this.isCurrentPlayerActive() ) 
@@ -401,7 +403,7 @@ function (dojo, declare) {
             break;
         case 'chooseCrew':
             if ( this.isCurrentPlayerActive() ) 
-                this.ship.prepareContentChoice('crew', 0, args.args.nbCrewMembers, true);
+                this.ship.prepareContentChoice('crew', args.args.nbCrewMembers, true);
             break;
         case 'choosePlanet':
             if ( this.isCurrentPlayerActive() ) 
@@ -901,6 +903,21 @@ function (dojo, declare) {
         return box;
     },
 
+    giveUpDialog: function(msg, endpoint, payload) {
+        // Confirm player wants to give up, make specified ajax call on confirmed
+        // msg: Question to ask player, untranslated.
+        // endpoint: e.g. exploreChoice.html
+        // payload: dict to send with ajax call, will have lock:true added
+        console.log('confirm ok?');
+        if (!'lock' in payload) payload['lock'] = true;
+        this.confirmationDialog( _(msg + ' You will have to give up for this flight.'),
+            dojo.hitch( this, function() {
+                this.ajaxcall( '/galaxytrucker/galaxytrucker/' + endpoint,
+                                payload, 
+                                this, function(result) {} );
+        } ) );
+    },
+
     slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd, targetxy ) {
         console.log("Entering slideToDomNode");
         stylesOnEnd = (typeof stylesOnEnd !== "undefined") ? stylesOnEnd : {};
@@ -1187,7 +1204,10 @@ function (dojo, declare) {
         if (!payload) 
             return;
 
-        this.ajaxAction( 'contentChoice', payload );
+        if (this.card.processContentChoice(payload))
+            return; 
+        else
+            this.ajaxAction( 'contentChoice', payload );
     },
 
     onExploreChoice: function( evt ) {
@@ -1196,15 +1216,8 @@ function (dojo, declare) {
             return;
         var choice = this.getPart( evt.currentTarget.id, 2 );
         if ( this.wholeCrewWillLeave && choice == 1 ) {
-            // Or a confirm button in the action bar instead of a dialog
-            console.log('confirm ok?');
-            this.confirmationDialog( _('Are you sure you want to lose your whole crew? '+
-                                      'You will have to give up for this flight.'),
-                                dojo.hitch( this, function() {
-                                    this.ajaxcall( '/galaxytrucker/galaxytrucker/exploreChoice.html',
-                                                  { lock:true, explChoice: 1 },
-                                                  this, function(result) {} );
-                                } ) );
+            let msg = 'Are you sure you want to lose your whole crew?';
+            this.giveUpDialog(msg, 'exploreChoice.html', {explChoice: 1});
         }
         else
             this.ajaxAction( 'exploreChoice', { explChoice: choice } );

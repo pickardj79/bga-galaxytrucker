@@ -139,34 +139,13 @@ class GTFE_Tile {
 
         let divId = 'content_' + cont.id;
         dojo.style( divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
+        this._attachToSquare(divId);
         if ( toCard || cont.toCard ) {
-            this._attachToSquare(divId);
             this.game.slideToObjectAndDestroy( divId, "current_card", 500, i*200 );
         }
         else {
-            // TODO: likely this orient stuff is unnecessary if the content is 
-            //  re-attached to the parent square, as is done for toCard
-            switch ( cont.orient ) {
-              case '90':
-                var top = "-100";
-                var left = "400";
-                break;
-              case '180':
-                var top = "-400";
-                var left = "-100";
-                break;
-              case '270':
-                var top = "100";
-                var left = "-400";
-                break;
-              case '0':
-              default:
-                var top = "400";
-                var left = "100";
-                break;
-            }
             var anim = dojo.fx.combine([
-                dojo.fx.slideTo({ node:divId, left:left, top:top,
+                dojo.fx.slideTo({ node:divId, left:100, top:400,
                                   units:"px", duration: 1700, delay:i*200 }),
                 dojo.fadeOut({ node:divId, duration: 1700, delay:i*200 })
             ]);
