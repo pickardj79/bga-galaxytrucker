@@ -134,14 +134,14 @@ class GTFE_Tile {
         anim.play();
     }
 
-    loseContent(cont, toCard) {
+    loseContent(cont, delay, toCard) {
         // This has nothing to do with this Tile
 
         let divId = 'content_' + cont.id;
         dojo.style( divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
         this._attachToSquare(divId);
         if ( toCard || cont.toCard ) {
-            this.game.slideToObjectAndDestroy( divId, "current_card", 500, i*200 );
+            this.game.slideToObjectAndDestroy( divId, "current_card", 1200, delay );
         }
         else {
             var anim = dojo.fx.combine([

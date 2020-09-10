@@ -21,6 +21,16 @@ class GT_FlightBoard extends APP_GameClass {
         $this->players = $players;
     }
 
+    function addCredits( int $plId, int $credits) {
+        GT_DBPlayer::addCredits($this->game, $plId, $credits);
+        $this->game->notifyAllPlayers( "addCredits", 
+            clienttranslate('${player_name} gains ${credits} galatic credits'),
+            array( 'player_name' => $this->players[$plId]['player_name'],
+                   'player_id' => $plId,
+                   'credits' => $credits
+        ));
+    }
+
     function moveShip( int $plId, int $nbDays ) {
 
         $game = $this->game;
