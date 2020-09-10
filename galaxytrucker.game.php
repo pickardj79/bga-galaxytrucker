@@ -175,7 +175,7 @@ class GalaxyTrucker extends Table {
                                                 // informations visible by this player !!
 
     ////// Get information about players
-    $sql = "SELECT player_id id, player_name name, player_color color, player_score score, turn_order, ".
+    $sql = "SELECT player_id id, player_name name, player_color color, player_score score, credits, turn_order, ".
                     "player_position, card_action_choice, undo_possible, exp_conn, nb_crew, min_eng, max_eng, ".
                     "min_cann_x2, max_cann_x2, still_flying FROM player ";
     $result['players'] = self::getCollectionFromDB( $sql );

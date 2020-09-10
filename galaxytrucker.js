@@ -143,12 +143,16 @@ function (dojo, declare) {
         for( var player_id in gamedatas.players ) {
             var player = gamedatas.players[player_id];
             // Setting up players boards
+            this.placePlBoardItem( "credits", player_id );
             this.placePlBoardItem( "minMaxCann", player_id );
             this.placePlBoardItem( "minMaxEng", player_id );
             this.placePlBoardItem( "nbCrew", player_id );
             this.placePlBoardItem( "expConn", player_id );
             // The following values should be evaluated to an empty
             // string if null (null if not calculated yet)
+            console.log(this.scoreCtrl);
+            $( "credits_"+player_id).innerHTML = this.player_id == player_id 
+                ? ' ' + player.credits : ' - ';
             $( "nbCrew_"+player_id ).innerHTML = player.nb_crew;
             $( "expConn_"+player_id ).innerHTML = player.exp_conn;
             if ( player.min_eng !== null ) {
@@ -1311,6 +1315,8 @@ function (dojo, declare) {
         // dojo.subscribe( 'confirmTimeFinished', this, "notif_confirmTimeFinished" );
         dojo.subscribe( 'loseComponent', this, "notif_loseComponent" );
         this.notifqueue.setSynchronous( 'loseComponent', 1500 );
+        dojo.subscribe( 'addCredits', this, "notif_addCredits");
+        this.notifqueue.setSynchronous( 'addCredits', 2000 );
         dojo.subscribe( 'updatePlBoardItems', this, "notif_updatePlBoardItems" );
         dojo.subscribe( 'buildingErrors', this, "notif_buildingErrors" );
         dojo.subscribe( 'placeShipMarker', this, "notif_placeShipMarker" );
@@ -1630,9 +1636,23 @@ function (dojo, declare) {
         }
     },
 
+    notif_addCredits: function (notif) {
+        console.log( 'notif_addCredits', notif );
+        let plId = notif.args.player_id;
+        if (this.player_id == plId) {
+            let nodeId = "credits_"+plId;
+            let curCredits = parseInt($(nodeId).innerHTML);
+            $(nodeId).innerHTML = curCredits + notif.args.credits;
+        }
+        let mobile_html = '<img class="mobile_credits"></img>';
+        for (let i = 1; i <= notif.args.credits; i++) {
+            this.slideTemporaryObject(mobile_html, 'current_card', 
+                'current_card', 'overall_player_board_'+plId, 1500, i*200);
+        }
+    },
+
     notif_updatePlBoardItems: function( notif ) {
-        console.log( 'notif_updatePlBoardItems' );
-        console.log( notif ); // temp
+        console.log( 'notif_updatePlBoardItems', notif );
         for ( var i in notif.args.items ) {
             var item = notif.args.items[i];
             $( item.type+"_"+notif.args.plId ).innerHTML = item.value;
@@ -1640,8 +1660,7 @@ function (dojo, declare) {
     },
 
     notif_buildingErrors: function( notif ) {
-        console.log( 'notif_buildingErrors' );
-        console.log( notif );
+        console.log( 'notif_buildingErrors',notif );
         
         for (var i in notif.args.errors) {
           var error = notif.args.errors[i];
@@ -1663,8 +1682,7 @@ function (dojo, declare) {
     },
 
     notif_placeShipMarker: function( notif ) {
-        console.log( 'notif_placeShipMarker' );
-        console.log( notif );
+        console.log( 'notif_placeShipMarker', notif );
 
         var plId = notif.args.player_id;
         var shipPos = ( +(notif.args.plPos)+40 ) % 40;
@@ -1720,7 +1738,7 @@ function (dojo, declare) {
     notif_giveUp: function( notif ) {
         console.log( 'notif_giveUp', notif );
         this.slideToObjectAndDestroy( 'ship_marker_'+notif.args.player_id, 
-                              'overall_player_board_' + notif.args.player_id );
+                              'overall_player_board_' + notif.args.player_id, 1500 );
     },
 
     notif_gainContent: function(notif) {
@@ -1735,7 +1753,7 @@ function (dojo, declare) {
       }
       for ( var i in notif.args.content ) {
           tile = new GTFE_Tile(this, notif.args.content[i].tile_id);
-          tile.loseContent(notif.args.content[i]);
+          tile.loseContent(notif.args.content[i], i*200);
       }
     },
 

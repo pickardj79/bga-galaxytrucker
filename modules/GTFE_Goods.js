@@ -245,7 +245,7 @@ class GTFE_Goods {
         // Deletes (array[content_ids: int])
         let toCard = !this.game.isCurrentPlayerActive();
         for (let id of args.deleteContent)
-            this.game.newGTFE_Tile(1).loseContent({"id":id}, toCard);
+            this.game.newGTFE_Tile(1).loseContent({"id":id}, 0, toCard);
 
         // New Content (tileId: [{cont1},{cont2}])
         let slideFrom = this.game.isCurrentPlayerActive() ? null : 'current_card';

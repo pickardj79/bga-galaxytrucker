@@ -35,12 +35,10 @@ class GT_ActionsCard extends APP_GameClass {
                     $plyrContent->getContent('crew'));
                 $plyrContent->loseContent($crewIds, 'crew', true);
 
-                GT_DBPlayer::addCredits($game, $plId, $game->card[$cardId]['reward']);
-                ( $game->newFlightBoard() )->giveUp( $plId, 'sent whole crew to the abandoned ship');
+                $flBrd = $game->newFlightBoard();
+                $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
+                $flBrd->giveUp($plId, 'sent whole crew to the abandoned ship');
 
-                $game->notifyAllPlayers( "onlyLogMessage", clienttranslate( '${player_name} '.
-                    'sends their whole crew to the abandoned ship and will have to give up'),
-                    array ( 'player_name' => $player['player_name'] ) );
                 return 'nextCard';
             }
             else {
@@ -51,7 +49,6 @@ class GT_ActionsCard extends APP_GameClass {
             if ($player['nb_crew'] < $game->card[$cardId]['crew'])
                 $game->throw_bug_report_dump("Explore choice: not enough crew members", $player);
 
-            // TODO: TEMP, end of card, since placeGoods is not implemented yet:
             $nbDays = -($game->card[$cardId]['days_loss']);
             ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
             return 'placeGoods';
@@ -77,10 +74,10 @@ class GT_ActionsCard extends APP_GameClass {
 
         $plyrContent->loseContent($crewChoices, 'crew', $bToCard);
 
-        GT_DBPlayer::addCredits($game, $plId, $game->card[$cardId]['reward']);
+        $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
 
         $nbDays = -($game->card[$cardId]['days_loss']);
-        ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
+        $flBrd->moveShip($plId, $nbDays);
     }
 
 

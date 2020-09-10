@@ -676,12 +676,14 @@ html {
 .plBoardIcon {
     display: inline-block;
     height: 23px;
-    background-image: url(img/plBoardItems.png);
+    background-image: url(img/plBoardItems2.png);
     margin-right: 2px;
     vertical-align: text-bottom;
 }
 .plBoardSpan {
-    vertical-align: middle;
+    /* vertical-align: middle; */
+    vertical-align: top;
+    line-height: 23px; /* match .plBoardIcon */
 }
 .icon_minMaxEng { 
     width: 16px;
@@ -703,4 +705,12 @@ html {
     width: 16px;
     background-position: -62px 0px;
 }
-
+.icon_credits {
+    background-position: -78px;
+    width: 15px;
+}
+.mobile_credits {
+    background-image: url(img/Point.png);
+    height: 17px;
+    width: 16px;
+}

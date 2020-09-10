@@ -63,8 +63,8 @@ class GT_GameState {
         // Set cards - put planet card id 11 first
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
-        $this->setCardOrder(4,1); // openspace card
-        // $this->setCardOrder(17,1); // abship card
+        // $this->setCardOrder(4,1); // openspace card
+        $this->setCardOrder(17,1); // abship card
         // $this->setCardOrder(18,1); // abstation card 
 
         // Add cargo to ships
