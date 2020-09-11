@@ -61,7 +61,7 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        // $this->setCardOrder(11,1); // planet card
+        $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
         $this->setCardOrder(17,1); // abship card
@@ -123,18 +123,21 @@ class GT_GameState {
         );
         $the_card = null;
         if ($card) {
-            $this->log("EXISTING CARD");
             $deck = array_filter($deck, function($c) use($card_id) { return $c['id'] != $card_id; } );
-            $this->game->dump_var("existing card, deck", $deck);
             $the_card = $card[0];
-            $this->game->dump_var("existing card, the_card", $card);
-            $this->game->dump_var("existing card, the_card", $the_card);
         }
         else {
-            $this->log("NEW CARD");
             $the_card = array('round' => 1, 'id' => $card_id);
         }
-        $this->game->dump_var("existing card", $the_card);
+
+        // loop through deck keeping track of original position ($i). Add new card at place $order
+        $finaldeck = array();
+        $i = 1;
+        foreach ( $deck as $card ) {
+            if ($i++ == $order)
+                $finaldeck[] = $the_card;
+            $finaldeck[] = $card;
+        }
         array_unshift($deck, $the_card);
 
         GT_DBCard::updateAdvDeck($this->game, $deck);

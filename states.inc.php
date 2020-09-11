@@ -209,7 +209,7 @@ $machinestates = array(
             "stardust" => STATE_STARDUST, 
             "openspace" => STATE_OPEN_SPACE,
             "abandoned" => STATE_ABANDONED,
-            "planets" => STATE_CHOOSE_PLANET, 
+            "planets" => STATE_PLANETS, 
 
             "enemies" => STATE_NOT_IMPL, 
             "meteoric" => STATE_NOT_IMPL, 

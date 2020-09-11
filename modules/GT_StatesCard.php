@@ -124,7 +124,6 @@ class GT_StatesCard extends APP_GameClass {
 
     function stPlanets($game) {
         // Setup active player to choose a planet
-        $nextState = "nextCard";
   
         $cardId = $game->getGameStateValue( 'currentCard' );
         $players = GT_DBPlayer::getPlayersForCard($game);
@@ -132,24 +131,21 @@ class GT_StatesCard extends APP_GameClass {
         foreach ( $players as $plId => $player ) {
             GT_DBPlayer::setCardInProgress($game, $plId);
             $game->gamestate->changeActivePlayer( $plId );
-            $nextState = "choosePlanet";
-            break; 
+            return "choosePlanet";
         }
   
         // No one else to choose - move all ships based on card, furthest back first
-        if ($nextState == "nextCard") {
-            $players = GT_DBPlayer::getPlayersInFlight($game, '', $order='ASC');
-            $flBrd = $game->newFlightBoard($players);
+        $players = GT_DBPlayer::getPlayersInFlight($game, '', $order='ASC');
+        $flBrd = $game->newFlightBoard($players);
 
-            $nbDays = -($game->card[$cardId]['days_loss']);
-            foreach ($players as $plId => $player) {
-                if ($player['card_action_choice'] == '0')
-                    continue;
-                $flBrd->moveShip($plId, $nbDays);
-            }
+        $nbDays = -($game->card[$cardId]['days_loss']);
+        foreach ($players as $plId => $player) {
+            if ($player['card_action_choice'] == '0')
+                continue;
+            $flBrd->moveShip($plId, $nbDays);
         }
 
-        return $nextState;
+        return "nextCard";
     }
 
 }

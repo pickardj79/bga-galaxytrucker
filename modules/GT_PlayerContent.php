@@ -178,7 +178,7 @@ class GT_PlayerContent extends APP_GameClass {
             $game->throw_bug_report("newContent by cnt not implemented");
         
         if (!$subtypes)
-            return; 
+            return array(); 
         
         $tile = GT_DBComponent::getActiveComponent($game, $tileId);
 
@@ -211,6 +211,7 @@ class GT_PlayerContent extends APP_GameClass {
     }
 
     function newContentNotif($tileContent, $pName = null) {
+        $this->game->dump_var("newContentNotif", $tileContent);
         // $tileContent is map of tileId => array($contents)
 
         $contentHtml = '';
@@ -237,6 +238,9 @@ class GT_PlayerContent extends APP_GameClass {
     }
 
     function loseContent($ids, $expType, $toCard) {
+        if (!$ids)
+            return;
+
         $contentLost = array();
         $contentHtml = "";
         $tileOrient = $this->game->getCollectionFromDB( "SELECT component_id, component_orientation ".
