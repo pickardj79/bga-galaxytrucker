@@ -152,6 +152,7 @@ class GT_ActionsCard extends APP_GameClass {
     }
 
     function cargoChoice( $game, $plId, $cardId, $goodsOnTile ) {
+        $game->dump_var("cargoChoice", $goodsOnTile);
         $player = GT_DBPlayer::getPlayer($game, $plId);
         $plyrContent = $game->newPlayerContent($plId);
 
@@ -211,12 +212,7 @@ class GT_ActionsCard extends APP_GameClass {
 
         // remove existing goods not "moved". They went to the trash
         $toDel = array_diff($origContentIds, $allMovedGoodsIds);
-        if ($toDel) {
-            $plyrContent->loseContent($toDel, 'goods', FALSE);
-            // $sql = "DELETE FROM content WHERE content_id IN (" . implode(",", $toDel) . ")";
-            // $game->log("Deleting with $sql");
-            // $game->DbQuery($sql);
-        }
+        $plyrContent->loseContent($toDel, 'goods', FALSE);
 
         // Do a final consistency check/validation on the database 
         $plyrContent_refresh = $game->newPlayerContent($plId);
