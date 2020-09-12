@@ -544,7 +544,7 @@ function (dojo, declare) {
         */
 
     throw_bug_report: function(msg) {
-        this.showMessage ( _("Internal error - this should not happen. " + msg + this.plReportBug), 'error' ); 
+        this.showMessage ( _("Internal error - this should not happen. " + msg + " " + this.plReportBug), 'error' ); 
     },
 
     // makePartId and getPartFromId form a companion pair of functions for creating/getting div or part ids for various game components
@@ -1692,10 +1692,8 @@ function (dojo, declare) {
         this.slideToDomNode( 'ship_marker_'+plId, 'flight_pos_'+shipPos );
     },
 
-    notif_updateShipContent: function( notif )
-    {
-        console.log( 'notif_updateShipContent' );
-        console.log( notif );
+    notif_updateShipContent: function( notif ) {
+        console.log( 'notif_updateShipContent', notif );
         if ( this.player_id == notif.args.player_id )
             var shipDivId = 'my_ship';
         else
