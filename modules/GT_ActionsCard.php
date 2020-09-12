@@ -74,10 +74,17 @@ class GT_ActionsCard extends APP_GameClass {
 
         $plyrContent->loseContent($crewChoices, 'crew', $bToCard);
 
+        $flBrd = $game->newFlightBoard();
         $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
 
-        $nbDays = -($game->card[$cardId]['days_loss']);
-        $flBrd->moveShip($plId, $nbDays);
+        // if no humans remain, giveUp
+        if (!$plyrContent->getContent('crew', 'human')) {
+            $flBrd->giveUp($plId, 'lost all humans');
+        }
+        else {
+            $nbDays = -($game->card[$cardId]['days_loss']);
+            $flBrd->moveShip($plId, $nbDays);
+        }
     }
 
 

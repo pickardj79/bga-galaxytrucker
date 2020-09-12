@@ -140,7 +140,7 @@
 
   public function contentChoice() {
       self::setAjaxMode();
-      $contChoiceRaw = self::getArg( "ids", AT_numberlist, false, "" );
+      $contChoiceRaw = self::getArg( "ids_str", AT_numberlist, false, "" );
       $contChoices = $contChoiceRaw === "" ? array() : explode( ',', $contChoiceRaw );
 
       $contType = self::getArg( "contentType", AT_alphanum, true );

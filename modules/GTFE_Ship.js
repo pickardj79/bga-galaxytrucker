@@ -50,9 +50,11 @@ class GTFE_Ship {
 
     prepareContentChoice(type, maxSel, maxRequired, baseStr, maxStr, hasAlien) {
         // type: type of thing, see QA check below for options
-        // baseStr: base strength with nothing selected
-        // max: max available to select
+        // maxSel: maximum allowed to be selected
         // maxRequired: the player must choose the max (e.g. when selected crew to lose)
+        // baseStr: base strength with nothing selected
+        // maxStr: max str (includes alien)
+        // hasAlien: whether or not there's a relevant alien (for adding 2 to strength)
         
         if (type != 'engine' && type != 'cannon' && type != 'crew' && type != 'goods')
             this.game.throw_bug_report("Unexpected content type: " + type);
@@ -61,7 +63,7 @@ class GTFE_Ship {
         this._maxAllowed = parseInt(maxSel);
         this._typeToSelect = type;
         this._maxRequired = maxRequired;
-        this._baseStrength = parseInt(baseStr);
+        this._baseStrength = parseInt(baseStr) || 0;
         this._hasAlien = hasAlien;
 
         let typeClass = type == 'engine' || type == 'cannon' ? 'cell' : type;
@@ -72,8 +74,8 @@ class GTFE_Ship {
         } );
 
         dojo.place( this.game.format_string( this.INFOHTML[type], {
-                                curr: baseStr,
-                                max: maxStr
+                                curr: this._baseStrength,
+                                max: maxStr || this._maxAllowed
                             } ), "info_box", "only" );
         dojo.style( 'info_box', 'display', 'block' );
     }
@@ -137,21 +139,19 @@ class GTFE_Ship {
     onValidateContentChoice() {
         
         if (this._maxRequired && this._nbSelected != this._maxAllowed) {
-            let type = this._typeToSelect;
             this.game.showMessage( _("Wrong number of " + this._typeToSelect + " selected"), 'error' );
             return;
         }
 
-        let ids = dojo.query('.selected', 'my_ship')
-                      .map( i => this.game.getPart(i.id, 1) );
+        let divids = dojo.query('.selected', 'my_ship');
 
-        if (ids.length != this._nbSelected)
+        if (divids.length != this._nbSelected)
             this.game.throw_bug_report("onValidateContentChoice _nbSelected not length of ids: " +
-                this._nbSelected + "; " + ids.length
+                this._nbSelected + "; " + divids.length
             );
 
         return {
-            ids: ids,
+            ids: divids.map( i => this.game.getPart(i.id, 1) ),
             contentType: this._typeToSelect,
             str: this.selectedStr()
         }

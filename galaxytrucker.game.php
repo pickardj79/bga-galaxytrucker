@@ -18,6 +18,7 @@
 
 
 require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
+require_once('modules/GT_ActionsBuild.php');
 require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
 require_once('modules/GT_DBPlayer.php');
@@ -29,37 +30,41 @@ require_once('modules/GT_StatesCard.php');
 require_once('modules/GT_StatesSetup.php');
 
 class GalaxyTrucker extends Table {
-        function __construct( ) {
+    public static $instance = null;
+
+    function __construct( ) {
+        parent::__construct();
+        self::$instance = $this;
 
 
-        // Your global variables labels:
-        //  Here, you can assign labels to global variables you are using for this game.
-        //  You can use any number of global variables with IDs between 10 and 99.
-        //  If your game has options (variants), you also have to associate here a label to
-        //  the corresponding ID in gameoptions.inc.php.
-        // Note: afterwards, you can get/set the global variables with getGameStateValue/setGameStateInitialValue/setGameStateValue
-            parent::__construct();
-            self::initGameStateLabels( array(
-                "flight" => 10,
-                "round" => 11, // 'round' is only the round 'level', i.e. 1 for class I,
-                            // 3 for class III or IIIa, etc., and is used to know which cards
-                            // to add in the adventure cards deck
-                            // May be different from 'flight' when using some variants like
-                            // shorter or longer games
-                "cardOrderInFlight" => 12,
-                "timerStartTime" => 13,
-                "timerPlace" => 14,
-                "buildingStartTime" => 15, // (for stats)
-                "currentCard" => 16,
-                "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
-                                    // must place overlay tiles in case of a page reload
-                "testGameState" => 99, // use a test scenario from GT_GameStates 
 
-                // flight_variants is a game option (gameoptions.inc.php)
-                // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
-                "flight_variants" => 100,
-            ) );
-        }
+    // Your global variables labels:
+    //  Here, you can assign labels to global variables you are using for this game.
+    //  You can use any number of global variables with IDs between 10 and 99.
+    //  If your game has options (variants), you also have to associate here a label to
+    //  the corresponding ID in gameoptions.inc.php.
+    // Note: afterwards, you can get/set the global variables with getGameStateValue/setGameStateInitialValue/setGameStateValue
+        self::initGameStateLabels( array(
+            "flight" => 10,
+            "round" => 11, // 'round' is only the round 'level', i.e. 1 for class I,
+                        // 3 for class III or IIIa, etc., and is used to know which cards
+                        // to add in the adventure cards deck
+                        // May be different from 'flight' when using some variants like
+                        // shorter or longer games
+            "cardOrderInFlight" => 12,
+            "timerStartTime" => 13,
+            "timerPlace" => 14,
+            "buildingStartTime" => 15, // (for stats)
+            "currentCard" => 16,
+            "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
+                                // must place overlay tiles in case of a page reload
+            "testGameState" => 99, // use a test scenario from GT_GameStates 
+
+            // flight_variants is a game option (gameoptions.inc.php)
+            // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
+            "flight_variants" => 100,
+        ) );
+    }
 
   protected function getGameName( ) {
       // Used for translations and stuff. Please do not modify.
@@ -151,8 +156,7 @@ class GalaxyTrucker extends Table {
     self::DbQuery( $sql );
 
     self::log("Game initialized");
-    self::setGameStateInitialValue( 'testGameState', 1 ); 
-    // $this->gamestate->setAllPlayersMultiactive();
+    self::setGameStateInitialValue( 'testGameState', 0 ); 
 
     /************ End of the game initialization *****/
   }
@@ -335,6 +339,10 @@ class GalaxyTrucker extends Table {
       self::notifyAllPlayers("consoleLog", '', "$msg :: " . var_export($var,TRUE));
   }
 
+  function user_exception($msg) {
+      throw new BgaUserException ( self::_($msg) );
+  }
+
   function throw_bug_report($msg) {
       $func = debug_backtrace()[1]['function'];
       $line = debug_backtrace()[1]['line'];
@@ -398,65 +406,6 @@ class GalaxyTrucker extends Table {
         if (array_key_exists('hold', $tile))
             return $tile['hold'];
         return $this->tileHoldCnt[$this->getTileType($id)];
-  }
-
-  function resetUndoPossible( $plId, $action="" ) {
-    // This function is executed when a tile is picked by a player (anywhere), because at this
-    // moment, we must remove the possibility (as per the game rules, p.2) for this player to
-    // take back the last tile they placed on their ship. This is executed at the end of the
-    // function (SET undo_possible=NULL).
-    // At the same time, we must also (EXCEPT in one case, see below) set the aside_discard value
-    // of the still-removable last placed tile (if any) to NULL. Explanation: if the last placed
-    // tile on the ship is still removable (in the code below: $lastPlaced !== null), it may have
-    // a '1' in aside_discard column, 'component' table, in the case it was set aside before
-    // (because we need to remember it was placed aside before, because this player can still
-    // pick it back, and in this case they're not allowed to put it back in the revealed pile).
-    // And at the moment resetUndoPossible() is executed, we don't need anymore to remember if
-    // the last placed tile was set aside before (because it's now impossible to take it back).
-    // So if $lastPlaced is not null, we set aside_discard of this last placed to NULL (without
-    // bothering checking if it's already NULL).
-    // BUT we MUSTN'T do this in one case: if the action that triggers resetUndoPossible() is
-    // the player taking back the last tile that they placed on their ship ($action ==
-    // 'lastPlaced'), because in this case the last placed tile is not "glued" on the ship, it
-    // goes in player's hand, so we still need to rememeber if this tile was set aside before.
-    
-    if ( $action !== 'lastPlaced' ) {
-        $lastPlaced = self::getUniqueValueFromDB( "SELECT undo_possible FROM player ".
-                                      "WHERE player_id=$plId" );
-        if ( $lastPlaced !== null ) {
-            self::DbQuery( "UPDATE component SET aside_discard=NULL ".
-                              "WHERE component_id=$lastPlaced" );
-        }
-    }
-    self::DbQuery( "UPDATE player SET undo_possible=NULL WHERE player_id=$plId" );
-  }
-
-  function checkIfTileInHand( $plId, $caller ){
-    if ( self::getUniqueValueFromDB( "SELECT component_id FROM component ".
-          "WHERE component_player=$plId AND component_x IS NULL" ) !== null ) {
-        throw new BgaVisibleSystemException( "$caller: you have a tile in hand. ".
-                                                  $this->plReportBug );
-    }
-  }
-
-  function placeInRevealed( $tile_id, $player_id ){
-    // Get the first empty space in the revealed pile
-    $firstAvailSp = self::getUniqueValueFromDB( "SELECT space FROM revealed_pile ".
-                                  "WHERE tile_id IS NULL ORDER BY space LIMIT 1" );
-    if ( $firstAvailSp === null ) {
-        throw new BgaVisibleSystemException( "Error: no empty space found in revealed pile ".
-                        "(\$firstAvailSp is null). ".$this->plReportBug );
-    }
-
-    // Place dropped tile in revealed pile
-    self::DbQuery( "UPDATE component SET component_player=-1, component_orientation=0 ".
-                      "WHERE component_id=$tile_id" );
-    self::DbQuery( "UPDATE revealed_pile SET tile_id=$tile_id WHERE space=$firstAvailSp" );
-
-    self::notifyAllPlayers( "droppedTile", '', array(
-                                      'tile_id' => $tile_id,
-                                      'player_id' => $player_id,
-                                      'placeInRevealedPile' => $firstAvailSp ) );
   }
 
   function updNotifPlInfos( $plId, $plBoard=null, $plContent=null)
@@ -527,254 +476,68 @@ class GalaxyTrucker extends Table {
     */
 
   function ImReady() {
-    self::checkAction( 'ImReady' );
-    $player_id = self::getCurrentPlayerId();
-    // TODO do we have some checks to do? Maybe not, since this action only de-activate current player
-    $this->gamestate->setPlayerNonMultiactive( $player_id, "readyGo" );
+      self::checkAction( 'ImReady' );
+      $player_id = self::getCurrentPlayerId();
+      // TODO do we have some checks to do? Maybe not, since this action only de-activate current player
+      $this->gamestate->setPlayerNonMultiactive( $player_id, "readyGo" );
   }
 
   function pickTile( ) {
-    self::checkAction( 'pickTile' );
-    $player_id = self::getCurrentPlayerId();
-
-    // Sanity checks
-    self::checkIfTileInHand ( $player_id, 'Pick tile' );
-
-    $pickedTile = self::getUniqueValueFromDB( "SELECT component_id FROM component ".
-                  "WHERE component_player IS NULL ORDER BY RAND() LIMIT 1" );// TODO replace RAND
-    if ( $pickedTile !== null ) {
-        self::DbQuery( "UPDATE component SET component_player=$player_id ".
-                          "WHERE component_id=$pickedTile" );
-        self::resetUndoPossible( $player_id );
-    }
-    // If $pickedTile is null, there's no more unrevealed tile, and the client will
-    // disconnect clickable_pile
-
-    self::notifyPlayer( $player_id, "pickedTilePl", '', array(
-          'pickedTile' => $pickedTile ) );
-    self::notifyAllPlayers( "pickedTile", '', array() );
+      self::checkAction( 'pickTile' );
+      ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )->pickTile();
   }
 
   function pickRevealed( $tile_id ) {
       self::checkAction( 'pickRevealed' );
-      $player_id = self::getCurrentPlayerId();
-
-      // Sanity check
-      self::checkIfTileInHand ( $player_id, 'Pick revealed' );
-
-      $location = self::getUniqueValueFromDB( "SELECT component_player FROM component ".
-                                              "WHERE component_id=$tile_id" );
-      if ( $location !== '-1' )
-          throw new BgaUserException ( self::_("This component has already been taken ".
-                                                        "by someone else") );
-
-      self::DbQuery( "UPDATE component SET component_player=$player_id ".
-                                            "WHERE component_id=$tile_id" );
-      self::DbQuery( "UPDATE revealed_pile SET tile_id=NULL WHERE tile_id=$tile_id" );
-      self::resetUndoPossible( $player_id );
-      
-      self::notifyAllPlayers( "pickedRevealed", '', array(
-                                        'tile_id' => $tile_id,
-                                        'player_id' => $player_id ) );
+      ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )
+          ->pickRevealed($tile_id);
   }
 
   function pickAside( $tile_id ) {
       self::checkAction( 'pickAside' );
-      $player_id = self::getCurrentPlayerId();
+      ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )
+          ->pickAside($tile_id);
 
-      // Sanity checks:
-      self::checkIfTileInHand ( $player_id, 'Pick aside' );
-      // Is this tile in discard?
-      $pickedTile = self::getObjectFromDB( "SELECT * FROM component ".
-                                            "WHERE component_id=$tile_id" );
-      $x = $pickedTile['component_x'];
-      $aside = $pickedTile['aside_discard'];
-      if ( $pickedTile['component_player'] != $player_id ||
-            $aside !== "1" ||
-            ( $x != "-1" && $x != "-2" ) ) {
-          throw new BgaVisibleSystemException ( "This tile is not in your discard. ".
-                $this->plReportBug." (pl: $player_id x: $x aside: $aside)" );
-      }
-
-      self::DbQuery( "UPDATE component SET component_x=NULL, component_y=NULL ".
-                      "WHERE component_id=$tile_id" );
-      self::resetUndoPossible( $player_id );
-      self::notifyAllPlayers( "pickedAside", '', array(
-                                        'tile_id' => $tile_id,
-                                        'player_id' => $player_id,
-                                        'discardSquare' => $x ) );
   }
 
   function pickLastPlaced( $tile_id ) {
       self::checkAction( 'pickLastPlaced' );
-      $player_id = self::getCurrentPlayerId();
-
-      // Sanity checks:
-      // Not necessary to check if a tile is in hand, because in this case,
-      // undo_possible should be null
-      // Is this tile the last placed tile, and is it still possible to take it back ?
-      $undoTile = self::getUniqueValueFromDB ( "SELECT undo_possible FROM player ".
-                                                "WHERE player_id=$player_id" );
-      if ( $undoTile !== $tile_id ) { // both are strings
-          throw new BgaVisibleSystemException ( "You can't take back this tile. ".
-                $this->plReportBug." (pl: $player_id tile id: $tile_id undo: $undoTile)" );
-      }
-      // We must get x and y coords for this tile, so that the client can connect again
-      // the corresponding square to onPlaceTile, and also aside_discard, so that the
-      // client knows if this tile was set aside before
-      $pickedTile = self::getObjectFromDB ( "SELECT component_x x, component_y y, ".
-                        "aside_discard aside FROM component WHERE component_id=$tile_id" );
-      // another sanity check?
-      if ( !($pickedTile['x']>0) || !($pickedTile['y']>0) ) {
-          throw new BgaVisibleSystemException ( "PickLastPlaced: tile coords are ".
-                $pickedTile['x']." and ".$pickedTile['y'].". ".$this->plReportBug );
-      }
-                
-      self::DbQuery( "UPDATE component SET component_x=NULL, component_y=NULL ".
-                    "WHERE component_id=$tile_id" );
-      self::resetUndoPossible( $player_id, 'lastPlaced' );
-      self::notifyAllPlayers( "pickedLastPlaced", '', array(
-                                        'tile_id' => $tile_id,
-                                        'x' => $pickedTile['x'],
-                                        'y' => $pickedTile['y'],
-                                        'aside' => $pickedTile['aside'],
-                                        'player_id' => $player_id ) );
+      ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )
+          ->pickLastPlaced($tile_id);
   }
 
   function dropTile( $tile_id ) {
       self::checkAction( 'dropTile' );
-      $player_id = self::getCurrentPlayerId();
-
-      // Various checks
-      $location = self::getObjectFromDB( "SELECT component_player player, component_x x, ".
-            "aside_discard aside FROM component WHERE component_id=$tile_id" );
-      if ( $location['player'] != $player_id || $location['x'] !== null )
-          throw new BgaVisibleSystemException( "Drop tile: you don't have this tile in hand. ".
-                                                $this->plReportBug );
-      if ( $location['aside'] !== null )
-          throw new BgaVisibleSystemException( "You can't place a previously set aside ".
-                                                "tile here. ".$this->plReportBug );
-
-      self::placeInRevealed( $tile_id, $player_id ); // DB and client notif
+      ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )
+          ->dropTile($tile_id);
   }
 
   function placeTile( $component_id, $x, $y, $o, $discard ) {
       self::checkAction( 'placeTile' );
-      $player_id = self::getCurrentPlayerId();
-      $firstPlacedTile = true; // To know if me must send this player the cards in
-                      // piles' ids. Will be set to false if this tile is placed in
-                      // discard, or if at least one tile has already been placed
-      $cards = null;
-      $allTiles = self::getCollectionFromDB( "SELECT component_id id, component_x x, component_y y, ".
-                        "aside_discard aside FROM component WHERE component_player=$player_id" );
-                        //TODO maybe aside_discard is not needed
-                        // TODO to reduce the number of database requests, we could use
-                        // getPlayerBoard (needed later) instead of this custom request
-
-      // Various checks
-      if ( !array_key_exists($component_id, $allTiles) || $allTiles[$component_id]['x'] !== null )
-          throw new BgaVisibleSystemException( "Place tile: You don't have this tile (".
-                        $component_id.") in hand. ".$this->plReportBug );
-      // TODO We also need to check if the tile is placed on a valid square (not outside
-      // the board or the discard layer 1)
-
-      if ( $discard == 1 ) {
-          // This tile is being set aside
-          $firstPlacedTile = false;
-          if ( $x !== "-1" && $x !== "-2" )
-              throw new BgaVisibleSystemException( "x is $x, should be -1 or -2 for a ".
-                        "tile that is set aside. ".$this->plReportBug );
-          if ( $o !== "0" ) // Do we really need to raise an exception for that? We could
-                            // log it and set $o to 0.
-              throw new BgaVisibleSystemException( "tile orient is $o, should be 0. ".
-                                                                $this->plReportBug );
-          foreach ( $allTiles as $tile ) {
-              if ( $tile['x']==$x )
-                  throw new BgaVisibleSystemException( "There is already a tile (".
-                        $tile['id'].") on square $x in discard. ".$this->plReportBug );
-          }
-          $y = 'NULL'; // we want component_y to be null in DB for tiles that are set aside
-      }
+      $plId = self::getCurrentPlayerId();
+      if ($discard)
+          ( new GT_ActionsBuild($this, $plId) )
+              ->discardTile($component_id, $x, $y, $o);
       else {
-          foreach ( $allTiles as $tile ) {
-              if ( $tile['x']==$x && $tile['y']==$y )
-                  throw new BgaVisibleSystemException( "There is already a tile (".
-                        $tile['id'].") on square $x $y . ".$this->plReportBug );
-              // At the same time, we check if this player has already placed at least one
-              // tile (not a starting cabin, id 31 to 34), if it's not the case we'll send
-              // them the revealed cards' ids because they are now allowed to look at them
-              if ( $tile['x']>0 && ($tile['id']<31 || $tile['id']>34) )
-                  $firstPlacedTile = false;
+          $firstTile = 
+              ( new GT_ActionsBuild($this, $plId) )
+              ->placeTile($component_id, $x, $y, $o);
+          if ($firstTile) {
+            $cards = GT_DBCard::getAdvDeckPreview($this);
+            self::notifyPlayer( $plId, 'cardsPile', "",
+                                array( 'cards' => $cards ) );
           }
-          $brd = $this->newPlayerBoard($player_id);
-          $tileToCheck = array( 'x' => $x, 'y' => $y, 'id' => $component_id, 'o' => $o );
-          if ( ! $brd->checkIfTileConnected( $tileToCheck ) )
-              throw new BgaUserException ( self::_("Wrong tile placement : this tile ".
-                                                "isn't connected to your ship") );
       }
-
-      $sql = "UPDATE component SET component_x=$x, component_y=$y, component_orientation=$o";
-      if ( $y === 'NULL' ) {
-          $sql .= ", aside_discard='1'";
-          $y = 'discard'; // this is what notif_placedTile in .js expects
-      }
-      else {
-        // Not in discard, so we store this tile's id so that it can be taken back until
-        // another component is grabbed (rules)
-        self::DbQuery( "UPDATE player SET undo_possible=$component_id ".
-                                    "WHERE player_id=$player_id" );
-      }
-      $sql .= " WHERE component_id=$component_id";
-      self::DbQuery( $sql );
-
-      if ( $firstPlacedTile ) {
-        $cards = GT_DBCard::getAdvDeckPreview($this);
-        self::notifyPlayer( $player_id, 'cardsPile', "",
-                            array( 'cards' => $cards ) );
-      }
-
-      self::notifyAllPlayers( "placedTile", '',
-              array( 'player_id' => $player_id,
-                  'component_id' => $component_id,
-                  'x' => $x,
-                  'y' => $y, // is 'discard' if set aside
-                  'o' => $o, ) );
   }
 
   function flipTimer( $timerPlace ) {
-      // $timerPlace is the number of the circle where the timer WAS (and currently still is),
-      // not the one where it WILL BE
-      $player_id = self::getCurrentPlayerId();
-      $player_name = self::getCurrentPlayerName();
-
-      // Checks
       // We use checkPossibleAction instead of checkAction because a player can
       // flip the timer when inactive
       $this->gamestate->checkPossibleAction( 'flipTimer' );
-      $elapsedTime = ( time() - self::getGameStateValue('timerStartTime') );
-      // TODO : throw a user exception instead of a system exception if the timer
-      // was just flipped (less than 2s?)
-      if ( $timerPlace < 1 || $timerPlace !== self::getGameStateValue('timerPlace') )
-          throw new BgaVisibleSystemException( "Flip timer: wrong value for timerPlace (".
-                                var_export($timerPlace, true)."). ".$this->plReportBug );
-      if ( $elapsedTime < 90 )
-          throw new BgaVisibleSystemException( "Flip timer: timer is not finished. ".
-                                            $elapsedTime."s. ".$this->plReportBug );
-      $turnOrder = self::getUniqueValueFromDB( "SELECT turn_order FROM player ".
-                                                "WHERE player_id=$player_id" );
-      if ( $timerPlace == 1 && $turnOrder === null )
-          throw new BgaVisibleSystemException( "Flip timer: you can't flip the timer on ".
-            "the last space when you are still building your ship. ".$this->plReportBug );
 
-      // Set new timer place and start time in DB
-      self::setGameStateValue( 'timerPlace', $timerPlace-1 );
-      self::setGameStateValue( 'timerStartTime', time() );
-      // Notify players
-      self::notifyAllPlayers( "timerFlipped",
-                clienttranslate( '${player_name} has flipped the timer.'),
-                array( 'player_id' => $player_id,
-                    'player_name' => $player_name,
-                    'timerPlace' => $timerPlace-1 ) );
+      $player_name = self::getCurrentPlayerName();
+      ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )
+          ->flipTimer($timerPlace, $player_name);
   }
 
   function timeFinished() {
@@ -794,60 +557,8 @@ class GalaxyTrucker extends Table {
         return;
     }
 
-    $players = self::loadPlayersBasicInfos(); // maybe useless
-    // Check if time is really finished
-    $elapsedTime = ( time() - self::getGameStateValue('timerStartTime') );
-    $timerPlace = self::getGameStateValue('timerPlace');
-    if ( $timerPlace !== "0" || $elapsedTime < 89 )
-        throw new BgaVisibleSystemException( "Time finished: time is not finished. ".
-                      $elapsedTime."s on space $timerPlace . ".$this->plReportBug );
-      // TODO We should still send a notif with remaining time to the client, shouldn't we ?
-      // Because if there's a bug that affect all players, nothing will stop the building 
-      // and they'll be able to build forever.
-    if ( $elapsedTime < 90 ) { // Don't know if I'll keep this
-        self::notifyPlayer( self::getCurrentPlayerId(), "almostFinished",
-                 'Error: time was almost finished, but not exactly.', array() );
-        return;
-    }
-
-    // Do players still have a tile in hand?
-    // (Is it better to do this here or in stTakeOrderTiles? I think it's ok
-    // to deal with this here
-    $tilesInHand = self::getCollectionFromDB( "SELECT component_id id, ".
-              "component_player player, aside_discard aside FROM component ".
-              "WHERE component_player>0 AND component_x IS NULL" );
-    foreach ( $tilesInHand as $tileId => $tile ) {
-      $plId = $tile['player'];
-      if ( $tile['aside'] == 1 ) {
-        // This tile was set aside before, so it must go in this player's discard zone
-        // In order to place it in a free square (there must be at least one, since
-        // the tile in hand was in the discard before), we must first check
-        // if there's already a tile in discard
-        $occupiedSquare = self::getUniqueValueFromDB( "SELECT component_x x FROM ".
-        "component WHERE component_player=$plId AND aside_discard=1 AND component_x<0" );
-        if ( !$occupiedSquare ) $squareToDiscardTo = -1;// No tile in discard, so the tile
-                                                      // in hand goes on the 1st square
-        elseif ( $occupiedSquare == -1 ) $squareToDiscardTo = -2;
-        elseif ( $occupiedSquare == -2 ) $squareToDiscardTo = -1;
-        else throw new BgaVisibleSystemException( "Bad value for \$occupiedSquare: ".
-                      var_export($occupiedSquare, true)." . ".$this->plReportBug );
-
-        self::DbQuery( "UPDATE component SET component_x=$squareToDiscardTo, ".
-                      "component_orientation=0 WHERE component_id=$tileId" );
-        self::notifyAllPlayers( "placedTile", '',
-                array( 'player_id' => $plId,
-                    'component_id' => $tileId,
-                    'x' => $squareToDiscardTo,
-                    'y' => 'discard',
-                    'o' => 0 ) );
-      }
-      else {
-          // This tile was not set aside before, so we'll drop it in revealed pile
-          self::placeInRevealed( $tileId, $plId ); // DB and client notif
-      }
-    }
-
-    self::DbQuery( "UPDATE player SET undo_possible=NULL" );
+    ( new GT_ActionsBuild($this, self::getCurrentPlayerId()) )
+        ->timeFinished();
     $this->gamestate->nextState( 'timeFinished' );
   }
 
@@ -859,43 +570,7 @@ class GalaxyTrucker extends Table {
           self::checkAction( 'finishShip' );
           $player_id = self::getCurrentPlayerId();
       }
-
-      $players = self::loadPlayersBasicInfos(); // TODO load ONCE all the columns
-          // we need in the player table, to minimize the number of SQL requests
-      $round = self::getGameStateValue('round');
-
-      // Check if order tile is still available
-      $count = self::getUniqueValueFromDB( "SELECT COUNT(player_id) FROM player ".
-                                            "WHERE turn_order=$orderTile" );
-      if ( $count !== '0' )
-          throw new BgaUserException(  self::_("This order tile is not available.") );
-
-      // Sanity check: is there a tile in hand?
-      $tile = self::getObjectFromDB( "SELECT component_id id FROM component ".
-                    "WHERE component_player=$player_id AND component_x IS NULL" );
-      if ( $tile !== null )
-          throw new BgaVisibleSystemException( "You still have a tile in hand. "
-                                                        .$this->plReportBug );
-
-      // Set turn order according to the order tile taken and the round. Player position
-      // will be set later, because we want it to be null until stPrepareFlight,
-      // when ship markers are placed on the board (if getAllDatas get a null
-      // value for player_position, the client won't display ship markers,
-      // which is what we want before prepareFlight)
-      self::DbQuery( "UPDATE player SET turn_order=$orderTile, ".
-                    "undo_possible=NULL WHERE player_id=$player_id" );
-
-      // Last placed tile may have aside_dicard=1, so we set it back to null
-      self::DbQuery( "UPDATE component SET aside_discard=NULL ".
-                      "WHERE component_x>0 AND component_player=$player_id" ); 
-
-      self::notifyAllPlayers( "finishedShip",
-              clienttranslate( '${player_name} has finished his/her ship!'.
-                                ' Order tile: ${orderTile}' ),
-              array( 'player_id' => $player_id,
-                    'player_name' => $players[$player_id]['player_name'],
-                    'orderTile' => $orderTile,
-      ) );
+      ( new GT_ActionsBuild($this, $player_id) )->finishShip($orderTile);
 
       $this->gamestate->setPlayerNonMultiactive( $player_id, "shipsDone" );
   }
@@ -921,99 +596,9 @@ class GalaxyTrucker extends Table {
       self::checkAction( 'crewPlacementDone' );
       $plId = self::getActivePlayerId();
       $player_name = self::getActivePlayerName();
-      $contAsk = self::getCollectionFromDB( "SELECT content_id, tile_id, square_x, ".
-                    "square_y, content_subtype FROM content WHERE player_id=$plId ".
-                    "AND content_subtype IN ('ask_brown','ask_purple')" );
-      $nbAliens = count( $alienChoices );
-      $brown = 0;
-      $purple = 0;
-      $tilesToFill = array();
-      $tilesWithAlien = array();
-      self::traceExportVar($alienChoices,'alienChoices','crewPlacementDone');
 
-      // Check if player input is correct
-      foreach ( $alienChoices as $contId ) {
-          if ( !array_key_exists( $contId, $contAsk ) )
-              throw new BgaVisibleSystemException( "Wrong content id (".$contId.
-                                "), not an alien choice for you. ".$this->plReportBug );
-          if ( $contAsk[ $contId ][ 'content_subtype' ] == 'ask_brown' )
-              $brown++;
-          if ( $contAsk[ $contId ][ 'content_subtype' ] == 'ask_purple' )
-              $purple++;
-      }
-      self::traceExportVar($brown,'brown','crewPlacementDone');
-      if ( $brown > 1 || $purple > 1 )
-          throw new BgaVisibleSystemException( "You can't have several aliens of ".
-                                      "the same color. ".$this->plReportBug );
-      // TODO check if no more than a single alien choice per tile
-
-      // Add humans or aliens in relevant cabins
-      $sqlImplode = array();
-      //$shipContentUpdate = array();
-      self::traceExportVar($contAsk,'contAsk','crewPlacementDone');
-      foreach ( $contAsk as $contId => $content ) {
-          $tileId = $content['tile_id'];
-          // We fill an array with all the tiles where there is a choice. It will be used
-          // to know what content to get from DB at the end of crewPlacementDone(), and
-          // to place human crew where no alien is chosen.
-          if ( ! array_key_exists( $tileId, $tilesToFill ) )
-              $tilesToFill[$tileId] = $content; // We store the whole content here, to
-                                              // have square_x and square_y
-          if ( in_array( $contId, $alienChoices ) ) {
-              $tilesWithAlien[] = $tileId;
-              // Place an alien of the chosen color
-              $sqX = $content['square_x'];
-              $sqY = $content['square_y'];
-              $color = substr( $content['content_subtype'], 4 ); // remove 'ask_'
-              // Warning: $color will be used in notification message
-              $sqlImplode[] = "('".$plId."', '".$tileId."', '".
-                      $sqX."', '".$sqY."', 'crew', '".$color."', 1, 1)";
-          }
-      }
-      // Place 2 humans in other cabins
-      forEach ( $tilesToFill as $tileId => $content ) {
-          if ( ! in_array( $tileId, $tilesWithAlien ) ) {
-              $sqX = $content['square_x'];
-              $sqY = $content['square_y'];
-              for ( $i=1;$i<=2;$i++ ) {
-                $sqlImplode[] = "('".$plId."', '".$tileId."', '".$sqX."', '".$sqY.
-                        "', 'crew', 'human', ".$i.", 2)";
-              }
-          }
-      }
-
-      // Database update:
-      // Remove alien choices in "content" DB table
-      self::DbQuery( "DELETE FROM content WHERE player_id=$plId AND ".
-                                              "content_subtype LIKE 'ask_%'" );
-      // Add aliens and humans
-      $sql = "INSERT INTO content (player_id, tile_id, square_x, square_y, ".
-                                "content_type, content_subtype, place, capacity) ".
-                                "VALUES ".implode( ',', $sqlImplode );
-      self::DbQuery( $sql );
-      // Get new content (with auto-incremented content_id) to notify players
-      $shipContentUpdate = self::getCollectionFromDB( "SELECT * FROM content ".
-              "WHERE tile_id IN (".implode( ',', array_keys($tilesToFill) ).")" );
-
-      // This player has chosen his/her aliens:
-      self::DbQuery( "UPDATE player SET alien_choice=0 WHERE player_id=".$plId );
-
-      // Notify all players
-      if ( $nbAliens == 0 )
-          $notifyText = clienttranslate( '${player_name} has chosen no alien.' );
-      elseif ( $nbAliens == 1 )
-          $notifyText = clienttranslate( '${player_name} has chosen one alien: ').
-                                            $this->translated[$color].'.';
-      elseif ( $nbAliens == 2 )
-          $notifyText = clienttranslate( '${player_name} has chosen a brown alien '.
-                                            'and a purple alien.' );
-          // Expansions: modify if cyan aliens expansion is implemented
-      self::notifyAllPlayers( "updateShipContent", $notifyText, array( // on utilise notif_updateShipContent ou pas ?
-                      'player_name' => $player_name,
-                      'player_id' => $plId,
-                      'ship_content_update' => $shipContentUpdate,
-                      'gamestate' => 'placeCrew'
-      ) );
+      ( new GT_ActionsBuild($this, $plId) )
+          ->crewPlacementDone($alienChoices, $player_name);
 
       // Update of min / max strength (DB and notif)
       self::updNotifPlInfos($plId);
@@ -1230,22 +815,6 @@ class GalaxyTrucker extends Table {
             "cardType" => $this->card[$currentCard]);
     }
 
-    /*
-
-    Example for game state "MyGameState":
-
-    function argMyGameState()
-    {
-        // Get some values from the current game situation in database...
-
-        // return values:
-        return array(
-            'variable1' => $value1,
-            'variable2' => $value2,
-            ...
-        );
-    }
-    */
 
 //////////////////////////////////////////////////////////////////////////////
 //////////// Game state actions
@@ -1274,6 +843,7 @@ class GalaxyTrucker extends Table {
         // Images may take some time to load, so for the first flight, when
         // the page is loading, we wait for players to announce they're ready,
         // using a waitForPlayers multipleactiveplayer gamestate
+        $flight = self::getGameStateValue('flight');
         $nextState = ( $flight == 1 ) ? 'waitForPlayers' : 'buildPhase';
         $this->gamestate->setAllPlayersMultiactive();
         $this->gamestate->nextState( $nextState );

@@ -2,21 +2,16 @@
 
 require_once('GT_DBPlayer.php');
 require_once('GT_DBComponent.php');
+require_once('GT_Constants.php');
 require_once('GT_DBContent.php');
 
 class GT_PlayerContent extends APP_GameClass {
-
 
     public function __construct($game, $plContent, $player_id) {
         $this->game = $game;
 
         $this->plContent = $plContent;
         $this->player_id = $player_id;
-        $this->ALLOWABLE_SUBTYPES = array(
-        "crew" => array("human", "brown", "purple", "ask_human", "ask_brown", "ask_purple"),
-        "cell" => array("cell"),
-        "goods" => array("red", "yellow", "green", "blue")
-    );
     }
 
     ################### CHECK HELPERS #########################
@@ -57,7 +52,7 @@ class GT_PlayerContent extends APP_GameClass {
         if ( $content['content_type'] != $type )
             $this->game->throw_bug_report_dump("Wrong content: not a $type.", $content);
         
-        if (!in_array($content['content_subtype'], $this->ALLOWABLE_SUBTYPES[$type]))
+        if (!in_array($content['content_subtype'], GT_Constants::$ALLOWABLE_SUBTYPES[$type]))
             $this->game->throw_bug_report_dump("Wrong content subtype: {$content['content_subtype']} not allowed with type $type.", $content);
 
         if ( $content['player_id'] != $this->player_id)
@@ -106,10 +101,15 @@ class GT_PlayerContent extends APP_GameClass {
         return false;
     }
 
-    function getContent($type) {
-        return array_filter($this->plContent, 
+    function getContent($type, $subtype=NULL) {
+        $conts = array_filter($this->plContent, 
             function($c) use ($type) { return $c['content_type'] == $type; }
         );
+        if ($subtype)
+            $conts = array_filter($conts, 
+                function($c) use ($subtype) { return $c['content_subtype'] == $subtype; }
+            );
+        return $conts;
     }
 
     function nbOfCrewMembers() {
@@ -246,9 +246,12 @@ class GT_PlayerContent extends APP_GameClass {
         $tileOrient = $this->game->getCollectionFromDB( "SELECT component_id, component_orientation ".
                     "FROM component WHERE component_player={$this->player_id}", true );
 
+        $this->game->dump_var("ids", $ids);
         foreach ( $ids as $id) {
             $this->checkContentById($id, $expType);
             $curCont = $this->plContent[$id];
+            $this->game->dump_var("curCont", $curCont);
+
             unset($this->plContent[$id]);
             $tileId = $curCont['tile_id'];
             $contentLost[] = array ( 'orient' => $tileOrient[$tileId],

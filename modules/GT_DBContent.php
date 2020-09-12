@@ -1,6 +1,8 @@
 <?php
 /* Collection of utilities to interface with content table */
 
+require_once('GT_Constants.php');
+
 class GT_DBContent {
     public function __construct() {
     }
@@ -36,6 +38,21 @@ class GT_DBContent {
         }
 
         return $sql;
+    }
+
+    function contentValueSql($game, $plId, $tileId, $x, $y, $type, $subtype, $place, $capacity){
+        $new_val = '(' . implode(',', array(
+            $plId, $tileId, 
+            $x, $y, "'$type'", "'$subtype'", $place, $capacity
+        )) . ')';
+
+        if (!array_key_exists($type, GT_Constants::$ALLOWABLE_SUBTYPES ))
+            $game->throw_bug_report("Invalid type for content $new_val");
+
+        if (!in_array($subtype, (GT_Constants::$ALLOWABLE_SUBTYPES)[$type]) )
+            $game->throw_bug_report("Invalid subtype for content $new_val");
+
+        return $new_val;
     }
 
 }

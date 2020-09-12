@@ -65,6 +65,8 @@ class GTFE_Card {
 
     /// ################# MISC #########################
     processContentChoice(payload) {
+        payload['ids_str'] = payload['ids'].join();
+
         // Returns false if payload was not processed
         if (! payload['contentType'] in ['engine', 'crew']) {
             this.game.throw_bug_report("Unknown content type in GTFE_Card.processContentChoice");
@@ -74,6 +76,21 @@ class GTFE_Card {
             let msg = 'Are you sure you do not want to power any engines?'
             this.game.giveUpDialog(msg, 'contentChoice.html', payload);
             return true;
+        }
+
+        // if choosing crew, and all humans are selected, give confirmation dialog
+        if (payload['contentType'] == 'crew') {
+            let nbrTotHum = dojo.query('.human', 'my_ship');
+            let nbrSelHum = payload['ids']
+                .flatMap( i => dojo.query('#content_' + i))
+                .filter( i => i.classList.contains('human'));
+            console.log("nbrs",nbrSelHum,nbrTotHum);
+
+            if (nbrSelHum.length == nbrTotHum.length) {
+                let msg = 'Are you sure you want to lose all your humans?';
+                this.game.giveUpDialog(msg, 'contentChoice.html', payload);
+                return true;
+            }
         }
 
         return false;
