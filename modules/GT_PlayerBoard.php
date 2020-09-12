@@ -56,8 +56,8 @@ class GT_PlayerBoard extends APP_GameClass {
         return $ret;
     }
 
-    // used only during ship building, not when checking ship at the end of building or when a component is destroyed
     function checkIfTileConnected ( $tileToCheck ) {
+        // used only during ship building (why?), not when checking ship at the end of building or when a component is destroyed
         for ( $side=0 ; $side<=270 ; $side+=90 ) {
             $tileConn = $this->tileConnectionOnThisSide( $tileToCheck, $side );
             if ( $tileConn !== 0 && $tileConn !== -1 )
@@ -68,9 +68,7 @@ class GT_PlayerBoard extends APP_GameClass {
 
     function tileConnectionOnThisSide ( $tileToCheck, $side, $adjTile=null ) {
         // Is there an adjacent tile on this side ?
-        if ( $adjTile // in this case $adjTile has been passed by checkTile() so no need to get it
-              // Otherwise we try to get it and if it exists, execute the block
-                || $adjTile = $this->getAdjacentTile ($tileToCheck, $side) ) {
+        if ( $adjTile || $adjTile = $this->getAdjacentTile ($tileToCheck, $side) ) {
             // There is one, so let's check how plTiles are connected
             $conn1 = $this->getConnectorType( $tileToCheck, $side );
             $conn2 = $this->getConnectorType( $adjTile, ($side+180)%360 );
@@ -90,6 +88,18 @@ class GT_PlayerBoard extends APP_GameClass {
                 { return -2; } // simple vs double connector: error
         }
         return 0; // No adjacent tile on this side
+    }
+
+    function getConnectedTiles( $tile ) {
+        // Return array of tileIds that have a valid connection to $tileId
+        $connected = array();
+        for ( $side=0 ; $side<=270 ; $side+=90 ) {
+            if ( $adjTile = $this->getAdjacentTile($tile, $side)) {
+                if ($this->tileConnectionOnThisSide($tile, $side, $adjTile))
+                    $connected[] = $adjTile;
+            }
+        }
+        return $connected;
     }
 
     function getLine ( $rowOrCol, $side ) {

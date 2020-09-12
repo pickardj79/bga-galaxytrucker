@@ -2,21 +2,16 @@
 
 require_once('GT_DBPlayer.php');
 require_once('GT_DBComponent.php');
+require_once('GT_Constants.php');
 require_once('GT_DBContent.php');
 
 class GT_PlayerContent extends APP_GameClass {
-
 
     public function __construct($game, $plContent, $player_id) {
         $this->game = $game;
 
         $this->plContent = $plContent;
         $this->player_id = $player_id;
-        $this->ALLOWABLE_SUBTYPES = array(
-        "crew" => array("human", "brown", "purple", "ask_human", "ask_brown", "ask_purple"),
-        "cell" => array("cell"),
-        "goods" => array("red", "yellow", "green", "blue")
-    );
     }
 
     ################### CHECK HELPERS #########################
@@ -57,7 +52,7 @@ class GT_PlayerContent extends APP_GameClass {
         if ( $content['content_type'] != $type )
             $this->game->throw_bug_report_dump("Wrong content: not a $type.", $content);
         
-        if (!in_array($content['content_subtype'], $this->ALLOWABLE_SUBTYPES[$type]))
+        if (!in_array($content['content_subtype'], GT_Constants::$ALLOWABLE_SUBTYPES[$type]))
             $this->game->throw_bug_report_dump("Wrong content subtype: {$content['content_subtype']} not allowed with type $type.", $content);
 
         if ( $content['player_id'] != $this->player_id)

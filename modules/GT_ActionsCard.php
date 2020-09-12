@@ -74,6 +74,7 @@ class GT_ActionsCard extends APP_GameClass {
 
         $plyrContent->loseContent($crewChoices, 'crew', $bToCard);
 
+        $flBrd = $game->newFlightBoard();
         $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
 
         $nbDays = -($game->card[$cardId]['days_loss']);

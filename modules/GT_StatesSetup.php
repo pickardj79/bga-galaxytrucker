@@ -3,6 +3,7 @@
 /* Collection of functions to handle states associated with setting up the game /round */
 
 require_once('GT_DBCard.php');
+require_once('GT_DBContent.php');
 
 class GT_StatesSetup extends APP_GameClass {
     public function __construct() {
@@ -166,104 +167,97 @@ class GT_StatesSetup extends APP_GameClass {
         //sql request: INSERT INTO content (player_id, tile_id, square_x, square_y,
         //                    content_type, content_subtype, place, capacity) VALUES
         $sqlImplode = array();
-        // TODO: refactor all this to be methods of GT_PlayerBoard
+        // TODO: refactor all this to be methods of GT_PlayerBoard and GT_ActionsBuild.crewPlacementDone
         foreach ( $plBoard as $plBoard_x ) {
             foreach ( $plBoard_x as $tile ) {
-            $tileType = $game->tiles[ $tile['id'] ][ 'type' ];
+                $tileType = $game->tiles[ $tile['id'] ][ 'type' ];
 
-            switch ($tileType) {
+                switch ($tileType) {
                 case 'battery':
-                //get tile's capacity, then load it
-                $capacity = $game->tiles[ $tile['id'] ][ 'hold' ];
-                for ( $place=1; $place<=$capacity; $place++ ) {
-                    $sqlImplode[] = "('".$plId."', '".$tile['id']."', '".$tile['x']."', '".
-                                    $tile['y']."', 'cell', 'cell', ".$place.", ".$capacity.")";
-                            // This may change if we decide to use the same JS
-                            // function for every type of content update
-                }
-                break;
+                    //get tile's capacity, then load it
+                    $capacity = $game->tiles[ $tile['id'] ][ 'hold' ];
+                    for ( $place=1; $place<=$capacity; $place++ ) {
+                        $sqlImplode[] = GT_DBContent::contentValueSql(
+                            $game, $plId, $tile['id'], $tile['x'], $tile['y'], 
+                            'cell', 'cell', $place, $capacity
+                        );
+                        
+                    }
+                    break;
                 case 'crew': // Expansions: and case 'luxury':
-                // Cabin tiles need an overlay tile (to place content (crew) that mustn't
-                // rotate with the tile), so we fill an array that will be sent to client
-                $tilesWithOverlay[] = array( 'id' => $tile['id'],
-                                    'x' => $tile['x'], 'y' => $tile['y'] );
-                
-                $humans = false;
-                if ( $tile['id'] > 30 && $tile['id'] < 35 ) {
-                    // Aliens can't go in the pilot cabin, so we place 2 humans here.
-                    $humans = true;
-                }
-                else { // Expansions: if luxury
-                    // Not a starting component, so we check if this cabin is connected
-                    // to a life support
-                    $brownPresent = false;
-                    $purplePresent = false;
-                    $nbAlienChoices = 0;
+                    // Cabin tiles need an overlay tile (to place content (crew) that mustn't
+                    // rotate with the tile), so we fill an array that will be sent to client
+                    $tilesWithOverlay[] = array( 'id' => $tile['id'],
+                                        'x' => $tile['x'], 'y' => $tile['y'] );
+                    
+                    $humans = false;
+                    if ( array_key_exists($tile['id'], $game->start_tiles) ) {
+                        // Aliens can't go in the pilot cabin, so we place 2 humans here.
+                        $humans = true;
+                    }
+                    else { // Expansions: if luxury
+                        // Not a starting component, so we check if this cabin is connected
+                        // to a life support
+                        $brownPresent = false;
+                        $purplePresent = false;
+                        $nbAlienChoices = 0;
 
-                    for ( $side=0 ; $side<=270 ; $side+=90 ) {
-                        // Is there an adjacent tile on this side ?
-                        if ( $adjTile = $brd->getAdjacentTile ($tile, $side) ) {
-                        // There is one, so let's check if it's connected and if
-                        // it's a life support and its type (color)
-                        if ( in_array( $game->getConnectorType( $tile, $side ), array(1,2,3) ) ) {
-                            $adjTileType = $game->tiles[ $adjTile['id'] ][ 'type' ];
-                            switch ( $adjTileType )
-                            {
-                            case 'brown':
-                            if ( ! $brownPresent ) // Because we don't want to count twice
-                                        // the same color, in case more than one life support
-                                        // is connected to this cabin
-                                $nbAlienChoices++;
-                            $brownPresent = true;
-                            break;
-                            case 'purple':
-                            if ( ! $purplePresent )
-                                $nbAlienChoices++;
-                            $purplePresent = true;
-                            break;
+                        foreach ($this->getConnectedTiles($tile) as $adjTile ) {
+                            switch($game->getTileType($adjTile['id'])) {
+                                case 'brown':
+                                    if ( ! $brownPresent ) // Because we don't want to count twice
+                                            // the same color, in case more than one life support
+                                            // is connected to this cabin
+                                        $nbAlienChoices++;
+                                        $brownPresent = true;
+                                    break;
+                                case 'purple':
+                                    if ( ! $purplePresent ) $nbAlienChoices++;
+                                    $purplePresent = true;
+                                    break;
                             }
                         }
+
+                        if ( $nbAlienChoices ) {
+                            // There's at least one life support connected, so we place content
+                            // units representing possible choices
+                            $alienChoices = true;
+                            $curPlace = 1;
+                            $capacity = $nbAlienChocies+1; // include human choice
+                            if ( $brownPresent ) {
+                                $sqlImplode[] = GT_DBContent::contentValueSql(
+                                    $game, $plId, $tile['id'], $tile['x'], $tile['y'], 
+                                    'crew', 'ask_brown', $curPlace++, $capacity
+                                );
+                            }
+                            if ( $purplePresent ) {
+                                $sqlImplode[] = GT_DBContent::contentValueSql(
+                                    $game, $plId, $tile['id'], $tile['x'], $tile['y'], 
+                                    'crew', 'ask_purple', $curPlace++, $capacity 
+                                );
+
+                            }
+                            $sqlImplode[] = GT_DBContent::contentValueSql(
+                                $game, $plId, $tile['id'], $tile['x'], $tile['y'], 
+                                'crew', 'ask_human', $curPlace++, $capacity 
+                            );
                         }
+                        else
+                            $humans = true;
                     }
 
-                    if ( $nbAlienChoices )
-                    {
-                        // There's at least one life support connected, so we place content
-                        // units representing possible choices
-                        $alienChoices = true;
-                        if ( $brownPresent ) {
-                            $sqlImplode[] = "('".$plId."', '".$tile['id']."', '".
-                                    $tile['x']."', '".$tile['y']."', 'crew', ".
-                                    "'ask_brown', 1, ".($nbAlienChoices+1).")";
+                    // Now that we have checked for life supports, we can embark
+                    // humans in this cabin if there's no other choice
+                    if ( $humans ) {
+                        for ( $i=1;$i<=2;$i++ ) {
+                            $sqlImplode[] = GT_DBContent::contentValueSql(
+                                $game, $plId, $tile['id'], $tile['x'], $tile['y'], 
+                                'crew', 'human', $i, 2 
+                            );
                         }
-                        if ( $purplePresent ) {
-                            $sqlImplode[] = "('".$plId."', '".$tile['id']."', '".
-                                    $tile['x']."', '".$tile['y']."', 'crew', 'ask_purple', ".
-                                    $nbAlienChoices.", ".($nbAlienChoices+1).")";
-                            // We use $nbAlienChoices because if ask_brown is also present,
-                            // we want place=2 and capacity=3 (ask_human is included in
-                            // capacity). If only ask_purple, we want place=1 and capacity=2.
-                        }
-                        $sqlImplode[] = "('".$plId."', '".$tile['id']."', '".
-                                $tile['x']."', '".$tile['y']."', 'crew', 'ask_human', ".
-                                ($nbAlienChoices+1).", ".($nbAlienChoices+1).")";
                     }
-                    else
-                        $humans = true;
-                }
-
-                // Now that we have checked for life supports, we can embark
-                // humans in this cabin if there's no other choice
-                if ( $humans ) {
-                    for ( $i=1;$i<=2;$i++ ) {
-                    $sqlImplode[] = "('".$plId."', '".$tile['id']."', '".
-                        $tile['x']."', '".$tile['y']."', 'crew', 'human', ".$i.", 2)";
-                    // This may change if we decide to use the same JS function for
-                    // every type of content update, and this may change for luxury cabins
-                    }
-                }
-                break;
-            } // end of switch $tileType
+                    break;
+                } // end of switch $tileType
             }
         } // end of $plBoard scan
 
