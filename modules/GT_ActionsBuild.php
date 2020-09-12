@@ -13,20 +13,27 @@ class GT_ActionsBuild extends APP_GameClass {
         // Pick a random tile from the pile
 
         $game = $this->game;
+        $plId = $this->plId;
 
         $this->checkIfTileInHand ( 'Pick tile' );
 
-        $pickedTile = $game->getUniqueValueFromDB( "SELECT component_id FROM component ".
-                    "WHERE component_player IS NULL ORDER BY RAND() LIMIT 1" );// TODO replace RAND
+        # Update DB first to avoid race condition between looking in DB then updating 
+        $game->DbQuery("UPDATE component SET component_player=$plId "
+            . "WHERE component_player IS NULL ORDER BY RAND() LIMIT 1"
+        );
+        $pickedTile = $this->getTileInHand();
+
+        // $pickedTile = $game->getUniqueValueFromDB( "SELECT component_id FROM component ".
+                    // "WHERE component_player IS NULL ORDER BY RAND() LIMIT 1" );// TODO replace RAND
         if ( $pickedTile !== null ) {
-            $game->DbQuery( "UPDATE component SET component_player={$this->plId} ".
-                            "WHERE component_id=$pickedTile" );
+            // $game->DbQuery( "UPDATE component SET component_player={$this->plId} ".
+                            // "WHERE component_id=$pickedTile" );
             $this->resetUndoPossible();
         }
         // If $pickedTile is null, there's no more unrevealed tile, and the client will
         // disconnect clickable_pile
 
-        $game->notifyPlayer( $this->plId, "pickedTilePl", '', array( 'pickedTile' => $pickedTile ) );
+        $game->notifyPlayer( $plId, "pickedTilePl", '', array( 'pickedTile' => $pickedTile ) );
         $game->notifyAllPlayers( "pickedTile", '', array() );
     }
 
@@ -198,13 +205,13 @@ class GT_ActionsBuild extends APP_GameClass {
 
         $setAsideTiles = $game->getCollectionFromDB( "SELECT component_id id, component_x x, component_y y, ".
                             "aside_discard aside FROM component " . 
-                            "WHERE component_player=$player_id and component_x in [-1, -2]" );
+                            "WHERE component_player=$player_id and component_x in (-1, -2)" );
         if ($setAsideTiles) {
             $t = $setAsideTiles[0];
             $game->throw_bug_report("There is already a tile ({$t['id']}) on square {$t['x']} in discard");
         }
 
-        $sql = "UPDATE component SET component_x=$x, component_y='discard', "
+        $sql = "UPDATE component SET component_x=$x, component_y=NULL, "
             . "component_orientation=$o, aside_discard=1 "
             . "WHERE component_id = $component_id";
         $game->DbQuery( $sql );
@@ -323,9 +330,7 @@ class GT_ActionsBuild extends APP_GameClass {
             $game->throw_bug_report("This order tile is not available.");
 
         // Sanity check: is there a tile in hand?
-        $tile = $game->getObjectFromDB( "SELECT component_id id FROM component ".
-                        "WHERE component_player=$player_id AND component_x IS NULL" );
-        if ( $tile !== null )
+        if ( $this->getTileInHand() !== null )
             $game->throw_bug_report("You still have a tile in hand.");
 
         // Set turn order according to the order tile taken and the round. Player position
@@ -483,11 +488,13 @@ class GT_ActionsBuild extends APP_GameClass {
     }
 
     function checkIfTileInHand( $caller ){
-        $game = $this->game;
-        if ( $game->getUniqueValueFromDB( "SELECT component_id FROM component ".
-            "WHERE component_player={$this->plId} AND component_x IS NULL" ) !== null ) {
-            $game->throw_bug_report("$caller: you have a tile in hand.");
-        }
+        if ( $this->getTileInHand() !== null )
+            $this->game->throw_bug_report("$caller: you have a tile in hand.");
+    }
+
+    function getTileInHand() {
+        return $this->game->getUniqueValueFromDB( "SELECT * FROM component ".
+            "WHERE component_player={$this->plId} AND component_x IS NULL" );
     }
 
     function placeInRevealed( $tile_id ){

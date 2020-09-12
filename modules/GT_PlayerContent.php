@@ -101,10 +101,15 @@ class GT_PlayerContent extends APP_GameClass {
         return false;
     }
 
-    function getContent($type) {
-        return array_filter($this->plContent, 
+    function getContent($type, $subtype=NULL) {
+        $conts = array_filter($this->plContent, 
             function($c) use ($type) { return $c['content_type'] == $type; }
         );
+        if ($subtype)
+            $conts = array_filter($conts, 
+                function($c) use ($subtype) { return $c['content_subtype'] == $subtype; }
+            );
+        return $conts;
     }
 
     function nbOfCrewMembers() {
@@ -241,9 +246,12 @@ class GT_PlayerContent extends APP_GameClass {
         $tileOrient = $this->game->getCollectionFromDB( "SELECT component_id, component_orientation ".
                     "FROM component WHERE component_player={$this->player_id}", true );
 
+        $this->game->dump_var("ids", $ids);
         foreach ( $ids as $id) {
             $this->checkContentById($id, $expType);
             $curCont = $this->plContent[$id];
+            $this->game->dump_var("curCont", $curCont);
+
             unset($this->plContent[$id]);
             $tileId = $curCont['tile_id'];
             $contentLost[] = array ( 'orient' => $tileOrient[$tileId],

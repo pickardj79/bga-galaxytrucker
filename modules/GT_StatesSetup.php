@@ -202,7 +202,7 @@ class GT_StatesSetup extends APP_GameClass {
                         $purplePresent = false;
                         $nbAlienChoices = 0;
 
-                        foreach ($this->getConnectedTiles($tile) as $adjTile ) {
+                        foreach ($brd->getConnectedTiles($tile) as $adjTile ) {
                             switch($game->getTileType($adjTile['id'])) {
                                 case 'brown':
                                     if ( ! $brownPresent ) // Because we don't want to count twice
@@ -223,7 +223,7 @@ class GT_StatesSetup extends APP_GameClass {
                             // units representing possible choices
                             $alienChoices = true;
                             $curPlace = 1;
-                            $capacity = $nbAlienChocies+1; // include human choice
+                            $capacity = $nbAlienChoices+1; // include human choice
                             if ( $brownPresent ) {
                                 $sqlImplode[] = GT_DBContent::contentValueSql(
                                     $game, $plId, $tile['id'], $tile['x'], $tile['y'], 
