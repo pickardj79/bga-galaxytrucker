@@ -2,6 +2,7 @@
 
 /* Collection of functions to handle states associated with setting up the game /round */
 
+require_once('GT_Constants.php');
 require_once('GT_DBCard.php');
 require_once('GT_DBContent.php');
 
@@ -28,6 +29,7 @@ class GT_StatesSetup extends APP_GameClass {
         $game->setGameStateValue( 'currentCard', -1 );
         // We need the ship class at the end of stPrepareRound to notify players
         $shipClass = $game->flightVariant[$flightVariant][$flight]['shipClass'];
+        $game->setGameStateValue( 'shipClass', GT_Constants::$SHIP_CLASS_INTS[$shipClass] );
 
         // Reset some values and clean content table
         //    still_flying may need to be set to 0 in

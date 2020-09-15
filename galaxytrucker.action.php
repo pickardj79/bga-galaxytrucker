@@ -149,6 +149,8 @@
           $this->game->powerEngines( $contChoices ); break;
         case 'crew':
           $this->game->crewChoice( $contChoices ); break;
+        case 'shield':
+          $this->game->powerShields( $contChoices ); break;  
         default:
           $this->game->throw_bug_report("Unknown contentType `$contType` in action.php contentChoice");
       }

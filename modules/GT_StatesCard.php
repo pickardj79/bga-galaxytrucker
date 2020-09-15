@@ -3,9 +3,24 @@
 /* Collection of functions to handle states associated with cards */
 
 require_once('GT_DBPlayer.php');
+require_once('GT_Constants.php');
 
 class GT_StatesCard extends APP_GameClass {
     public function __construct() {
+    }
+
+    function currentCardData($game){
+        $cardId = $game->getGameStateValue( 'currentCard'); 
+        $card = $game->card[$cardId];
+        $progress = $game->getGameStateValue( 'currentCardProgress');
+
+
+        return array(
+            "id" => $cardId,
+            "type" => $card['type'],
+            "curHazard" => self::_applyRollToHazard($game, $card),
+            "card_line_done" => GT_DBPlayer::getCardProgress($game)
+        );
     }
 
     function stDrawCard($game) {
@@ -25,6 +40,9 @@ class GT_StatesCard extends APP_GameClass {
         }
         else {
             $game->setGameStateValue( 'currentCard', $currentCard );
+            $game->setGameStateValue( 'currentCardProgress', 0);
+            $game->setGameStateValue( 'currentCardDie1', 0);
+            $game->setGameStateValue( 'currentCardDie2', 0);
             // temp, so that there is an active player when going to notImpl state
             if ( $game->getUniqueValueFromDB('SELECT global_value FROM global WHERE global_id=2') == 0 )// temp
                 $game->myActiveNextPlayer();// temp
@@ -146,6 +164,101 @@ class GT_StatesCard extends APP_GameClass {
         }
 
         return "nextCard";
+    }
+
+    function stMeteoric($game) {
+        $cardId = $game->getGameStateValue( 'currentCard' );
+        $card = $game->card[$cardId];
+
+        $idx = $game->getGameStateValue( 'currentCardProgress');
+        $game->dump_var("Entering meteor with current card $cardId Meteor $idx.", $card);
+        while ($idx < count($card['meteors'])) {
+
+            // Get previous dice roll, if available. If not roll and notif
+
+            if (!$die1 = $game->getGameStateValue('currentCardDie1')) {
+                $die1= bga_rand(1,6);
+                $die2= bga_rand(1,6);
+                $game->setGameStateValue( 'currentCardDie1', $die1);
+                $game->setGameStateValue( 'currentCardDie2', $die2);
+                $hazResults = self::_applyRollToHazard($game, $card, $idx, $die1, $die2);
+
+                $game->notifyAllPlayers( "hazardDiceRoll", 
+                        clienttranslate( '${sizeName} meteor incoming from the ${direction}'
+                            . ', ${row_col} ${roll}${suffix}' ),
+                        array_merge($hazResults, array(
+                            'roll' => $die1 + $die2,
+                            'sizeName' => GT_Constants::$SIZE_NAMES[$hazResults['size']],
+                            'direction' => GT_Constants::$DIRECTION_NAMES[$hazResults['orient']],
+                            'suffix' => $hazResults['missed'] ? '... missed!' : '!',
+                        ))
+                );
+            }
+            else {
+                $game->log("Reusing dice roll $die1 and $die2.");
+            }
+
+            if ($hazResults['missed']) {
+                $game->setGameStateValue( 'currentCardProgress', ++$idx);
+                $game->setGameStateValue( 'currentCardDie1', 0);
+                $game->setGameStateValue( 'currentCardDie2', 0);
+                continue;
+            }
+            //   for each player for current card
+            //      check part of ship that will be hit
+            //      see if we can/need to use batteries for shields or cannons -> switch to content choice
+            //      lose exposed tile
+            //      mark player done for card
+            // reset players for current card
+
+            // reset dice roll, move to next hazard
+            $game->setGameStateValue( 'currentCardProgress', ++$idx);
+            // $game->setGameStateValue( 'currentCardDie1', 0);
+            // $game->setGameStateValue( 'currentCardDie2', 0);
+
+            // TEMP SO WE CAN MANULLAY GO THROUGH ALL METEORS
+            return 'powerShields';
+        }
+
+        // hide dice (see how we're hiding cards)
+        return 'nextCard';
+    }
+
+    // ###################### HELPER ##########################
+    function _applyRollToHazard($game, $card, $progress=NULL, $die1=NULL, $die2=NULL) {
+
+        $die1 = is_null($die1) ? $game->getGameStateValue( 'currentCardDie1') : $die1;
+        $die2 = is_null($die2) ? $game->getGameStateValue( 'currentCardDie2') : $die2;
+
+        $progress = is_null($progress) ? $game->getGameStateValue( 'currentCardProgress') : $progress;
+
+        if ($card['type'] == 'pirates')
+            $cur_hazard = $card['enemy_penalty'][$progress];
+        elseif ($card['type'] == 'meteoric')
+            $cur_hazard = $card['meteors'][$progress];
+        elseif ($card['type'] == 'combatzone')
+            $cur_hazard = $card['lines'][3][$progress];
+        else
+            $cur_hazard = NULL;
+
+        $size = substr($cur_hazard,0,1);
+        $orient = (int)substr($cur_hazard,1);
+
+        $roll = $die1 + $die2;
+        $row_col = $orient == 0 || $orient == 180 ? 'column' : 'row';
+        $shipClassInt = $game->getGameStateValue('shipClass');
+        $missed = in_array($roll, GT_Constants::$SHIP_CLASS_MISSES[$shipClassInt . '_' . $row_col]);
+        
+        return array ( 
+            'die1' => $die1, 
+            'die2' => $die2,
+            'row_col' => $row_col,
+            'type' => $card['type'] == 'meteoric' ? 'meteor' : 'cannon',
+            'size' => $size,
+            'orient' => $orient,
+            'missed' => $missed,
+        );
+
     }
 
 }

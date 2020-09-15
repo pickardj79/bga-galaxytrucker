@@ -2,21 +2,21 @@
 
 class GTFE_Card {
 
-    MARKER_PREFIX = 'card_marker'
+    MARKER_PREFIX = 'card_marker';
 
-    constructor(game, id, type, varData) {
+    constructor(game, id, cardData) {
         this.game = game;
         this.id = id;
 
-        // unclear if this is ever set
-        this.type = type;
+        if (cardData) {
+            // setup object based on GT_StatesCard::currentCardData()
+            this.type = cardData['type'];
+            this.curHazard = cardData['curHazard'];
+            this.card_line_done = cardData['card_line_done']; // player => {data}
+        }
 
         // onclick connects
         this.connects = {};
-
-        // varData holds variable data about the state of the card
-        // what it holds is dependent on the type of card and state of the game
-        this.varData = varData;
     }
 
     static cardBg( cardId ) {
@@ -27,6 +27,8 @@ class GTFE_Card {
 
     setId(id) {
         this.id = id;
+        // we don't have any of this data
+        this.type = this.progress = this.die1 = this.die1 = this.card_line_done = undefined;
         return this;
     }
 
@@ -40,12 +42,23 @@ class GTFE_Card {
         let cardBg = GTFE_Card.cardBg( this.id );
         dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
 
+        // notif will turn dice_box on when needed
+        dojo.style( 'dice_box', 'display', 'none' );
+
         // place planet elements
         for (let i = 1; i <= 4; i++) {
             dojo.place( game.format_block('jstpl_circle', 
-                { idx: i, top: 7+i*47, classes: "planet" }),
-                'current_card'
+                { idx: i, classes: "planet" }), 'current_card'
             );
+        }
+
+        if (!this.type)
+            return this;
+
+        if (this.curHazard && this.curHazard.die1 != "0") { 
+            this._placeDice(this.curHazard.die1, this.curHazard.die2); 
+            if (this.card_line_done[game.player_id]['card_line_done'] == 0)
+                this._placeHazard(this.curHazard)
         }
 
         return this;
@@ -194,5 +207,50 @@ class GTFE_Card {
         dojo.query('.ship_marker', 'current_card').forEach( n => dojo.destroy(n) );
     }
 
+    /// ################# HAZARDS #########################
+    notif_hazardDiceRoll(args) {
+        let game = this.game;
+
+        // don't turn off dice_box, clean-up code will do so
+
+        let anim = game.myFadeOutAndDestroy(dojo.query('.die','dice_box'), 500);
+        dojo.connect(anim, "onEnd", () => this._placeDice(args.die1, args.die2));
+        anim.play();
+
+        // place appropriate hazard at start of row/column
+        //    use class? use a div? - use a tpl
+        // if missed, slide hazard
+    }
+
+    _placeDice(die1, die2) {
+        let game = this.game;
+
+        dojo.style( 'dice_box', 'display', 'block' );
+
+        dojo.place( game.format_block( 'jstpl_die', {'nbr': die1, 'idx': 1}), 'current_card');
+        dojo.place( game.format_block( 'jstpl_die', {'nbr': die2, 'idx': 2}), 'current_card');
+        let i = 0;
+        dojo.query('.die', 'current_card')
+            .forEach( n => game.slideToDomNode(n, 'dice_box', 500, (i++)*100));
+    }
+
+    _placeHazard(hazard) {
+        let game = this.game;
+        // hazard needs: die1, die2, type, row_col, size, orient (see GT_StatesCard.currentCardData)
+        let sizeClass = hazard.size == 's' ? 'small' : 'big';
+        let roll = parseInt(hazard.die1) + parseInt(hazard.die2);
+        let startDiv = '';
+        switch (hazard.orient) {
+            case 0: startDiv = 'column_' + roll + '_top'; break;
+            case 90: startDiv = 'row_' + roll + '_right'; break;
+            case 180: startDiv = 'column_' + roll + '_bottom'; break;
+            case 270: startDiv = 'row_' + roll + '_left'; break;
+            default: game.throw_bug_report('Unexpected orient: ' + hazard.orient);
+        }
+
+        dojo.place( game.format_block( 'jstpl_hazard', {
+            size: sizeClass, type: hazard.type, row_col: hazard.row_col
+        }), startDiv);
+    }
 
 }

@@ -66,10 +66,13 @@ if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, sin
     define("STATE_STARDUST", 40);
     define("STATE_OPEN_SPACE", 41);
     define("STATE_ABANDONED", 42);
+    define("STATE_METEORIC", 43);
     define("STATE_PLANETS", 46);
     define("STATE_EXPLORE_ABANDONED", 58);
     define("STATE_POWER_ENGINES", 60);
-    define("STATE_CHOOSE_PLANET", 61);
+    define("STATE_POWER_SHIELDS", 61);
+    define("STATE_POWER_CANNONS", 62);
+    define("STATE_CHOOSE_PLANET", 63);
     define("STATE_CHOOSE_CREW", 66);
     define("STATE_PLACE_GOODS", 68);
     define("STATE_JOURNEYS_END", 80);
@@ -211,7 +214,7 @@ $machinestates = array(
             "planets" => STATE_PLANETS, 
 
             "enemies" => STATE_NOT_IMPL, 
-            "meteoric" => STATE_NOT_IMPL, 
+            "meteoric" => STATE_METEORIC, 
             "combatzone" => STATE_NOT_IMPL, 
             "epidemic" => STATE_NOT_IMPL, 
             "sabotage" => STATE_NOT_IMPL, 
@@ -225,7 +228,10 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('Not implemented yet. ${you} must click the "Go on" button'),
         "type" => "activeplayer",
         "possibleactions" => array( "goOn", "pass" ),
-        "transitions" => array( "goOn" => STATE_DRAW_CARD )
+        "transitions" => array( 
+            // TODO - temporary for testing
+            "nextMeteor" => STATE_METEORIC, 
+            "goOn" => STATE_DRAW_CARD )
     ),
 
     STATE_STARDUST => array(
@@ -259,6 +265,17 @@ $machinestates = array(
             "exploreAbandoned" => STATE_EXPLORE_ABANDONED )
     ),
 
+    STATE_METEORIC=> array(
+        "name" => "meteoric",
+        "description" => '',
+        "type" => "game",
+        "action" => "stMeteoric",
+        "updateGameProgression" => false,
+        "transitions" => array( 
+            "nextCard" => STATE_DRAW_CARD,
+            "powerShields" => STATE_POWER_SHIELDS)
+    ),
+    
     STATE_PLANETS => array(
         // Select player for choosePlanet
         "name" => "planet",
@@ -288,12 +305,22 @@ $machinestates = array(
 
     STATE_POWER_ENGINES => array(
         "name" => "powerEngines",
-        "description" => clienttranslate('${actplayer} must choose batteries to use'),
-        "descriptionmyturn" => clienttranslate('${you} must choose batteries to use'),
+        "description" => clienttranslate('${actplayer} must choose batteries to use to power engines'),
+        "descriptionmyturn" => clienttranslate('${you} must choose batteries to use to power engines'),
         "type" => "activeplayer",
         "args" => "argPowerEngines",
         "possibleactions" => array( "contentChoice" ),
         "transitions" => array( "nextPlayer" => STATE_OPEN_SPACE ) // or "enginesPowered"?
+    ),
+
+    STATE_POWER_SHIELDS => array(
+        "name" => "powerShields",
+        "description" => clienttranslate('${actplayer} must decide whether to activate a shield'),
+        "descriptionmyturn" => clienttranslate('${you} must decide whether to activate a shield'),
+        "type" => "activeplayer",
+        "args" => "argPowerShields",
+        "possibleactions" => array( "contentChoice" ),
+        "transitions" => array( "nextMeteor" => STATE_METEORIC )
     ),
 
     STATE_CHOOSE_PLANET => array(
@@ -332,28 +359,6 @@ $machinestates = array(
             "cargoChoicePlanet" => STATE_PLANETS)
     ),
 
-//    40 => array(
-//        "name" => "resolveCard",
-//        "description" => '',
-//        "type" => "game",
-//        "action" => "stResolveCard",
-//        "updateGameProgression" => false,
-//        "transitions" => array( "nextPlayer" => 40, "cardResolved" => STATE_DRAW_CARD,
-//                                "powerShield" => 41, "powerCannons" => 42,
-//                                "powerEngines" => 43, "loseGoods" => 44,
-//                                "loseCrews" => 45, "choosePlanet" => 46,
-//                                "exploreAbandoned" => 47, "placeGoods" => 48,
-//                                "takeReward" => 49  )
-//    ),
-
-//    41 => array(
-//        "name" => "powerShield",
-//        "description" => clienttranslate('${actplayer} must decide whether to activate a shield'),
-//        "descriptionmyturn" => clienttranslate('${you} must decide whether to activate a shield'),
-//        "type" => "activeplayer",
-//        "possibleactions" => array( "choiceMade", "pass" ),
-//        "transitions" => array( "choiceMade" => 40 )
-//    ),
 
 //    42 => array(
 //        "name" => "powerCannons",
@@ -361,16 +366,6 @@ $machinestates = array(
 //        "descriptionmyturn" => clienttranslate('${you} must decide which cannons to activate'),
 //        "type" => "activeplayer",
 //        "possibleactions" => array( "powerCannon", "choiceMade",
-//                                        "pass" ),
-//        "transitions" => array( "choiceMade" => 40 )
-//    ),
-
-//    43 => array(
-//        "name" => "powerEngines",
-//        "description" => clienttranslate('${actplayer} must decide which engines to activate'),
-//        "descriptionmyturn" => clienttranslate('${you} must decide which engines to activate'),
-//        "type" => "activeplayer",
-//        "possibleactions" => array( "powerEngine", "choiceMade",
 //                                        "pass" ),
 //        "transitions" => array( "choiceMade" => 40 )
 //    ),

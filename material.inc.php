@@ -346,6 +346,7 @@ foreach ( $tileConnectors as $id => $tile )
         $this->tiles[$id][$dir] = $conType;
   }
 
+  // combatzone must have laser attacks as 3rd element of 'lines'
 $this->cardNames = array (
     'slavers' => clienttranslate('Slavers'),
     'smugglers' => clienttranslate('Smugglers'),
@@ -405,18 +406,11 @@ $this->card = array (
   8 => array ( 'round' => 1,
                'id' => 8,
                'type' => 'meteoric',
-               'meteors' => array ( 1 => 'b0', // to be confirmed
-                                    2 => 's270', // to be confirmed
-                                    3 => 's90', // to be confirmed
-                                   ) ),
+               'meteors' => array ( 'b0', 's270', 's90' ) ),
   9 => array ( 'round' => 1,
                'id' => 9,
                'type' => 'meteoric',
-               'meteors' => array ( 1 => 's0', // to be confirmed
-                                    2 => 's180', // to be confirmed
-                                    3 => 's270', // to be confirmed
-                                    4 => 's90', // to be confirmed
-                                   ) ),
+               'meteors' => array ( 's0', 's180', 's270', 's90' ) ),
   10 => array ( 'round' => 1,
                 'id' => 10,
                 'type' => 'meteoric',

@@ -61,7 +61,8 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        $this->setCardOrder(11,1); // planet card
+        $this->setCardOrder(8,1); // meteor card
+        // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
         $this->setCardOrder(17,1); // abship card

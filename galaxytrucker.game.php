@@ -51,13 +51,17 @@ class GalaxyTrucker extends Table {
                         // to add in the adventure cards deck
                         // May be different from 'flight' when using some variants like
                         // shorter or longer games
-            "cardOrderInFlight" => 12,
-            "timerStartTime" => 13,
-            "timerPlace" => 14,
-            "buildingStartTime" => 15, // (for stats)
-            "currentCard" => 16,
-            "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
+            "shipClass" => 12,
+            "cardOrderInFlight" => 13,
+            "timerStartTime" => 14,
+            "timerPlace" => 15,
+            "buildingStartTime" => 16, // (for stats)
+            "currentCard" => 20,
+            "overlayTilesPlaced" => 21, // used in GetAllDatas to know if the client
                                 // must place overlay tiles in case of a page reload
+            "currentCardProgress" => 22,   // which part of card is in progress, e.g. which meteor #
+            "currentCardDie1" => 23,   // what is the current die roll being resolved
+            "currentCardDie2" => 24,   
             "testGameState" => 99, // use a test scenario from GT_GameStates 
 
             // flight_variants is a game option (gameoptions.inc.php)
@@ -156,7 +160,7 @@ class GalaxyTrucker extends Table {
     self::DbQuery( $sql );
 
     self::log("Game initialized");
-    self::setGameStateInitialValue( 'testGameState', 0 ); 
+    self::setGameStateInitialValue( 'testGameState', 1 ); 
 
     /************ End of the game initialization *****/
   }
@@ -286,7 +290,7 @@ class GalaxyTrucker extends Table {
     $result['content'] = self::getObjectListFromDB( "SELECT * FROM content" );
     $result['tiles'] = array_values($this->tiles);
 
-    $result['currentCard'] = self::getGameStateValue( 'currentCard' );
+    $result['currentCard'] = GT_StatesCard::currentCardData($this);
 
     return $result;
   }
@@ -616,6 +620,12 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( 'nextPlayer' );
   }
 
+  function powerShields( $battChoices ) {
+      self::checkAction( 'contentChoice' );
+      // should check current card to see which state to go to, since might have to do nextHazard
+      $this->gamestate->nextState('nextMeteor');
+  }
+
   function exploreChoice( $choice ) {
       self::checkAction( 'exploreChoice' );
       $plId = self::getActivePlayerId();
@@ -756,6 +766,11 @@ class GalaxyTrucker extends Table {
                       'hasAlien' => $plyrContent->checkIfAlien('brown')  ) ;
     }
 
+    function argPowerShields() {
+        $plId = self::getActivePlayerId();
+        return array();
+    }
+
     function argExploreAbandoned() {
         $plId = self::getActivePlayerId();
         $currentCard = self::getGameStateValue( 'currentCard' );
@@ -779,8 +794,6 @@ class GalaxyTrucker extends Table {
         $currentCard = self::getGameStateValue( 'currentCard' );
         $card = $this->card[$currentCard];
         $alreadyChosen = GT_DBPlayer::getCardChoices($this);
-
-        $this->dump_var("alreadyChosen", $alreadyChosen);
 
         $availIdx = array();
         $planetIdxs = array(); 
@@ -1053,6 +1066,12 @@ class GalaxyTrucker extends Table {
       $nextState = GT_StatesCard::stPlanets($this);
       $this->gamestate->nextState( $nextState );
   }
+
+  function stMeteoric() {
+      $nextState = GT_StatesCard::stMeteoric($this);
+      $this->gamestate->nextState( $nextState );
+  }
+  
 
   // ########### FINAL CLEAN UP STATES ############## 
   function stJourneysEnd() {

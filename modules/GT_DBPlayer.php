@@ -50,6 +50,12 @@ class GT_DBPlayer extends APP_GameClass {
         return $game->getCollectionFromDB("SELECT card_action_choice, player_id player_id FROM player");
     }
 
+    function getCardProgress($game) {
+        return $game->getCollectionFromDB("
+            SELECT player_id player_id, card_line_done, card_action_choice, still_flying 
+            FROM player");
+    }
+
     function setCardDone($game, $plId) {
         $game->DbQuery( "UPDATE player SET card_line_done=2 WHERE player_id=$plId" );
     }

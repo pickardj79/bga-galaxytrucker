@@ -287,7 +287,8 @@ function (dojo, declare) {
             tile.placeContent(gamedatas.content[i]);
         }
 
-        this.card = new GTFE_Card(this, gamedatas.currentCard).setupImage();
+        this.card = new GTFE_Card(this, gamedatas.currentCard['id'], gamedatas.currentCard)
+            .setupImage();
 
         this.addTooltip( 'sandTimer', '', _('Click here to flip the timer when it is finished.') );
         
@@ -394,6 +395,7 @@ function (dojo, declare) {
         case 'epidemic':
         case 'sabotage':
         case 'powerCannons':
+        case 'powerShields':
             break;
         case 'powerEngines':
             if ( this.isCurrentPlayerActive() )
@@ -414,7 +416,6 @@ function (dojo, declare) {
                 this.card.placePlanetAvail(args.args.planetIdxs);
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
-        case 'powerShield':
         case 'loseGoods':
             break;
         case 'placeGoods':
@@ -429,7 +430,9 @@ function (dojo, declare) {
             break;
 
         case 'dummmy':
+            this.throw_bug_report("Unknown entering state: " + stateName);
             break;
+        default: this.throw_bug_report("Unknown leaving state: " + stateName);
         }
     },
 
@@ -438,6 +441,12 @@ function (dojo, declare) {
         //
     onLeavingState: function( stateName ) {
         console.log( 'Leaving state: '+stateName );
+
+        let noLeaving = ['drawCard', 'notImpl', 'gameEnd', 
+            'abandoned', 'planet', 'stardust',
+        ];
+        if (noLeaving.includes(stateName))
+            return;
 
         switch( stateName ) {
         case 'buildPhase':
@@ -471,6 +480,12 @@ function (dojo, declare) {
             // Temp, will be done in notif when repair action is implemented
             dojo.query('.ship_part_nb, .tile_error').forEach(dojo.destroy);
             break;
+         
+        // Not implemented
+        case 'meteoric':
+        case 'powerShields': // probably this and powerCannons will use onLeavingContentChoice
+        case 'powerCannons':
+            break;
         case 'exploreAbandoned':
             this.wholeCrewWillLeave = false;
             break;
@@ -486,7 +501,9 @@ function (dojo, declare) {
             goods.onLeavingPlaceGoods();
             break;
         case 'dummmy':
+            this.throw_bug_report("Unknown leaving state: " + stateName);
             break;
+        default: this.throw_bug_report("Unknown leaving state: " + stateName);
         }
     },
 
@@ -511,7 +528,10 @@ function (dojo, declare) {
         case 'powerEngines' :
             this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
-          case 'exploreAbandoned' :
+        case 'powerShields' :
+            this.addActionButton( 'button_powerShields', _('Go on'), 'onPowerShields' );
+            break;
+        case 'exploreAbandoned' :
             this.addActionButton( 'button_explore_1', _('Yes'), 'onExploreChoice' );
             this.addActionButton( 'button_explore_0', _('No'), 'onExploreChoice' );
             break;
@@ -748,6 +768,19 @@ function (dojo, declare) {
         var shipValues = this.ships[shipClass];
         var yMin = shipValues.yMinIndex;
         var yMax = shipValues.yMaxIndex;
+
+        if (shipClass == 'IIIa') {
+            yBoardMin = 3;
+            yBoardMax = 11;
+            xBoardMin = 5;
+            xBoardMax = 9;
+        }
+        else {
+            yBoardMin = 4;
+            yBoardMax = 9;
+            xBoardMin = 3;
+            xBoardMax = 11;
+        }
         var cssClasses = '';
         if ( player_id == this.player_id ) {
             var shipDivId = 'my_ship';
@@ -767,18 +800,48 @@ function (dojo, declare) {
         // Add the slot where the order tile will be slided to when taken
         dojo.place( this.format_block( 'jstpl_ord_tile_slot', { id: player_id } ), shipDivId );
 
-        for( var x=3; x<=11 ; x++ )
-          for( var y=yMin; y<=yMax ; y++ ) {
-            if (this.ships[shipClass][y][x-3] == 1) { // x-3 because we start ship coordinates
-                                                    // for x at 3 in this.ships definition
-           
+        // loop over all rows and columns
+        // place squares where appropriate for the ship class
+        // place row/column markers for positioning hazards
+        for( var x=2; x<=12 ; x++ ) {
+            for( var y=2; y<=12 ; y++ ) {
                 var leftPos = shipValues.leftPosRef+50*(x-3);
-                if ( shipClass == 'IIIa' )
-                    //var topPos = 411-50*(y-3); // For the moment I switch back to normal coordinates (not upside down just for IIIa).
-                                            // I'll ask CGE if it's important to keep upside down coordinates for this ship, but I doubt
-                    var topPos = 11+50*(y-3);
-                else
-                    var topPos = 11+50*(y-4); // may be different for other ship classes
+                var topPos = shipClass == 'IIIa' ? 11+50*(y-3) : 11+50*(y-4); 
+
+                // place row/column markers, only for this browser's player
+                if (player_id == this.player_id) {
+                    if (x==xBoardMin || x==xBoardMax+1) { // place two rows for each y
+                        if (y < yBoardMin) myTopPos = shipClass == 'IIIa' 
+                            ? 11+50*(yBoardMin-3) : 11+50*(yBoardMin-4);
+                        else if (y > yBoardMax) myTopPos = shipClass == 'IIIa' 
+                            ? 11+50*(yBoardMax+1-3) : 11+50*(yBoardMax+1-4);
+                        else myTopPos = topPos + 25;
+
+                        let side = x==xBoardMin ? 'left' : 'right';
+                        dojo.place( this.format_block( 'jstpl_row_col', {
+                            nbr: y, left: leftPos, top: myTopPos, type: 'row', side: side
+                        }), shipDivId);
+                    }
+                    if (y==yBoardMin || y==yBoardMax+1) { // now two column for each x
+                        if (x < xBoardMin) myLeftPos = shipValues.leftPosRef+50*(xBoardMin-3); 
+                        else if (x > xBoardMax) myLeftPos = shipValues.leftPosRef+50*(xBoardMax+1-3); 
+                        else myLeftPos = leftPos + 25;
+
+                        let side = y==yBoardMin ? 'top' : 'bottom';
+                        dojo.place( this.format_block( 'jstpl_row_col', {
+                            nbr: x, left: myLeftPos, top: topPos, type: 'column', side: side
+                        }), shipDivId);
+                    }
+                }
+
+                // do not place squares for tiles off the board or tiles not on the ship
+                if ( x < 3 || x > 11 || y < yMin || y > yMax)
+                    continue;
+                
+                if (this.ships[shipClass][y][x-3] != 1) 
+                    continue;
+                    
+                // place square that tile will sit on
                 dojo.place( this.format_block( 'jstpl_square', {
                             plId: player_id,
                             x: x,
@@ -786,9 +849,9 @@ function (dojo, declare) {
                             left: leftPos,
                             top: topPos,
                             cssClasses: cssClasses
-                    } ), shipDivId );
+                } ), shipDivId );
             }
-          }
+        }
         // Add the two discard squares
         for( var x=-1; x>=-2 ; x-- ) {
             dojo.place( this.format_block( 'jstpl_square', {
@@ -949,6 +1012,17 @@ function (dojo, declare) {
             dojo.style( mobile, stylesOnEnd );
         });
         anim.play();
+    },
+
+    myFadeOutAndDestroy: function( ids, duration, delay ) {
+        // builds an animation to fade out a list of ids in parallel
+        return dojo.fx.combine(
+            ids.map( n => {
+                let anim = dojo.fadeOut({node:n, duration: duration, delay: delay});
+                anim.onEnd = () => dojo.destroy(n);
+                return anim;
+            })
+        );
     },
 
 
@@ -1214,6 +1288,11 @@ function (dojo, declare) {
             this.ajaxAction( 'contentChoice', payload );
     },
 
+    onPowerShields: function(evt) {
+        console.log( 'onExploreChoice - might meld with onValidateContentChoice' );
+        this.ajaxAction('contentChoice', { 'ids': {}, 'contentType': 'shield', 'ids_str': ''});
+    },
+
     onExploreChoice: function( evt ) {
         console.log( 'onExploreChoice' );
         if ( !this.checkAction( 'exploreChoice' ) )
@@ -1336,6 +1415,8 @@ function (dojo, declare) {
         this.notifqueue.setSynchronous( 'planetChoice', 1000 );
         dojo.subscribe( 'cargoChoice', this, "notif_cargoChoice");
         this.notifqueue.setSynchronous( 'cargoChoice', 100 );
+        dojo.subscribe( 'hazardDiceRoll', this, "notif_hazardDiceRoll");
+        this.notifqueue.setSynchronous( 'hazardDiceRoll', 500 );
 
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
@@ -1766,9 +1847,14 @@ function (dojo, declare) {
         goods.notif_cargoChoice(notif.args);
     },
 
+    notif_hazardDiceRoll: function(notif) {
+        console.log("notif_hazardDiceRoll", notif.args);
+        this.card.notif_hazardDiceRoll(notif.args);
+    },
+
+
     notif_newRound: function( notif ) {
-        console.log( 'notif_newRound' );
-        console.log( notif );
+        console.log( 'notif_newRound', notif );
 
         if ( notif.args.flight !== 1 ) {
             // clean all elements from previous round that need to be cleaned
@@ -1786,6 +1872,7 @@ function (dojo, declare) {
             dojo.query('.hidden_tile').forEach(dojo.destroy);
             dojo.query('.ship_marker').forEach(dojo.destroy);
             dojo.style( 'current_card', 'display', 'none' );
+            dojo.style( 'dice_box', 'display', 'none' );
             dojo.query('.rev_space.additional').forEach(dojo.destroy);
             dojo.query('.plBoardSpan').forEach(dojo.empty); // Maybe not all,
                                                 // depending on what we add
