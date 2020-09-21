@@ -150,7 +150,6 @@ function (dojo, declare) {
             this.placePlBoardItem( "expConn", player_id );
             // The following values should be evaluated to an empty
             // string if null (null if not calculated yet)
-            console.log(this.scoreCtrl);
             $( "credits_"+player_id).innerHTML = this.player_id == player_id 
                 ? ' ' + player.credits : ' - ';
             $( "nbCrew_"+player_id ).innerHTML = player.nb_crew;
@@ -310,6 +309,12 @@ function (dojo, declare) {
         console.log( 'args for state: ', args.args);
         this.stateName = stateName;
 
+        let noEntering = ['drawCard', 'notImpl', 'gameEnd', 
+            'openspace', 'abandoned', 'meteoric', 'planet'
+        ];
+        if (noEntering.includes(stateName))
+            return;
+
         switch( stateName ) {
 
         case 'waitForPlayers':
@@ -383,19 +388,15 @@ function (dojo, declare) {
                 this.connectAlienChoices();
             break;
  
-        case 'drawCard':
-        case 'notImpl':
         case 'stardust':
-        case 'openspace':
         case 'enemies':
-        case 'abandoned':
-        case 'meteoric':
-        case 'planets':
         case 'combatzone':
         case 'epidemic':
         case 'sabotage':
+        case 'loseGoods':
         case 'powerCannons':
         case 'powerShields':
+        case 'shipDamage':
             break;
         case 'powerEngines':
             if ( this.isCurrentPlayerActive() )
@@ -416,8 +417,6 @@ function (dojo, declare) {
                 this.card.placePlanetAvail(args.args.planetIdxs);
             this.card.placeCardMarkers(args.args.planetIdxs);
             break;
-        case 'loseGoods':
-            break;
         case 'placeGoods':
             console.log("placing goods", args.args);
             if ( this.isCurrentPlayerActive() ) {
@@ -426,13 +425,11 @@ function (dojo, declare) {
             }
             this.card.placeCardMarkers(args.args.allPlayerChoices);
             break;
-        case 'takeReward':
-            break;
 
         case 'dummmy':
             this.throw_bug_report("Unknown entering state: " + stateName);
             break;
-        default: this.throw_bug_report("Unknown leaving state: " + stateName);
+        default: this.throw_bug_report("Unknown entering state: " + stateName);
         }
     },
 
@@ -485,6 +482,7 @@ function (dojo, declare) {
         case 'meteoric':
         case 'powerShields': // probably this and powerCannons will use onLeavingContentChoice
         case 'powerCannons':
+        case 'shipDamage':
             break;
         case 'exploreAbandoned':
             this.wholeCrewWillLeave = false;
@@ -986,7 +984,7 @@ function (dojo, declare) {
     },
 
     slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd, targetxy ) {
-        console.log("Entering slideToDomNode");
+        console.log("Entering slideToDomNode", mobile, newParent);
         stylesOnEnd = (typeof stylesOnEnd !== "undefined") ? stylesOnEnd : {};
         this.attachToNewParentNoDestroy( mobile, newParent );
         dojo.style( mobile, "visibility", "visible" );
@@ -1416,7 +1414,11 @@ function (dojo, declare) {
         dojo.subscribe( 'cargoChoice', this, "notif_cargoChoice");
         this.notifqueue.setSynchronous( 'cargoChoice', 100 );
         dojo.subscribe( 'hazardDiceRoll', this, "notif_hazardDiceRoll");
-        this.notifqueue.setSynchronous( 'hazardDiceRoll', 500 );
+        this.notifqueue.setSynchronous( 'hazardDiceRoll', 2000 );
+        dojo.subscribe( 'hazardMissed', this, "notif_hazardMissed");
+        this.notifqueue.setSynchronous( 'hazardMissed', 2000 );
+        dojo.subscribe( 'hazardHarmless', this, "notif_hazardHarmless");
+        this.notifqueue.setSynchronous( 'hazardHarmless', 2000 );
 
         dojo.subscribe( 'newRound', this, "notif_newRound" );
 
@@ -1852,6 +1854,19 @@ function (dojo, declare) {
         this.card.notif_hazardDiceRoll(notif.args);
     },
 
+    notif_hazardMissed: function(notif) {
+        console.log("notif_hazardMissed", notif.args);
+        // if there's not a player_id then this applies to all players
+        // if there is a player_id, only use this for the active player
+        if (notif.args.player_id === undefined || notif.args.player_id == this.player_id)
+            this.card.hazardMissed(notif.args);
+    },
+
+    notif_hazardHarmless: function(notif) {
+        console.log("notif_hazardHarmless", notif.args);
+        if (this.player_id == notif.args.player_id)
+            this.card.hazardHarmless(notif.args);
+    },
 
     notif_newRound: function( notif ) {
         console.log( 'notif_newRound', notif );

@@ -12,13 +12,12 @@ class GT_StatesCard extends APP_GameClass {
     function currentCardData($game){
         $cardId = $game->getGameStateValue( 'currentCard'); 
         $card = $game->card[$cardId];
-        $progress = $game->getGameStateValue( 'currentCardProgress');
 
 
         return array(
             "id" => $cardId,
             "type" => $card['type'],
-            "curHazard" => self::_applyRollToHazard($game, $card),
+            "curHazard" => self::_getHazardRoll($game, $card),
             "card_line_done" => GT_DBPlayer::getCardProgress($game)
         );
     }
@@ -40,7 +39,7 @@ class GT_StatesCard extends APP_GameClass {
         }
         else {
             $game->setGameStateValue( 'currentCard', $currentCard );
-            $game->setGameStateValue( 'currentCardProgress', 0);
+            $game->setGameStateValue( 'currentCardProgress', -1);
             $game->setGameStateValue( 'currentCardDie1', 0);
             $game->setGameStateValue( 'currentCardDie2', 0);
             // temp, so that there is an active player when going to notImpl state
@@ -171,85 +170,97 @@ class GT_StatesCard extends APP_GameClass {
         $card = $game->card[$cardId];
 
         $idx = $game->getGameStateValue( 'currentCardProgress');
+        if ($idx < 0) $idx = 0; // start of the card
+
         $game->dump_var("Entering meteor with current card $cardId Meteor $idx.", $card);
         while ($idx < count($card['meteors'])) {
+            $game->log("Running meteor $idx.");
 
             // Get previous dice roll, if available. If not roll and notif
-
-            if (!$die1 = $game->getGameStateValue('currentCardDie1')) {
-                $die1= bga_rand(1,6);
-                $die2= bga_rand(1,6);
-                $game->setGameStateValue( 'currentCardDie1', $die1);
-                $game->setGameStateValue( 'currentCardDie2', $die2);
-                $hazResults = self::_applyRollToHazard($game, $card, $idx, $die1, $die2);
-
-                $game->notifyAllPlayers( "hazardDiceRoll", 
-                        clienttranslate( '${sizeName} meteor incoming from the ${direction}'
-                            . ', ${row_col} ${roll}${suffix}' ),
-                        array_merge($hazResults, array(
-                            'roll' => $die1 + $die2,
-                            'sizeName' => GT_Constants::$SIZE_NAMES[$hazResults['size']],
-                            'direction' => GT_Constants::$DIRECTION_NAMES[$hazResults['orient']],
-                            'suffix' => $hazResults['missed'] ? '... missed!' : '!',
-                        ))
-                );
-            }
-            else {
-                $game->log("Reusing dice roll $die1 and $die2.");
-            }
+            $hazResults = self::_getHazardRoll($game, $card, $idx);
 
             if ($hazResults['missed']) {
+                $game->notifyAllPlayers( "hazardMissed", 
+                            clienttranslate( 'Meteor missed all ships'), 
+                            [ 'hazResults' => $hazResults ] );
                 $game->setGameStateValue( 'currentCardProgress', ++$idx);
                 $game->setGameStateValue( 'currentCardDie1', 0);
                 $game->setGameStateValue( 'currentCardDie2', 0);
                 continue;
             }
-            //   for each player for current card
-            //      check part of ship that will be hit
-            //      see if we can/need to use batteries for shields or cannons -> switch to content choice
-            //      lose exposed tile
-            //      mark player done for card
-            // reset players for current card
 
-            // reset dice roll, move to next hazard
+            // Go through players until finding one that has to act
+            $players = GT_DBPlayer::getPlayersForCard($game);
+            foreach ( $players as $plId => $player ) {
+                $game->log("Working on player $plId, index $idx.");
+                $nextState = self::_applyHazardToShip($game, $hazResults, $player);
+                $game->log("Got $nextState");
+                if ($nextState) {
+                    GT_DBPlayer::setCardInProgress($game, $plId);
+                    $game->gamestate->changeActivePlayer( $plId );
+                    // TODO - within nextState - mark player done for card
+                    return $nextState;
+                } 
+            }
+
+            $game->log("Finished index $idx");
+            // no players need to act for this hazard, go to next hazard 
             $game->setGameStateValue( 'currentCardProgress', ++$idx);
-            // $game->setGameStateValue( 'currentCardDie1', 0);
-            // $game->setGameStateValue( 'currentCardDie2', 0);
-
-            // TEMP SO WE CAN MANULLAY GO THROUGH ALL METEORS
-            return 'powerShields';
+            $game->setGameStateValue( 'currentCardDie1', 0);
+            $game->setGameStateValue( 'currentCardDie2', 0);
+            GT_DBPlayer::clearCardProgress($game);
         }
 
-        // hide dice (see how we're hiding cards)
+        // TODO hide dice (see how we're hiding cards)
         return 'nextCard';
     }
 
     // ###################### HELPER ##########################
-    function _applyRollToHazard($game, $card, $progress=NULL, $die1=NULL, $die2=NULL) {
-
-        $die1 = is_null($die1) ? $game->getGameStateValue( 'currentCardDie1') : $die1;
-        $die2 = is_null($die2) ? $game->getGameStateValue( 'currentCardDie2') : $die2;
-
+    function _getHazardRoll($game, $card, $progress=NULL) {
+        // loads roll from gamestate or simulates a new roll
+        // retuns hazard roll "object" used throughout code
         $progress = is_null($progress) ? $game->getGameStateValue( 'currentCardProgress') : $progress;
+        if ($progress < 0)
+            return;
 
+        // get the type of hazard and split to size / orientation
         if ($card['type'] == 'pirates')
             $cur_hazard = $card['enemy_penalty'][$progress];
         elseif ($card['type'] == 'meteoric')
             $cur_hazard = $card['meteors'][$progress];
         elseif ($card['type'] == 'combatzone')
-            $cur_hazard = $card['lines'][3][$progress];
+            $cur_hazard = $card['lines'][3]['penalty_value'][$progress];
         else
             $cur_hazard = NULL;
+        
+        if (!$cur_hazard)
+            return;
 
         $size = substr($cur_hazard,0,1);
         $orient = (int)substr($cur_hazard,1);
-
-        $roll = $die1 + $die2;
         $row_col = $orient == 0 || $orient == 180 ? 'column' : 'row';
+
+        // get the dice roll
+        $die1 = $game->getGameStateValue( 'currentCardDie1');
+        $die2 = $game->getGameStateValue( 'currentCardDie2');
+        $new_roll = $die1 ? FALSE : TRUE;
+        if ($new_roll) {
+            $die1= bga_rand(1,6);
+            $die2= bga_rand(1,6);
+            $game->setGameStateValue( 'currentCardDie1', $die1);
+            $game->setGameStateValue( 'currentCardDie2', $die2);
+            $game->log("New dice roll $die1 and $die2.");
+
+        }
+        else {
+            $game->log("Reusing dice roll for card item $progress");
+        }
+
+        // build final object and return
         $shipClassInt = $game->getGameStateValue('shipClass');
-        $missed = in_array($roll, GT_Constants::$SHIP_CLASS_MISSES[$shipClassInt . '_' . $row_col]);
-        
-        return array ( 
+        $missed = in_array($die1 + $die2, GT_Constants::$SHIP_CLASS_MISSES[$shipClassInt . '_' . $row_col]);
+
+        $hazResults = [ 
             'die1' => $die1, 
             'die2' => $die2,
             'row_col' => $row_col,
@@ -257,8 +268,84 @@ class GT_StatesCard extends APP_GameClass {
             'size' => $size,
             'orient' => $orient,
             'missed' => $missed,
-        );
+        ];
 
+        if ($new_roll) {
+            $game->notifyAllPlayers( "hazardDiceRoll", 
+                    clienttranslate( '${sizeName} meteor incoming from the ${direction}'
+                        . ', ${row_col} ${roll}' ),
+                    [   'roll' => $die1 + $die2,
+                        'row_col' => $row_col,
+                        'sizeName' => GT_Constants::$SIZE_NAMES[$size],
+                        'direction' => GT_Constants::$DIRECTION_NAMES[$orient],
+                        'hazResults' => $hazResults
+                    ]
+            );
+        }
+        return $hazResults;
+    }
+
+    function _applyHazardToShip($game, $hazResults, $player) {
+        // apply a hazard (from _applyRollToHazard) to a player's ship
+        // returns the next game state or null for moving to the next player (no player action required)
+        if ($hazResults['missed'])
+            $game->throw_bug_report_dump("_applyHazardToShip should not 'see' missed hazards", $hazResults);
+
+        $brd = $game->newPlayerBoard($player['player_id']);
+        $roll = $hazResults['die1'] + $hazResults['die2']; 
+
+        $tilesInLine = $brd->getLine($roll, $hazResults['orient']);
+
+        $game->dump_var("looking along line $roll and orient {$hazResults['orient']}", $tilesInLine);
+
+        // if no tiles, then the row/col is empty
+        if (!$tilesInLine) {
+            $game->notifyAllPlayers( "hazardMissed", 
+                    clienttranslate( 'Meteor missed ${player_name}\'s ship'), 
+                    [ 'player_name' => $player['player_name'], 
+                      'player_id' => $player['player_id'],
+                      'hazResults' => $hazResults ] );
+            return;
+        }
+        
+        if ($hazResults['type'] == 'meteor' && $hazResults['size'] == 's') {
+            // not an exposed connector, no player action needed
+            if (!$brd->checkIfExposedConnector($roll, $hazResults['orient'])) {
+                $game->notifyAllPlayers( "hazardHarmless", 
+                    clienttranslate( 'Meteor bounces off ${player_name}\'s ship'),
+                    [   'player_name' => $player['player_name'],
+                        'player_id' => $player['player_id'],
+                        'tile' => reset($tilesInLine),
+                        'hazResults' => $hazResults
+                    ]);
+                return;
+            }
+            $plyrContent = $game->newPlayerContent($player['player_id']);
+            if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
+                // TODO - switch to state shipDamage, which will then come back to this state
+                // TODO - for now call this hazard "Harmless" but go to shipDamage state
+                $game->notifyAllPlayers( "hazardHarmless", 
+                    clienttranslate( 'Meteor FAKE - TESTING bounces off ${player_name}\'s ship'),
+                    [   'player_name' => $player['player_name'],
+                        'player_id' => $player['player_id'],
+                        'tile' => reset($tilesInLine),
+                        'hazResults' => $hazResults
+                    ]);
+                return 'shipDamage';
+            }
+            // TODO - notif about meteor striking exposed connector and player having to decide
+            return 'powerShields';
+        }
+
+        if ($hazResults['type'] == 'meteor' && $hazResults['size'] == 'b') {
+            $game->notifyAllPlayers( "hazardMissed", 
+                    clienttranslate( 'Meteor missed ${player_name}\'s ship'), 
+                    [ 'player_name' => $player['player_name'], 
+                      'player_id' => $player['player_id'],
+                      'hazResults' => $hazResults ] );
+            // TODO - temporary
+            return;
+        }
     }
 
 }

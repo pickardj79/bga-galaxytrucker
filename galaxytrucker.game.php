@@ -623,7 +623,7 @@ class GalaxyTrucker extends Table {
   function powerShields( $battChoices ) {
       self::checkAction( 'contentChoice' );
       // should check current card to see which state to go to, since might have to do nextHazard
-      $this->gamestate->nextState('nextMeteor');
+      $this->gamestate->nextState('notImpl');
   }
 
   function exploreChoice( $choice ) {
@@ -675,7 +675,16 @@ class GalaxyTrucker extends Table {
 
   function goOn( ) {
       self::checkAction( 'goOn' );
-      $this->gamestate->nextState( 'goOn' );
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $this->dump_var("card $cardId is neteoric", $this->card[$cardId]);
+      if ($cardId && $this->card[$cardId]['type'] == 'meteoric') {
+          $this->log("card is meteoric");
+          $this->gamestate->nextState('nextMeteor');
+      }
+      else {
+        $this->log("drawing card");
+        $this->gamestate->nextState( 'nextCard' );
+      }
   }
 
   function tempTestNextRound( ) {
@@ -1072,6 +1081,11 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( $nextState );
   }
   
+  function stShipDamage() {
+      $plId = self::getActivePlayerId();
+      GT_DBPlayer::setCardDone($this, $plId);
+      $this->gamestate->nextState( 'notImpl' );
+  }
 
   // ########### FINAL CLEAN UP STATES ############## 
   function stJourneysEnd() {

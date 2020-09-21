@@ -213,15 +213,43 @@ class GTFE_Card {
 
         // don't turn off dice_box, clean-up code will do so
 
+        console.log("placing hazard with", args, args.hazResults.die1);
         let anim = game.myFadeOutAndDestroy(dojo.query('.die','dice_box'), 500);
-        dojo.connect(anim, "onEnd", () => this._placeDice(args.die1, args.die2));
+        dojo.connect(anim, "onEnd", () => {
+            this._placeDice(args.hazResults.die1, args.hazResults.die2);
+            this._placeHazard(args.hazResults);
+        } );
         anim.play();
-
-        // place appropriate hazard at start of row/column
-        //    use class? use a div? - use a tpl
-        // if missed, slide hazard
     }
 
+    hazardMissed(args) {
+        let endDiv = this._hazResultsToDiv(args.hazResults, true);
+        console.log("Sliding to: ", endDiv);
+        this.game.slideToObjectAndDestroy('current_hazard', endDiv, 500);
+    }
+
+    hazardHarmless(args) {
+        // Slide hazard to hit the exposed tile. Move it a few pixles onto the tile
+        // so it appears to actually hit the ship :). 
+        let x = 0;
+        let y = 0;
+        let hazHeight = (args.hazResults.size == 'b' ? 54 : 30) - 10;
+        let hazWidth = (args.hazResults.size == 'b' ? 48 : 40) - 10;
+        switch (args.hazResults.orient) {
+            case 0: y = -hazHeight; break; // from top, shift up by it's height
+            case 90: x = 40; break; // from right, shift to right of tile
+            case 180: y = 40; break; // from bottom, shift down by a tile's height
+            case 270: x = -hazWidth; break; // from left, shift left by it's width
+            default: this.game.throw_bug_report('Unexpected orient: ' + orient);
+        };
+        let anim = this.game.slideToObjectPos(
+            'current_hazard', "tile_" + args.tile.id, x, y, 500);
+        dojo.connect(anim, "onEnd", () => dojo.fadeOut(
+            {node: 'current_hazard', delay: 500, onEnd: dojo.destroy}
+        ).play() );
+        anim.play();
+    }
+    
     _placeDice(die1, die2) {
         let game = this.game;
 
@@ -236,21 +264,40 @@ class GTFE_Card {
 
     _placeHazard(hazard) {
         let game = this.game;
-        // hazard needs: die1, die2, type, row_col, size, orient (see GT_StatesCard.currentCardData)
+        // hazard needs: die1, die2, type, row_col, size, orient, missed (see GT_StatesCard.currentCardData)
         let sizeClass = hazard.size == 's' ? 'small' : 'big';
-        let roll = parseInt(hazard.die1) + parseInt(hazard.die2);
-        let startDiv = '';
-        switch (hazard.orient) {
-            case 0: startDiv = 'column_' + roll + '_top'; break;
-            case 90: startDiv = 'row_' + roll + '_right'; break;
-            case 180: startDiv = 'column_' + roll + '_bottom'; break;
-            case 270: startDiv = 'row_' + roll + '_left'; break;
-            default: game.throw_bug_report('Unexpected orient: ' + hazard.orient);
-        }
+        let startDiv = this._hazResultsToDiv(hazard);
 
+        // Place hazard and blink it
         dojo.place( game.format_block( 'jstpl_hazard', {
             size: sizeClass, type: hazard.type, row_col: hazard.row_col
         }), startDiv);
+        let anim = dojo.fx.chain ( [
+            dojo.fadeOut( { node: 'current_hazard'}, 500, 1500 ),
+            dojo.fadeIn( { node: 'current_hazard'} ),
+            dojo.fadeOut( { node: 'current_hazard'} ),
+            dojo.fadeIn( { node: 'current_hazard'} ),
+        ]);
+        anim.play(); 
+    }
+
+    _hazResultsToDiv(hazard, reverse) {
+        // given a hazard result, create the row or column div
+        // reverse will give the opposite side
+
+        let roll = parseInt(hazard.die1) + parseInt(hazard.die2);
+
+        let orient = hazard.orient;
+        if (reverse) 
+            orient = (orient + 180) % 360;
+
+        switch (orient) {
+            case 0: return 'column_' + roll + '_top'; break;
+            case 90: return 'row_' + roll + '_right'; break;
+            case 180: return 'column_' + roll + '_bottom'; break;
+            case 270: return 'row_' + roll + '_left'; break;
+            default: this.game.throw_bug_report('Unexpected orient: ' + orient);
+        }
     }
 
 }

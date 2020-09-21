@@ -375,17 +375,13 @@ $this->card = array (
                'type' => 'smugglers',
                'enemy_strength' => 4,
                'enemy_penalty' => 2,
-               'reward' => array ( 'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1, ),
+               'reward' => [ 'yellow', 'green', 'blue' ],
                'days_loss' => 1, ),
   2 => array ( 'round' => 1,
                'id' => 2,
                'type' => 'pirates',
                'enemy_strength' => 5,
-               'enemy_penalty' => array ( 1 => 's0', // to be confirmed
-                                          2 => 'b0', // to be confirmed
-                                          3 => 's0', ), // to be confirmed
+               'enemy_penalty' => ['s0', 'b0', 's0' ],
                'reward' => 4,
                'days_loss' => 1, ),
   3 => array ( 'round' => 1,
@@ -406,18 +402,15 @@ $this->card = array (
   8 => array ( 'round' => 1,
                'id' => 8,
                'type' => 'meteoric',
-               'meteors' => array ( 'b0', 's270', 's90' ) ),
+               'meteors' => [ 'b0', 's270', 's90' ] ),
   9 => array ( 'round' => 1,
                'id' => 9,
                'type' => 'meteoric',
-               'meteors' => array ( 's0', 's180', 's270', 's90' ) ),
+               'meteors' => [ 's0', 's180', 's270', 's90' ] ),
   10 => array ( 'round' => 1,
                 'id' => 10,
                 'type' => 'meteoric',
-                'meteors' => array ( 1 => 'b0', // to be confirmed
-                                    2 => 's0', // to be confirmed
-                                    3 => 'b0', // to be confirmed
-                                   ) ),
+                'meteors' => [ 'b0', 's0', 'b0' ] ),
   11 => array ( 'round' => 1,
                 'id' => 11,
                 'type' => 'planets',
@@ -466,9 +459,7 @@ $this->card = array (
                                    'penalty_value' => 2 ),
                        3 => array ( 'criterion' => 'cannons',
                                    'penalty_type' => 'shot',
-                                   'penalty_value' => array (
-                                        1 => 's180',
-                                        2 => 'b180' ) ),
+                                   'penalty_value' => ['s180', 'b180']  ),
                       ) ),
   16 => array ( 'round' => 1,
                 'id' => 16,

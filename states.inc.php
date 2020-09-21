@@ -75,6 +75,7 @@ if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, sin
     define("STATE_CHOOSE_PLANET", 63);
     define("STATE_CHOOSE_CREW", 66);
     define("STATE_PLACE_GOODS", 68);
+    define("STATE_SHIP_DAMAGE", 70);
     define("STATE_JOURNEYS_END", 80);
     define("STATE_END_GAME", 99);
  }
@@ -229,9 +230,9 @@ $machinestates = array(
         "type" => "activeplayer",
         "possibleactions" => array( "goOn", "pass" ),
         "transitions" => array( 
-            // TODO - temporary for testing
             "nextMeteor" => STATE_METEORIC, 
-            "goOn" => STATE_DRAW_CARD )
+            "nextCard" => STATE_DRAW_CARD, 
+        )
     ),
 
     STATE_STARDUST => array(
@@ -273,6 +274,7 @@ $machinestates = array(
         "updateGameProgression" => false,
         "transitions" => array( 
             "nextCard" => STATE_DRAW_CARD,
+            "shipDamage" => STATE_SHIP_DAMAGE,
             "powerShields" => STATE_POWER_SHIELDS)
     ),
     
@@ -320,7 +322,7 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPowerShields",
         "possibleactions" => array( "contentChoice" ),
-        "transitions" => array( "nextMeteor" => STATE_METEORIC )
+        "transitions" => array( "notImpl" => STATE_NOT_IMPL)
     ),
 
     STATE_CHOOSE_PLANET => array(
@@ -360,16 +362,7 @@ $machinestates = array(
     ),
 
 
-//    42 => array(
-//        "name" => "powerCannons",
-//        "description" => clienttranslate('${actplayer} must decide which cannons to activate'),
-//        "descriptionmyturn" => clienttranslate('${you} must decide which cannons to activate'),
-//        "type" => "activeplayer",
-//        "possibleactions" => array( "powerCannon", "choiceMade",
-//                                        "pass" ),
-//        "transitions" => array( "choiceMade" => 40 )
-//    ),
-
+    // TODO: DO WE NEED THIS STATE? (CLEAN UP galaxytrucker.js too)
     44 => array(
         "name" => "loseGoods",
         "description" => clienttranslate('${actplayer} must decide which goods to lose'),
@@ -380,15 +373,15 @@ $machinestates = array(
         "transitions" => array( "choiceMade" => 40 )
     ),
 
-    
-
-    49 => array(
-        "name" => "takeReward",
-        "description" => clienttranslate('${actplayer} must decide whether to collect a reward'),
-        "descriptionmyturn" => clienttranslate('${you} must decide whether to collect a reward'),
-        "type" => "activeplayer",
-        "possibleactions" => array( "choiceMade", "pass" ),
-        "transitions" => array( "choiceMade" => 40 )
+    STATE_SHIP_DAMAGE => array(
+        "name" => "shipDamage",
+        "description" => '',
+        "type" => "game",
+        "action" => "stShipDamage",
+        "updateGameProgression" => false,
+        "transitions" => array( 
+            "notImpl" => STATE_NOT_IMPL,
+        )
     ),
 
     STATE_JOURNEYS_END => array(
@@ -400,28 +393,6 @@ $machinestates = array(
         "transitions" => array( "nextRound" => 2, "endGame" => 99 )
     ),
 
-/*
-    Examples:
-
-    2 => array(
-        "name" => "nextPlayer",
-        "description" => '',
-        "type" => "game",
-        "action" => "stNextPlayer",
-        "updateGameProgression" => true,
-        "transitions" => array( "endGame" => 99, "nextPlayer" => 10 )
-    ),
-
-    10 => array(
-        "name" => "playerTurn",
-        "description" => clienttranslate('${actplayer} must play a card or pass'),
-        "descriptionmyturn" => clienttranslate('${you} must play a card or pass'),
-        "type" => "activeplayer",
-        "possibleactions" => array( "playCard", "pass" ),
-        "transitions" => array( "playCard" => 2, "pass" => 2 )
-    ),
-
-*/
 
     // Final state.
     // Please do not modify.
