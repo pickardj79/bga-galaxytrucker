@@ -61,7 +61,7 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        $this->setCardOrder(8,1); // meteor card
+        $this->setCardOrder(9,1); // meteor card
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
@@ -96,6 +96,7 @@ class GT_GameState {
         $i = 1;
         foreach( $this->players as $player_id => $player ) {
             if ($i == 1)
+                // list($tiles, $content) = $this->repairShipTiles($player['player_color'], $i);
                 list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
             else
                 list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i); 
@@ -169,10 +170,7 @@ class GT_GameState {
         $tiles = array();
         $content = array();
 
-        // start tile
-        $start_id = array_search($color, $this->game->start_tiles);
-        if (!$start_id)
-            throw new InvalidArgumentException("color '$color' not valid");
+        $start_id = $this->_getStartTile($color);
 
         array_push($tiles, self::newTile($start_id, 7, 7, 0));
 
@@ -180,7 +178,9 @@ class GT_GameState {
             array_push($tiles, self::newTile(74, 7, 8, 0)); // single engine directly south
             $cargo = self::newTile(22, 7, 6, 0); // cargo north
             array_push($tiles, $cargo);
-            array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above that
+            array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above cargo 
+            array_push($tiles, self::newTile(115, 6, 7, 0)); // shield west of $startTile
+            array_push($tiles, self::newTile(56, 5, 7, 0)); // hazard west of shield 
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
             array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
             array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));
@@ -193,22 +193,56 @@ class GT_GameState {
             array_push($tiles, self::newTile(3, 6, 6, 270)); // battery to west of cargo
             array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
         }
+
+        // confirm no tiles are used more than once
+        $tileIds = array_map(function($x) { return $x['component_id']; }, $tiles );
+        if (count(array_unique($tileIds)) != count($tiles))
+            $this->game->throw_bug_report_dump("Repeated tiles during setup", $tileIds);
+
+        // confirm no tiles are co-located
+        $unqIds = array_map(function($x) { return $x['component_x'] . '_' . $x['component_y']; }, $tiles);
+        if (count(array_unique($unqIds)) != count($tiles))
+            $this->game->throw_bug_report_dump("Tiles overlap during setup; x_y ids:", $unqIds);
+
         return array($tiles, $content);
     }
 
     function repairShipTiles($color, $variant) {
-        // Create a ship that needs to be repaired
-        // start with basicShip
-        list($tiles, $content) = $this->basicShipTiles($color, $variant);
+        // Create a ship that needs to be repaired:
+        //    a few bad connectors, cannon shooting a component, engine wrong way
+        //    part of ship should fall off
+
+        $tiles = array();
+        $start_id = $this->_getStartTile($color);
+
+        array_push($tiles, self::newTile($start_id, 7, 7, 0));
+        array_push($tiles, self::newTile(74, 7, 8, 0)); // single engine directly south
+        $cargo = self::newTile(22, 7, 6, 0); // cargo north
+        array_push($tiles, $cargo);
+        array_push($tiles, self::newTile(115, 6, 6, 270)); // shield west of $cargo
+        array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above that
+        array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
+        array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
 
         // some "bad" parts (at least for $variant 1)
         array_push($tiles, self::newTile(66, 6, 6, 90)); // side-ways engine to west of cargo
         array_push($tiles, self::newTile(108, 8, 7, 0)); // cannon to east of main cabin, pointing north into battery
         array_push($tiles, self::newTile(37, 8, 8, 270)); // wrong connector (crew) east of southern engine
+        array_push($tiles, self::newTile(64, 8, 9, 270)); // wrong-way engine below wrongly connected crew
+
+        // a section that will fall off
         array_push($tiles, self::newTile(10, 6, 8, 180) ); // wrong connector (battery) west side of southern engine
         array_push($tiles, self::newTile(6, 5, 8, 0)); // good connector (battery) west side of wrong connector
+        array_push($tiles, self::newTile(16, 5, 7, 270)); // good connector (cargo) north 
 
         return array($tiles, $content);
+    }
+
+    function _getStartTile($color) {
+        $start_id = array_search($color, $this->game->start_tiles);
+        if (!$start_id)
+            throw new InvalidArgumentException("color '$color' not valid");
+        return $start_id; 
     }
 
 

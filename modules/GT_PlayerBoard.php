@@ -1,5 +1,8 @@
 <?php
 
+require_once('GT_DBComponent.php');
+require_once('GT_DBContent.php');
+
 class GT_PlayerBoard extends APP_GameClass {
 
     public function __construct($game, $plTiles, $player_id) {
@@ -253,19 +256,74 @@ class GT_PlayerBoard extends APP_GameClass {
         return $shipParts;
     }
 
-    function checkTiles() {
+    function removeInvalidParts($shipParts, $player_name) {
+        // Intended for use after checkShipIntegrity
+        // Does automatic removal of components when it can
+        // Returns index of ship parts to keep, indexing into $shipParts
+        // If more than one $partsToKeep returned then the player must make a choice
+        //  as to which part to keep 
+
+        $game = $this->game;
+
+        if (count($shipParts) <= 1)
+            return $shipParts;
+
+        $partsToKeep = [];
+        foreach ( $shipParts as $partNumber => $part ) {
+            $game->dump_var("Working on part $partNumber", $part);
+            $hasCrew = False;
+            foreach ( $part as $tileId => $tile ) {
+                if ( $game->getTileType($tileId) == 'crew' ) 
+                    $hasCrew = True;
+            }
+
+            if ($hasCrew) {
+                $partsToKeep[] = $partNumber;
+                continue;
+            }
+
+            // no cabin was found in this part, so it has to be removed from the ship
+            $this->removeTiles(array_values($part));
+            $compToRemove = array_keys($part);
+            GT_DBContent::removeContentByTileIds($game, $compToRemove);
+            GT_DBComponent::removeComponents($game, $this->player_id, $compToRemove);
+
+            $numbComp = count($compToRemove);
+            if ( $numbComp == 1 )
+                $notifyText = clienttranslate( '${player_name} loses a component not '.
+                                                'connected to the ship');
+            else
+                $notifyText = clienttranslate( '${player_name}\'s ship doesn\'t hold together.'.
+                        ' A part with ${numbComp} components (without cabin) is removed.');
+
+            $game->notifyAllPlayers( "loseComponent", $notifyText, array(
+                    'plId' => $this->player_id,
+                    'player_name' => $player_name,
+                    'numbComp' => $numbComp,
+                    'tileIds' => $compToRemove,
+            ) );
+           
+            $str = clienttranslate("blah");
+            $game->notifyAllPlayers("mynotif", $str, array());
+        }
+
+        return $partsToKeep;
+    }
+
+    function checkTilesBuild() {
         $all_errors = array();
         foreach ( $this->plTiles as $plBoard_x ) {
             foreach ( $plBoard_x as $tile ) {
-                $tileErrors = $this->checkTile($tile);
+                $tileErrors = $this->checkTileBuild($tile);
             }
         }
         return $all_errors; 
     }
 
 
-    // checkTile is used when checking ships at the end of building
-    function checkTile($tileToCheck) {
+    // checkTileBuild is used when checking ships at the end of building
+    // looks for bad connections and tiles in front of cannons or behind engines
+    function checkTileBuild($tileToCheck) {
         $errors = array();
         $tileId = $tileToCheck['id'];
         $tileToCheckType = $this->getTileType($tileId);

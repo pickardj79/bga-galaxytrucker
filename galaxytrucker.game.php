@@ -21,6 +21,7 @@ require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
 require_once('modules/GT_ActionsBuild.php');
 require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
+require_once('modules/GT_DBComponent.php');
 require_once('modules/GT_DBPlayer.php');
 require_once('modules/GT_GameStates.php');
 require_once('modules/GT_FlightBoard.php');
@@ -405,6 +406,10 @@ class GalaxyTrucker extends Table {
       return $this->tiles[ $id ]['type'];
   }
 
+  function getTileTypeName(int $id) {
+      return $this->tileNames[ $this->getTileType($id) ];
+  }
+
   function getTileHold(int $id) {
         $tile = $this->tiles[ $id ];
         if (array_key_exists('hold', $tile))
@@ -622,8 +627,10 @@ class GalaxyTrucker extends Table {
 
   function powerShields( $battChoices ) {
       self::checkAction( 'contentChoice' );
-      // should check current card to see which state to go to, since might have to do nextHazard
-      $this->gamestate->nextState('notImpl');
+      $plId = self::getActivePlayerId();
+      GT_ActionsCard::powerEngines($this, $plId, $battChoices); 
+      GT_DBPlayer::setCardDone($this, $plId);
+      $this->gamestate->nextState( 'nextMeteor' );
   }
 
   function exploreChoice( $choice ) {
@@ -897,14 +904,12 @@ class GalaxyTrucker extends Table {
     $playersToActivate = array ();
     $errors = array();
     $playersShipPartsToKeep = array();
-    $tilesToRemoveInDb = array();
 
     self::setGameStateValue( 'timerPlace', -1 );
     self::setGameStateValue( 'timerStartTime', 0 );
 
     foreach ( $players as $player_id => $player ) {
         $player_name = $player['player_name'];
-        $shipParts = array();
         $playersShipPartsToKeep[$player_id] = array();
         $actionNeeded = false;
         $brd = $this->newPlayerBoard($player_id);
@@ -914,8 +919,9 @@ class GalaxyTrucker extends Table {
         // other errors without considering them (so we remove them from $brd), and
         // also check if the ship holds together when these engines are removed
         $engToRemove = $brd->badEngines();
-        $tilesToRemoveInDb = array_merge($engToRemove, $tilesToRemoveInDb);
         $brd->removeTiles($engToRemove);
+        GT_DBComponent::removeComponents($this, $player_id,
+            array_map(function($x) { return $x['id']; }, $engToRemove));
         if ( $engToRemove ) {
             $idToRemove = array_map(function($x) { return $x['id']; }, $engToRemove);
             self::notifyAllPlayers( "loseComponent", clienttranslate('${player_name} '.
@@ -923,64 +929,27 @@ class GalaxyTrucker extends Table {
                     'plId' => $player_id,
                     'player_name' => $player_name,
                     'numbComp' => count($idToRemove),
-                    'compToRemove' => $idToRemove,
+                    'tileIds' => $idToRemove,
                     ) );
         }
 
-        // 2nd step: check if this ship holds together, taking into account
-        // illegal connections
+        // 2nd step: check if this ship holds together, taking into account illegal connections
         // Check if these ship parts are valid (at least one cabin), only needed if
         // more than one part OR with ship classes without starting component
         $shipParts = $brd->checkShipIntegrity();
-        if ( $shipParts > 1 ) {
-            $partsToKeep = array_keys( $shipParts );
-            foreach ( $shipParts as $partNumber => $part ) {
-                $compToRemove = array();
-                foreach ( $part as $tileId => $tile ) {
-                    if ( $this->tiles[$tileId]['type'] == 'crew' ) {
-                        //$playersShipPartsToKeep[$player_id][$partNumber] = $part;
-                        continue 2;
-                    }
-                }
-                // no cabin was found in this part, so it has to be removed from the ship
-                $cntParts = count($part);
+        $partsToKeep = $brd->removeInvalidParts($shipParts, $player_name);
 
-                $brd->removeTiles(array_values($part));
-                foreach ( $part as $tileId => $tile ) {
-                    $compToRemove[] = $tileId;
-                    $tilesToRemoveInDb[] = $tile;
-                }
-                unset( $partsToKeep[ array_search($partNumber, $partsToKeep) ] );
-                $numbComp = count($compToRemove);
-                if ( $numbComp == 1 )
-                    $notifyText = clienttranslate( '${player_name} loses a component not '.
-                                                    'connected to the ship');
-                else
-                    $notifyText = clienttranslate( '${player_name}\'s ship doesn\'t hold together.'.
-                            ' A part with ${numbComp} components (without cabin) is removed.');
-                self::notifyAllPlayers( "loseComponent", $notifyText, array(
-                        'plId' => $player_id,
-                        'player_name' => $player_name,
-                        'numbComp' => $numbComp,
-                        'compToRemove' => $compToRemove,
-                        ) );
-                
-            }
-
-            if ( count( $partsToKeep ) > 1 ) {
-                $actionNeeded = true;
-                // re-index ship parts from 1 for client
-                $index=1;
-                foreach ( $partsToKeep as $partIndex) {
-                    $playersShipPartsToKeep[$player_id][$index++] = $shipParts[$partIndex];
-                }
+        if (count($partsToKeep) > 1) {
+            $actionNeeded = true;
+            // re-index ship parts from 1 for client
+            $index=1;
+            foreach ( $partsToKeep as $partIndex) {
+                $playersShipPartsToKeep[$player_id][$index++] = $shipParts[$partIndex];
             }
         }
 
-        // 3rd step: check for other errors once badly oriented engines and invalid
-        // ship parts have been removed. We also count exposed connectors, this will
-        // be stored in exp_conn if this player doesn't need to repair their ship
-        $errors = $brd->checkTiles();
+        // 3rd step: check for other tile-based errors
+        $errors = $brd->checkTilesBuild();
         if ($errors)
               $actionNeeded = true;
 
@@ -1000,12 +969,6 @@ class GalaxyTrucker extends Table {
         }
     } // End of foreach player
 
-    if ( $tilesToRemoveInDb ) {
-        $idsToRemove = array_map(function($x) { return $x['id']; }, $tilesToRemoveInDb);
-        self::DbQuery( "UPDATE component SET aside_discard=1, component_x=-1, ". // TODO Pb if several tiles in discard for the same player
-                    "component_y=NULL, component_orientation=0 ".
-                    "WHERE component_id IN (".implode(',', $idsToRemove).")" );
-    }
 
     if ( $playersToActivate ) {
       // Notify players so that the clients can mark ship parts

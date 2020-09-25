@@ -228,14 +228,14 @@ class GTFE_Card {
         this.game.slideToObjectAndDestroy('current_hazard', endDiv, 500);
     }
 
-    hazardHarmless(args) {
-        // Slide hazard to hit the exposed tile. Move it a few pixles onto the tile
+    hazardHit(tileId, hazResults) {
+        // Slide hazard to hit the exposed tile. Move it a few pixels onto the tile
         // so it appears to actually hit the ship :). 
         let x = 0;
         let y = 0;
-        let hazHeight = (args.hazResults.size == 'b' ? 54 : 30) - 10;
-        let hazWidth = (args.hazResults.size == 'b' ? 48 : 40) - 10;
-        switch (args.hazResults.orient) {
+        let hazHeight = (hazResults.size == 'b' ? 54 : 30) - 10;
+        let hazWidth = (hazResults.size == 'b' ? 48 : 40) - 10;
+        switch (hazResults.orient) {
             case 0: y = -hazHeight; break; // from top, shift up by it's height
             case 90: x = 40; break; // from right, shift to right of tile
             case 180: y = 40; break; // from bottom, shift down by a tile's height
@@ -243,9 +243,9 @@ class GTFE_Card {
             default: this.game.throw_bug_report('Unexpected orient: ' + orient);
         };
         let anim = this.game.slideToObjectPos(
-            'current_hazard', "tile_" + args.tile.id, x, y, 500);
+            'current_hazard', "tile_" + tileId, x, y, 500);
         dojo.connect(anim, "onEnd", () => dojo.fadeOut(
-            {node: 'current_hazard', delay: 500, onEnd: dojo.destroy}
+            {node: 'current_hazard', delay: 500 , onEnd: dojo.destroy}
         ).play() );
         anim.play();
     }

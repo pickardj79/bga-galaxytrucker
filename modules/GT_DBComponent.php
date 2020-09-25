@@ -5,6 +5,38 @@ class GT_DBComponent extends APP_GameClass {
     public function __construct() {
     }
 
+    function removeComponents($game, $plId, $tileIds) {
+        // remove components from a ship, placing them in the appropriate discard pile
+        //    and setting other fields as needed (orient, component_x/y, aside_discard)
+        if (!$tileIds)
+            return; // nothing to do
+        
+        // Determine which piles to put each tile and the aside_discard to assign
+        $dbCnt = $game::getObjectFromDB("
+            SELECT max(aside_discard) max_aside,
+                   sum(if(component_x=-1,1,0)) nbr_neg1,
+                   sum(if(component_x=-2,1,0)) nbr_neg2
+            FROM component WHERE component_player = $plId AND aside_discard IS NOT NULL");
+        
+        $values = []; 
+        foreach ($tileIds as $id) {
+            if ($dbCnt['nbr_neg1'] < $dbCnt['nbr_neg2']) {
+                $dbCnt['nbr_neg1']++;
+                $x = -1;
+            }
+            else {
+                $dbCnt['nbr_neg2']++;
+                $x = -2;
+            }
+            $val = self::newTile($id, $plId, $x, Null, 0, ++$dbCnt['max_aside']);
+            $val['component_y'] = 'Null'; // have to force y to Null
+            $values[] = $val;
+        }
+
+        $sql = self::updateTilesSql($values);
+        $game::DbQuery($sql);
+    }
+
     function getActiveComponent($game, $component_id) {
         return $game->getObjectFromDB ( "
             SELECT component_id, component_player, component_x, component_y,
@@ -13,12 +45,13 @@ class GT_DBComponent extends APP_GameClass {
     }
 
 
-    function newTile($id, $pl=Null, $x=Null, $y=Null, $o=Null) {
+    function newTile($id, $pl=Null, $x=Null, $y=Null, $o=Null, $aside=Null) {
         $tile = array('component_id' => $id );
         if (!is_null($pl)) { $tile['component_player'] = $pl; }
         if (!is_null($x)) { $tile['component_x'] = $x; }
         if (!is_null($y)) { $tile['component_y'] = $y; }
-        if (!is_null($o)) { $tile['component_o'] = $o; }
+        if (!is_null($o)) { $tile['component_orientation'] = $o; }
+        if (!is_null($aside)) { $tile['aside_discard'] = $aside; }
         return $tile;
     }
 

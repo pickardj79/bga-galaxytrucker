@@ -7,6 +7,16 @@ class GT_DBContent {
     public function __construct() {
     }
 
+    function removeContentByIds($game, $contentIds) {
+        $sql = "DELETE FROM content WHERE content_id IN (".implode(',', $contentIds).")";
+        $game->DbQuery( $sql );
+    }
+
+    function removeContentByTileIds($game, $tileIds) {
+        $sql = "DELETE FROM content WHERE tile_id IN (".implode(',', $tileIds).")";
+        $game->DbQuery( $sql );
+    }
+
     function insertContentSql($rows, $update=TRUE) {
         // Sql for update database rows to match input $content
         // component_id required

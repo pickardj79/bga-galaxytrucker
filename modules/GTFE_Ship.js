@@ -45,6 +45,43 @@ class GTFE_Ship {
         }));
     }
 
+    loseComponents(plId, tiles, delay) {
+        delay = delay ? delay : 0;
+
+        var nbTilesInSq1 = dojo.query( ".tile", "square_"+plId+"_-1_discard" ).length;
+        var nbTilesInSq2 = dojo.query( ".tile", "square_"+plId+"_-2_discard" ).length;
+        var interval = ( 1000 / tiles.length );
+
+        for ( var tileId of tiles ) {
+            var tileDivId = 'tile_'+tileId;
+
+            // See on which discard square these tiles must be placed
+            if ( nbTilesInSq1 <= nbTilesInSq2 ) {
+                var square = 1;
+                var z_index = ++nbTilesInSq1;
+            }
+            else {
+                var square = 2;
+                var z_index = ++nbTilesInSq2;
+            }
+            dojo.query('.overlay_tile', tileDivId).forEach(n => dojo.destroy(n));
+            var offset = ( z_index > 10 ) ? 20 : (z_index-1)*2;
+            var stylesOnEnd = { 'left': offset+"px",
+                                'top': "-"+offset+"px",
+                                'zIndex': z_index,  
+                };
+            let anim = this.game.slideToDomNodeAnim( tileDivId, 
+                                'square_'+plId+'_-'+square+'_discard',
+                                1000, delay);
+            dojo.connect(anim, "onEnd", (n) => {
+                dojo.style( n, stylesOnEnd );
+                this.game.rotate( n, 0 );
+            });
+            anim.play();
+            delay += interval;
+        }
+    }
+
     ////////////////////////////////////////////////////////////
     ////////////////// CONTENT CHOOSING ////////////////////////
 

@@ -1,9 +1,9 @@
 <?php
 
-require_once('GT_DBPlayer.php');
-require_once('GT_DBComponent.php');
 require_once('GT_Constants.php');
+require_once('GT_DBComponent.php');
 require_once('GT_DBContent.php');
+require_once('GT_DBPlayer.php');
 
 class GT_PlayerContent extends APP_GameClass {
 
@@ -264,8 +264,7 @@ class GT_PlayerContent extends APP_GameClass {
                 // ? $curCont['content_subtype'] : $curCont['content_type'];
             $contentHtml .= "<img class='content $type'></img> ";
         }
-        $sql = "DELETE FROM content WHERE content_id IN (".implode(',', $ids).")";
-        $this->game->DbQuery( $sql );
+        GT_DBContent::removeContentByIds($this->game, $ids);
 
         $player = GT_DBPlayer::getPlayer($this->game, $this->player_id);
         $this->game->notifyAllPlayers( "loseContent",

@@ -86,6 +86,20 @@ $this->tileHoldCnt = array(
     'shield' => 0,
 );
 
+// human-readable tile types. To be used in sentence like: player loses $typeName tile
+$this->tileNames =  [
+    'battery' => clienttranslate('Battery'),
+    'cargo' => clienttranslate('Cargo Hold'),
+    'structure' => clienttranslate('Structure'),
+    'hazard' => clienttranslate('Special Cargo Hold'),
+    'crew' => clienttranslate('Crew'),
+    'engine' => clienttranslate('Engine'),
+    'cannon' => clienttranslate('Cannon'),
+    'brown' => clienttranslate('Brown Alien Life Support'),
+    'purple' => clienttranslate('Purple Alien Life Support'),
+    'shield' => clienttranslate('Shield'),
+];
+
 $this->tiles = array();
 for( $i=1 ; $i<=144 ; $i++)
   {

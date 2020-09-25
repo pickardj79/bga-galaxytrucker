@@ -317,12 +317,12 @@ $machinestates = array(
 
     STATE_POWER_SHIELDS => array(
         "name" => "powerShields",
-        "description" => clienttranslate('${actplayer} must decide whether to activate a shield'),
-        "descriptionmyturn" => clienttranslate('${you} must decide whether to activate a shield'),
+        "description" => clienttranslate('${actplayer} must choose a battery for activating a shield'),
+        "descriptionmyturn" => clienttranslate('${you} must choose a battery for activating a shield'),
         "type" => "activeplayer",
         "args" => "argPowerShields",
         "possibleactions" => array( "contentChoice" ),
-        "transitions" => array( "notImpl" => STATE_NOT_IMPL)
+        "transitions" => array( "nextMeteor" => STATE_METEORIC)
     ),
 
     STATE_CHOOSE_PLANET => array(

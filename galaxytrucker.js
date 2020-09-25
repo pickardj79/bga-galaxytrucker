@@ -984,11 +984,7 @@ function (dojo, declare) {
     },
 
     slideToDomNode: function( mobile, newParent, duration, delay, stylesOnEnd, targetxy ) {
-        console.log("Entering slideToDomNode", mobile, newParent);
         stylesOnEnd = (typeof stylesOnEnd !== "undefined") ? stylesOnEnd : {};
-        this.attachToNewParentNoDestroy( mobile, newParent );
-        dojo.style( mobile, "visibility", "visible" );
-        dojo.style( mobile, "z-index", 1);
         var allStyles = { top: "", left: "", zIndex: "", position: "", visibility: "" };
         // If we need custom styles at the end of our anim, they're passed in stylesOnEnd
         // arg. We need to fill this array so that dojo.style at the end of our anim
@@ -997,6 +993,19 @@ function (dojo, declare) {
             if ( typeof stylesOnEnd[key] == "undefined" )
                 stylesOnEnd[key] = "";
         }
+        
+        anim = this.slideToDomNodeAnim(mobile, newParent, duration, delay, targetxy)
+        dojo.connect(anim, "onEnd", function(mobile) {
+            dojo.style( mobile, stylesOnEnd );
+        });
+        anim.play();
+    },
+
+    slideToDomNodeAnim: function( mobile, newParent, duration, delay, targetxy ) {
+        console.log("Entering slideToDomNode", mobile, newParent);
+        this.attachToNewParentNoDestroy( mobile, newParent );
+        dojo.style( mobile, "visibility", "visible" );
+        dojo.style( mobile, "z-index", 1);
         if (targetxy) {
             // stylesOnEnd['left'] = targetxy['x'];
             // stylesOnEnd['top'] = targetxy['y'];
@@ -1006,10 +1015,7 @@ function (dojo, declare) {
         else
             var anim = this.slideToObject( mobile, newParent, duration, delay ); 
 
-        dojo.connect(anim, "onEnd", function(mobile) {
-            dojo.style( mobile, stylesOnEnd );
-        });
-        anim.play();
+        return anim;
     },
 
     myFadeOutAndDestroy: function( ids, duration, delay ) {
@@ -1684,39 +1690,15 @@ function (dojo, declare) {
     },
 
     notif_loseComponent: function( notif ) {
-        console.log( 'notif_loseComponent' );
-        console.log( notif );
-        var plId = notif.args.plId;
-        var nbTilesInSq1 = dojo.query( ".tile", "square_"+plId+"_-1_discard" ).length;
-        var nbTilesInSq2 = dojo.query( ".tile", "square_"+plId+"_-2_discard" ).length;
-        var delay = 0;
-        var interval = ( 1000 / notif.args.numbComp );
+        console.log( 'notif_loseComponent', notif );
+        if (notif.args.hazResults && this.player_id == notif.args.plId)
+            this.card.hazardHit(notif.args.tileIds[0], notif.args.hazResults);
 
-        for ( var i in notif.args.compToRemove ) {
-            var tileId = notif.args.compToRemove[i];
-            var tileDivId = 'tile_'+tileId;
-            // TODO if we use the same notif during flight, remove content
-            // and overlay tile before
-            // See on which discard square these tiles must be placed
-            if ( nbTilesInSq1 <= nbTilesInSq2 ) {
-                var square = 1;
-                var z_index = ++nbTilesInSq1;
-            }
-            else {
-                var square = 2;
-                var z_index = ++nbTilesInSq2;
-            }
-            this.rotate( tileDivId, 0 );
-            var offset = ( z_index > 10 ) ? 20 : (z_index-1)*2;
-            var stylesOnEnd = { 'left': offset+"px",
-                                      'top': "-"+offset+"px",
-                                      'zIndex': z_index,  
-                };
-            this.slideToDomNode( tileDivId, 
-                                'square_'+notif.args.plId+'_-'+square+'_discard',
-                                1000, delay, stylesOnEnd );
-            delay += interval;
+        for (let tileId of notif.args.tileIds) {
+            tile = new GTFE_Tile(this, tileId);
+            tile.loseAllContent(700);
         }
+        this.ship.loseComponents(notif.args.plId, notif.args.tileIds, 1200);
     },
 
     notif_addCredits: function (notif) {
@@ -1865,7 +1847,7 @@ function (dojo, declare) {
     notif_hazardHarmless: function(notif) {
         console.log("notif_hazardHarmless", notif.args);
         if (this.player_id == notif.args.player_id)
-            this.card.hazardHarmless(notif.args);
+            this.card.hazardHit(notif.args.tile.id, notif.args.hazResults);
     },
 
     notif_newRound: function( notif ) {

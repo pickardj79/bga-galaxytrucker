@@ -134,10 +134,21 @@ class GTFE_Tile {
         anim.play();
     }
 
-    loseContent(cont, delay, toCard) {
-        // This has nothing to do with this Tile
+    loseAllContent(delay, toCard) {
+        dojo.query('.content', this.nodeId).forEach( (cont, idx) => {
+            this.loseContent( {'id': cont.id}, delay + idx*200, toCard );
+        });
+    }
 
-        let divId = 'content_' + cont.id;
+    loseContent(cont, delay, toCard) {
+        // This has nothing to do with "this" Tile
+
+        let divId = '';
+        if (typeof(cont.id) != 'string' || !cont.id.startsWith('content_'))
+            divId = 'content_' + cont.id;
+        else
+            divId = cont.id;
+
         dojo.style( divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
         this._attachToSquare(divId);
         if ( toCard || cont.toCard ) {
@@ -146,8 +157,8 @@ class GTFE_Tile {
         else {
             var anim = dojo.fx.combine([
                 dojo.fx.slideTo({ node:divId, left:100, top:400,
-                                  units:"px", duration: 1700, delay:i*200 }),
-                dojo.fadeOut({ node:divId, duration: 1700, delay:i*200 })
+                                  units:"px", duration: 1700, delay:delay }),
+                dojo.fadeOut({ node:divId, duration: 1700, delay:delay })
             ]);
             dojo.connect( anim, "onEnd", function(){  dojo.destroy( divId ); } );
             anim.play();
