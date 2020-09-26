@@ -395,8 +395,11 @@ function (dojo, declare) {
         case 'sabotage':
         case 'loseGoods':
         case 'powerCannons':
-        case 'powerShields':
         case 'shipDamage':
+            break;
+        case 'exploreAbandoned':
+            if ( this.isCurrentPlayerActive() ) 
+                this.wholeCrewWillLeave = args.args.wholeCrewWillLeave;
             break;
         case 'powerEngines':
             if ( this.isCurrentPlayerActive() )
@@ -404,9 +407,9 @@ function (dojo, declare) {
                     args.args.maxSel, false, 
                     args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
-        case 'exploreAbandoned':
-            if ( this.isCurrentPlayerActive() ) 
-                this.wholeCrewWillLeave = args.args.wholeCrewWillLeave;
+        case 'powerShields':
+            if (this.isCurrentPlayerActive() )
+                this.ship.prepareContentChoice('shield', 1, true);
             break;
         case 'chooseCrew':
             if ( this.isCurrentPlayerActive() ) 
@@ -480,14 +483,14 @@ function (dojo, declare) {
          
         // Not implemented
         case 'meteoric':
-        case 'powerShields': // probably this and powerCannons will use onLeavingContentChoice
-        case 'powerCannons':
+        case 'powerCannons': // probably this will use onLeavingContentChoice
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
             this.wholeCrewWillLeave = false;
             break;
         case 'powerEngines':
+        case 'powerShields': 
         case 'chooseCrew':
             this.ship.onLeavingContentChoice();
             break;
@@ -527,7 +530,8 @@ function (dojo, declare) {
             this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'powerShields' :
-            this.addActionButton( 'button_powerShields', _('Go on'), 'onPowerShields' );
+            this.addActionButton( 'button_cancelShields', _('Cancel'), 'onCancelShields' );
+            this.addActionButton( 'button_powerShields', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'exploreAbandoned' :
             this.addActionButton( 'button_explore_1', _('Yes'), 'onExploreChoice' );

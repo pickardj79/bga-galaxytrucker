@@ -633,7 +633,9 @@ class GalaxyTrucker extends Table {
   function powerShields( $battChoices ) {
       self::checkAction( 'contentChoice' );
       $plId = self::getActivePlayerId();
-      GT_ActionsCard::powerEngines($this, $plId, $battChoices); 
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      GT_ActionsCard::powerShields($this, $plId, $card, $battChoices); 
       GT_DBPlayer::setCardDone($this, $plId);
       $this->gamestate->nextState( 'nextMeteor' );
   }

@@ -4,6 +4,8 @@ class GTFE_Ship {
         'cannon' : undefined,
         'engine' : "<p>"+_('Engine strength:')+" <span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>",
+        'shield' : "<p>"+_('Shield powered:')+" <span id='curr_sel'>${curr}</span></p>"+
+            "<p>"+_('Shield required:')+" <span id='max_str'>${max}</span></p>",
         'crew' : "<p>"+_('Crew selected:')+"<span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Crew required:')+"<span id='needed_sel'>${max}</span></p>",
         'goods': undefined
@@ -93,7 +95,7 @@ class GTFE_Ship {
         // maxStr: max str (includes alien)
         // hasAlien: whether or not there's a relevant alien (for adding 2 to strength)
         
-        if (type != 'engine' && type != 'cannon' && type != 'crew' && type != 'goods')
+        if (type != 'engine' && type != 'shield' && type != 'cannon' && type != 'crew' && type != 'goods')
             this.game.throw_bug_report("Unexpected content type: " + type);
 
         this._nbSelected = 0;
@@ -103,7 +105,8 @@ class GTFE_Ship {
         this._baseStrength = parseInt(baseStr) || 0;
         this._hasAlien = hasAlien;
 
-        let typeClass = type == 'engine' || type == 'cannon' ? 'cell' : type;
+        let typeClass = type == 'engine' || type == 'shield' || type == 'cannon' 
+            ? 'cell' : type;
 
         dojo.query('.'+typeClass, 'my_ship').forEach( node => {
             this.connect( node, dojo.partial(this.onSelectContent, this));
@@ -164,6 +167,8 @@ class GTFE_Ship {
                 }
                 $("curr_sel").innerHTML = currentStrength;
                 return currentStrength;
+            case 'shield':
+                return this._nbSelected;
             case 'crew':
                 return this._nbSelected; 
         }

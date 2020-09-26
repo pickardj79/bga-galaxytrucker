@@ -4,6 +4,7 @@
 
 require_once('GT_DBComponent.php');
 require_once('GT_DBContent.php');
+require_once('GT_DBPlayer.php');
 
 class GT_Hazards extends APP_GameClass  {
 
@@ -128,7 +129,7 @@ class GT_Hazards extends APP_GameClass  {
             // If cannot power shields then take damage
             $plyrContent = $game->newPlayerContent($player['player_id']);
             if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
-                $actionNeeded = self::hazardDamage(
+                $actionNeeded = self::_hazardDamage(
                     $game, $player, $brd, $plyrContent, reset($tilesInLine), 
                     'meteor strike.', $hazResults);
 
@@ -150,7 +151,14 @@ class GT_Hazards extends APP_GameClass  {
         }
     }
 
-    function hazardDamage($game, $player, $brd, $plContent=Null, $tile, $msg, $hazResults) {
+    function hazardDamage($game, $plId, $card) {
+        $player = GT_DBPlayer::getPlayer($game, $plId);
+        $brd = $game->newPlayerBoard($player['player_id']);
+        $hazResults = self::getHazardRoll($game, $card);
+        return self::_hazardDamage($game, $player, $brd, Null, ...,..., $hazResults);
+    }
+
+    function _hazardDamage($game, $player, $brd, $plyrContent=Null, $tile, $msg, $hazResults) {
         // see notifyAllPlayers for how $msg fits
         GT_DBComponent::removeComponents($game, $player['player_id'], [$tile['id']]);
         GT_DBContent::removeContentByTileIds($game, [$tile['id']]);
@@ -169,7 +177,7 @@ class GT_Hazards extends APP_GameClass  {
         $shipParts = $brd->checkShipIntegrity();
         $partsToKeep = $brd->removeInvalidParts($shipParts, $player['player_name']);
 
-        $game->updNotifPlInfosObj($player['player_id'], $brd, $plContent);
+        $game->updNotifPlInfosObj($player['player_id'], $brd, $plyrContent);
 
         if (count($partsToKeep) > 1) {
             // TODO: notify with $partsToKeep

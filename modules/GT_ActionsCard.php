@@ -3,6 +3,7 @@
 /* Collection of function to handle player actions in response to cards */
 
 require_once('GT_DBPlayer.php');
+require_once('GT_Hazards.php');
 
 class GT_ActionsCard extends APP_GameClass {
     public function __construct() {
@@ -96,16 +97,7 @@ class GT_ActionsCard extends APP_GameClass {
         $nbBatt = count($battChoices);
 
         // Checks
-        if ( count( array_unique($battChoices) ) != $nbBatt )
-            $game->throw_bug_report( "Several batteries with the same id. " .var_export( $battChoices, true));
-
-        foreach ( $battChoices as $battId ) {
-            $plyrContent->checkContentById($battId, 'cell');
-        }
-
-        if ( $nbBatt > $nbDoubleEngines )
-            $game->throw_bug_report("Error: too many batteries selected (more than double engines). ");
-
+        $plyrContent->checkBattChoices($battChoices, $nbDoubleEngines);
 
         // Calculate how far to move
         $nbDays = $nbSimpleEngines + 2*$nbBatt;
@@ -120,6 +112,18 @@ class GT_ActionsCard extends APP_GameClass {
                 $plyrContent->loseContent($battChoices, 'cell', false);
 
             ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
+        }
+    }
+
+    function powerShields($game, $plId, $card, $battChoices) {
+        if (count($battChoices) == 0) {
+            GT_Hazards::hazardDamage($game, $plId, $card);
+        }
+        else {
+            $plyrContent = $game->newPlayerContent($plId);
+            $plyrContent->checkBattChoices($battChoices, 1);
+            $plyrContent->loseContent($battChoices, 'cell', false);
+            $game->updNotifPlInfosObj($plId, NULL, $plyrContent);
         }
     }
 

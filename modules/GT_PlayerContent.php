@@ -16,6 +16,19 @@ class GT_PlayerContent extends APP_GameClass {
 
     ################### CHECK HELPERS #########################
 
+    // check battery choices from front end
+    function checkBattChoices($battChoices, $maxCnt) {
+        if ( count( array_unique($battChoices) ) != count($battChoices) )
+            $this->game->throw_bug_report( "Several batteries with the same id. " .var_export( $battChoices, true));
+
+        foreach ( $battChoices as $battId ) {
+            $this->checkContentById($battId, 'cell');
+        }
+
+        if ( $nbBatt > $maxCnt )
+            $this->game->throw_bug_report("Error: too many batteries selected (more than double engines). ");
+    }
+
     // checkAll - validates all content against tiles from db (GT_PlayerBoard)
     function checkAll($brd) {
 
@@ -65,6 +78,7 @@ class GT_PlayerContent extends APP_GameClass {
         $this->checkContentTile($this->plContent[$id], $tileId, $checkHold);
     }
 
+    // Check that the given $content can go on tile with $tileId
     function checkContentTile($content, $tileId, $checkHold=TRUE) {
         $tileType = $this->game->getTileType($tileId);
         $tileHold = $this->game->getTileHold($tileId);
@@ -258,10 +272,7 @@ class GT_PlayerContent extends APP_GameClass {
                             'id' => $id,
                             'tile_id' => $tileId,
                             'toCard' => $toCard);
-            // TODO: test this with cell and crew
             $type = $curCont['content_type'] . " " . $curCont['content_subtype'];
-            // $type = $curCont['content_subtype'] 
-                // ? $curCont['content_subtype'] : $curCont['content_type'];
             $contentHtml .= "<img class='content $type'></img> ";
         }
         GT_DBContent::removeContentByIds($this->game, $ids);
@@ -274,6 +285,6 @@ class GT_PlayerContent extends APP_GameClass {
                                         'content_icons' => $contentHtml,
                                     )
                             );
-        $this->game->updNotifPlInfos( $this->player_id, null, $this->plContent );
+        $this->game->updNotifPlInfosObj( $this->player_id, null, $this);
     }
 }
