@@ -411,27 +411,32 @@ class GalaxyTrucker extends Table {
   }
 
   function getTileHold(int $id) {
-        $tile = $this->tiles[ $id ];
-        if (array_key_exists('hold', $tile))
-            return $tile['hold'];
-        return $this->tileHoldCnt[$this->getTileType($id)];
+      $tile = $this->tiles[ $id ];
+      if (array_key_exists('hold', $tile))
+          return $tile['hold'];
+      return $this->tileHoldCnt[$this->getTileType($id)];
   }
 
-  function updNotifPlInfos( $plId, $plBoard=null, $plContent=null)
-  {
+  function updNotifPlInfos( $plId, $plBoard=null, $plContent=null) {
+      // Same function as updNotifPlInfos but with raw plBoard (tiles) and plContent data,
+      //  not the associated objects 
+      $brd = $this->newPlayerBoard($plId, $plBoard);
+      $plyrContent = $this->newPlayerContent($plId, $plContent);
+      return updNotifPlInfosObj($plId, $brd, $plyrContent);
+  }
+
+  function updNotifPlInfosObj( $plId, $plBrd=null, $plyrContent=null) {
     // This function is called each time a player loses batteries, aliens, components
     // (in this last case $bExpConn is true), and once when ships are built and content
     // (including aliens) placed. It gets updated values for this player and uses them
     // to update the player table and notify players so that they can update these
     // informations in BGA's side player boards.
-    if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
-    if ( $plContent == null ) { $plContent = self::getPlContent( $plId ); }
     
-    $brd = $this->newPlayerBoard($plId, $plBoard);
-    $plyrContent = $this->newPlayerContent($plId, $plContent);
+    if (!$plBrd) $plBrd = $this->newPlayerBoard($plId);
+    if (!$plyrContent) $plyrContent = $this->newPlayerContent($plId);
 
-    $minMaxCann = $brd->getMinMaxStrengthX2 ( $plyrContent, 'cannon' );
-    $minMaxEng = $brd->getMinMaxStrengthX2 ( $plyrContent, 'engine' );
+    $minMaxCann = $plBrd->getMinMaxStrengthX2 ( $plyrContent, 'cannon' );
+    $minMaxEng = $plBrd->getMinMaxStrengthX2 ( $plyrContent, 'engine' );
     $items = array ( array (
                         'type' => 'minMaxCann',
                         'value' => ($minMaxCann['min']/2)."/".($minMaxCann['max']/2),
@@ -447,7 +452,7 @@ class GalaxyTrucker extends Table {
     $sql .= "nb_crew=".$nbCrewMembers.", ";
     $items[] = array ( 'type' => "nbCrew", 'value' => $nbCrewMembers );
 
-    $nbExp = $brd->nbOfExposedConnectors();
+    $nbExp = $plBrd->nbOfExposedConnectors();
     $sql .= "exp_conn=".$nbExp.", ";
     $items[] = array ( 'type' => "expConn", 'value' => $nbExp );
 
@@ -910,7 +915,6 @@ class GalaxyTrucker extends Table {
 
     foreach ( $players as $player_id => $player ) {
         $player_name = $player['player_name'];
-        $playersShipPartsToKeep[$player_id] = array();
         $actionNeeded = false;
         $brd = $this->newPlayerBoard($player_id);
 
@@ -941,17 +945,15 @@ class GalaxyTrucker extends Table {
 
         if (count($partsToKeep) > 1) {
             $actionNeeded = true;
-            // re-index ship parts from 1 for client
-            $index=1;
-            foreach ( $partsToKeep as $partIndex) {
-                $playersShipPartsToKeep[$player_id][$index++] = $shipParts[$partIndex];
-            }
+            $playersShipPartsToKeep[$player_id] = $partsToKeep;
         }
 
         // 3rd step: check for other tile-based errors
-        $errors = $brd->checkTilesBuild();
-        if ($errors)
+        $myErrors = $brd->checkTilesBuild();
+        if ($myErrors) {
               $actionNeeded = true;
+              $errors = array_merge($errors, $myErrors);
+        }
 
         if ( $actionNeeded ) {
             $playersToActivate[] = $player_id;

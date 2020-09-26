@@ -270,7 +270,6 @@ class GT_PlayerBoard extends APP_GameClass {
 
         $partsToKeep = [];
         foreach ( $shipParts as $partNumber => $part ) {
-            $game->dump_var("Working on part $partNumber", $part);
             $hasCrew = False;
             foreach ( $part as $tileId => $tile ) {
                 if ( $game->getTileType($tileId) == 'crew' ) 
@@ -278,7 +277,7 @@ class GT_PlayerBoard extends APP_GameClass {
             }
 
             if ($hasCrew) {
-                $partsToKeep[] = $partNumber;
+                $partsToKeep[] = $part;
                 continue;
             }
 
@@ -303,8 +302,6 @@ class GT_PlayerBoard extends APP_GameClass {
                     'tileIds' => $compToRemove,
             ) );
            
-            $str = clienttranslate("blah");
-            $game->notifyAllPlayers("mynotif", $str, array());
         }
 
         return $partsToKeep;
@@ -315,6 +312,7 @@ class GT_PlayerBoard extends APP_GameClass {
         foreach ( $this->plTiles as $plBoard_x ) {
             foreach ( $plBoard_x as $tile ) {
                 $tileErrors = $this->checkTileBuild($tile);
+                $all_errors = array_merge($all_errors, $tileErrors);
             }
         }
         return $all_errors; 
@@ -336,6 +334,7 @@ class GT_PlayerBoard extends APP_GameClass {
             if ( $adjTile = $this->getAdjacentTile ($tileToCheck, $side) ) {
                 // There is one, so let's check a few things
                 $adjTileType = $this->getTileType($adjTile['id']);
+
                 // check engine placement restrictions
                 // Note: not enough for Somersault Rough Road card
                 if ( $side == 180 && $tileToCheckType == 'engine' ) {
@@ -349,7 +348,6 @@ class GT_PlayerBoard extends APP_GameClass {
                 // is a cannon that points to this tile, it's a rule error so we record it
                 if ( ($tileToCheckType == 'cannon' && $tileToCheck['o'] == $side) 
                         || ($adjTileType == 'cannon' && $side == ($adjTile['o']+180)%360) ) {
-                    //$errors[] = 'cannon_adjtile_'.$side;
                     $errors[] = array( 'tileId' => $tileId, 'side' => $side,
                         'errType' => 'cannon', 'plId' => $this->player_id,
                         'x' => $tileToCheck['x'], 'y' => $tileToCheck['y'] );

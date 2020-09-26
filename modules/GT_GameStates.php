@@ -213,6 +213,7 @@ class GT_GameState {
         //    part of ship should fall off
 
         $tiles = array();
+        $content = array();
         $start_id = $this->_getStartTile($color);
 
         array_push($tiles, self::newTile($start_id, 7, 7, 0));

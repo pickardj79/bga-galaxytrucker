@@ -49,7 +49,7 @@ class GT_Hazards extends APP_GameClass  {
         $new_roll = $die1 ? FALSE : TRUE;
         if ($new_roll) {
             $die1= 4; //bga_rand(1,6);
-            $die2= 4; //bga_rand(1,6);
+            $die2= 2; //bga_rand(1,6);
             $game->setGameStateValue( 'currentCardDie1', $die1);
             $game->setGameStateValue( 'currentCardDie2', $die2);
             $game->log("New dice roll $die1 and $die2.");
@@ -114,7 +114,7 @@ class GT_Hazards extends APP_GameClass  {
         // Small meteors
         if ($hazResults['type'] == 'meteor' && $hazResults['size'] == 's') {
             // not an exposed connector, no player action needed
-            if (0 && !$brd->checkIfExposedConnector($roll, $hazResults['orient'])) {
+            if (!$brd->checkIfExposedConnector($roll, $hazResults['orient'])) {
                 $game->notifyAllPlayers( "hazardHarmless", 
                     clienttranslate( 'Meteor bounces off ${player_name}\'s ship'),
                     [   'player_name' => $player['player_name'],
@@ -124,26 +124,15 @@ class GT_Hazards extends APP_GameClass  {
                     ]);
                 return;
             }
-            $plyrContent = $game->newPlayerContent($player['player_id']);
-            if (1 || !$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
-                $tileLostId = reset($tilesInLine)['id'];
-                GT_DBComponent::removeComponents($game, $player['player_id'], [$tileLostId]);
-                GT_DBContent::removeContentByTileIds($game, [$tileLostId]);
-                $game->notifyAllPlayers( "loseComponent", 
-                    clienttranslate( '${player_name} loses ${typename} tile from meteor strike'),
-                    [   'player_name' => $player['player_name'],
-                        'typename' => $game->getTileTypeName($tileLostId),
-                        'plId' => $player['player_id'],
-                        'numbComp' => 1,
-                        'tileIds' => [ $tileLostId ],
-                        'hazResults' => $hazResults
-                    ]);
 
-                # TODO NEED TO UPDATE DB, REMOVE CONTENT, 
-                # UPDATE PLAYER SUMMARY
-                # TODO - check ship integrity and possibly lose more components!
-                # TODO - can return null, since we're done here (except those TODOs^^)
-                return 'shipDamage';
+            // If cannot power shields then take damage
+            $plyrContent = $game->newPlayerContent($player['player_id']);
+            if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
+                $actionNeeded = self::hazardDamage(
+                    $game, $player, $brd, $plyrContent, reset($tilesInLine), 
+                    'meteor strike.', $hazResults);
+
+                return $actionNeeded ? 'shipDamage' : NULL;
             }
             // TODO - notif about meteor striking exposed connector and player having to decide
             return 'powerShields';
@@ -159,6 +148,35 @@ class GT_Hazards extends APP_GameClass  {
             // TODO - temporary
             return;
         }
+    }
+
+    function hazardDamage($game, $player, $brd, $plContent=Null, $tile, $msg, $hazResults) {
+        // see notifyAllPlayers for how $msg fits
+        GT_DBComponent::removeComponents($game, $player['player_id'], [$tile['id']]);
+        GT_DBContent::removeContentByTileIds($game, [$tile['id']]);
+        $brd->removeTiles([$tile]);
+        $game->notifyAllPlayers( "loseComponent", 
+            clienttranslate( '${player_name} loses ${typename} tile from ${msg}'),
+            [   'player_name' => $player['player_name'],
+                'msg' => $msg,
+                'typename' => $game->getTileTypeName($tile['id']),
+                'plId' => $player['player_id'],
+                'numbComp' => 1,
+                'tileIds' => [ $tile['id'] ],
+                'hazResults' => $hazResults
+            ]);
+
+        $shipParts = $brd->checkShipIntegrity();
+        $partsToKeep = $brd->removeInvalidParts($shipParts, $player['player_name']);
+
+        $game->updNotifPlInfosObj($player['player_id'], $brd, $plContent);
+
+        if (count($partsToKeep) > 1) {
+            // TODO: notify with $partsToKeep
+            return TRUE;
+        }
+        else
+            return FALSE;
     }
 }
 ?>
