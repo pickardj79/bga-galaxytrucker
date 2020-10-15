@@ -86,6 +86,20 @@ $this->tileHoldCnt = array(
     'shield' => 0,
 );
 
+// human-readable tile types. To be used in sentence like: player loses $typeName tile
+$this->tileNames =  [
+    'battery' => clienttranslate('Battery'),
+    'cargo' => clienttranslate('Cargo Hold'),
+    'structure' => clienttranslate('Structure'),
+    'hazard' => clienttranslate('Special Cargo Hold'),
+    'crew' => clienttranslate('Crew'),
+    'engine' => clienttranslate('Engine'),
+    'cannon' => clienttranslate('Cannon'),
+    'brown' => clienttranslate('Brown Alien Life Support'),
+    'purple' => clienttranslate('Purple Alien Life Support'),
+    'shield' => clienttranslate('Shield'),
+];
+
 $this->tiles = array();
 for( $i=1 ; $i<=144 ; $i++)
   {
@@ -346,6 +360,7 @@ foreach ( $tileConnectors as $id => $tile )
         $this->tiles[$id][$dir] = $conType;
   }
 
+  // combatzone must have laser attacks as 3rd element of 'lines'
 $this->cardNames = array (
     'slavers' => clienttranslate('Slavers'),
     'smugglers' => clienttranslate('Smugglers'),
@@ -374,17 +389,13 @@ $this->card = array (
                'type' => 'smugglers',
                'enemy_strength' => 4,
                'enemy_penalty' => 2,
-               'reward' => array ( 'yellow' => 1,
-                                   'green' => 1,
-                                   'blue' => 1, ),
+               'reward' => [ 'yellow', 'green', 'blue' ],
                'days_loss' => 1, ),
   2 => array ( 'round' => 1,
                'id' => 2,
                'type' => 'pirates',
                'enemy_strength' => 5,
-               'enemy_penalty' => array ( 1 => 's0', // to be confirmed
-                                          2 => 'b0', // to be confirmed
-                                          3 => 's0', ), // to be confirmed
+               'enemy_penalty' => ['s0', 'b0', 's0' ],
                'reward' => 4,
                'days_loss' => 1, ),
   3 => array ( 'round' => 1,
@@ -405,25 +416,15 @@ $this->card = array (
   8 => array ( 'round' => 1,
                'id' => 8,
                'type' => 'meteoric',
-               'meteors' => array ( 1 => 'b0', // to be confirmed
-                                    2 => 's270', // to be confirmed
-                                    3 => 's90', // to be confirmed
-                                   ) ),
+               'meteors' => [ 'b0', 's270', 's90' ] ),
   9 => array ( 'round' => 1,
                'id' => 9,
                'type' => 'meteoric',
-               'meteors' => array ( 1 => 's0', // to be confirmed
-                                    2 => 's180', // to be confirmed
-                                    3 => 's270', // to be confirmed
-                                    4 => 's90', // to be confirmed
-                                   ) ),
+               'meteors' => [ 's0', 's180', 's270', 's90' ] ),
   10 => array ( 'round' => 1,
                 'id' => 10,
                 'type' => 'meteoric',
-                'meteors' => array ( 1 => 'b0', // to be confirmed
-                                    2 => 's0', // to be confirmed
-                                    3 => 'b0', // to be confirmed
-                                   ) ),
+                'meteors' => [ 'b0', 's0', 'b0' ] ),
   11 => array ( 'round' => 1,
                 'id' => 11,
                 'type' => 'planets',
@@ -472,9 +473,7 @@ $this->card = array (
                                    'penalty_value' => 2 ),
                        3 => array ( 'criterion' => 'cannons',
                                    'penalty_type' => 'shot',
-                                   'penalty_value' => array (
-                                        1 => 's180',
-                                        2 => 'b180' ) ),
+                                   'penalty_value' => ['s180', 'b180']  ),
                       ) ),
   16 => array ( 'round' => 1,
                 'id' => 16,

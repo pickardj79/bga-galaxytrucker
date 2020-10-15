@@ -4,6 +4,10 @@ class GTFE_Ship {
         'cannon' : undefined,
         'engine' : "<p>"+_('Engine strength:')+" <span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>",
+        'cannon' : "<p>"+_('Cannon strength:')+" <span id='curr_sel'>${curr}</span></p>"+
+            "<p>"+_('Max cannon strength:')+" <span id='max_str'>${max}</span></p>",
+        'shield' : "<p>"+_('Shield powered:')+" <span id='curr_sel'>${curr}</span></p>"+
+            "<p>"+_('Shield required:')+" <span id='max_str'>${max}</span></p>",
         'crew' : "<p>"+_('Crew selected:')+"<span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Crew required:')+"<span id='needed_sel'>${max}</span></p>",
         'goods': undefined
@@ -45,6 +49,43 @@ class GTFE_Ship {
         }));
     }
 
+    loseComponents(plId, tiles, delay) {
+        delay = delay ? delay : 0;
+
+        var nbTilesInSq1 = dojo.query( ".tile", "square_"+plId+"_-1_discard" ).length;
+        var nbTilesInSq2 = dojo.query( ".tile", "square_"+plId+"_-2_discard" ).length;
+        var interval = ( 1000 / tiles.length );
+
+        for ( var tileId of tiles ) {
+            var tileDivId = 'tile_'+tileId;
+
+            // See on which discard square these tiles must be placed
+            if ( nbTilesInSq1 <= nbTilesInSq2 ) {
+                var square = 1;
+                var z_index = ++nbTilesInSq1;
+            }
+            else {
+                var square = 2;
+                var z_index = ++nbTilesInSq2;
+            }
+            dojo.query('.overlay_tile', tileDivId).forEach(n => dojo.destroy(n));
+            var offset = ( z_index > 10 ) ? 20 : (z_index-1)*2;
+            var stylesOnEnd = { 'left': offset+"px",
+                                'top': "-"+offset+"px",
+                                'zIndex': z_index,  
+                };
+            let anim = this.game.slideToDomNodeAnim( tileDivId, 
+                                'square_'+plId+'_-'+square+'_discard',
+                                1000, delay);
+            dojo.connect(anim, "onEnd", (n) => {
+                dojo.style( n, stylesOnEnd );
+                this.game.rotate( n, 0 );
+            });
+            anim.play();
+            delay += interval;
+        }
+    }
+
     ////////////////////////////////////////////////////////////
     ////////////////// CONTENT CHOOSING ////////////////////////
 
@@ -56,7 +97,7 @@ class GTFE_Ship {
         // maxStr: max str (includes alien)
         // hasAlien: whether or not there's a relevant alien (for adding 2 to strength)
         
-        if (type != 'engine' && type != 'cannon' && type != 'crew' && type != 'goods')
+        if (type != 'engine' && type != 'shield' && type != 'cannon' && type != 'crew' && type != 'goods')
             this.game.throw_bug_report("Unexpected content type: " + type);
 
         this._nbSelected = 0;
@@ -66,7 +107,8 @@ class GTFE_Ship {
         this._baseStrength = parseInt(baseStr) || 0;
         this._hasAlien = hasAlien;
 
-        let typeClass = type == 'engine' || type == 'cannon' ? 'cell' : type;
+        let typeClass = type == 'engine' || type == 'shield' || type == 'cannon' 
+            ? 'cell' : type;
 
         dojo.query('.'+typeClass, 'my_ship').forEach( node => {
             this.connect( node, dojo.partial(this.onSelectContent, this));
@@ -113,12 +155,11 @@ class GTFE_Ship {
     selectedStr() {
         // strength of selected items including aliens and base strength
         switch ( this._typeToSelect ) {
+            case 'cannon':
             case 'engine':
                 var currentStrength = this._baseStrength + this._nbSelected*2;
                 console.log('base strength: ', this._baseStrength);
                 console.log('current strength: ', currentStrength);
-                // dojo.query is temporary, I'll use something more reliable when
-                // the changes in content table are done.
                 if ( this._baseStrength==0 && this._nbSelected>0 && this._hasAlien ) {
                     // baseStrength == 0 means that the alien bonus (if present) is not counted
                     // in baseStrength (because no simple engine/cannon), so we must add it if
@@ -127,6 +168,8 @@ class GTFE_Ship {
                 }
                 $("curr_sel").innerHTML = currentStrength;
                 return currentStrength;
+            case 'shield':
+                return this._nbSelected;
             case 'crew':
                 return this._nbSelected; 
         }
@@ -153,7 +196,7 @@ class GTFE_Ship {
         return {
             ids: divids.map( i => this.game.getPart(i.id, 1) ),
             contentType: this._typeToSelect,
-            str: this.selectedStr()
+            strength: this.selectedStr()
         }
     }
 

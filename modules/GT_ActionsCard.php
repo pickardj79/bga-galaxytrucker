@@ -3,6 +3,7 @@
 /* Collection of function to handle player actions in response to cards */
 
 require_once('GT_DBPlayer.php');
+require_once('GT_Hazards.php');
 
 class GT_ActionsCard extends APP_GameClass {
     public function __construct() {
@@ -96,16 +97,7 @@ class GT_ActionsCard extends APP_GameClass {
         $nbBatt = count($battChoices);
 
         // Checks
-        if ( count( array_unique($battChoices) ) != $nbBatt )
-            $game->throw_bug_report( "Several batteries with the same id. " .var_export( $battChoices, true));
-
-        foreach ( $battChoices as $battId ) {
-            $plyrContent->checkContentById($battId, 'cell');
-        }
-
-        if ( $nbBatt > $nbDoubleEngines )
-            $game->throw_bug_report("Error: too many batteries selected (more than double engines). ");
-
+        $plyrContent->checkBattChoices($battChoices, $nbDoubleEngines);
 
         // Calculate how far to move
         $nbDays = $nbSimpleEngines + 2*$nbBatt;
@@ -123,6 +115,34 @@ class GT_ActionsCard extends APP_GameClass {
         }
     }
 
+
+    function powerDefense($game, $plId, $card, $battChoices, $defenseType) {
+        // Powering shields or cannons against incoming laser or meteors
+        if (count($battChoices) == 0) {
+            GT_Hazards::hazardDamage($game, $plId, $card);
+        }
+        else {
+            $player = GT_DBPlayer::getPlayer($game, $plId);
+            if ($defenseType == 'shields') {
+                if ($card['type'] == 'meteoric')
+                    $msg = clienttranslate( 'Meteor deflected by ${player_name}\'s shield');
+                else
+                    $msg = clienttranslate( 'Laser blast deflected by ${player_name}\'s shield');
+            }
+            elseif ($defenseType == 'cannons') {
+                $msg = clienttranslate( 'Meteor blasted by ${player_name}\'s cannon');
+            }
+            else
+                $game->throw_bug_report("Invalid defenseType ($defenseType) for powerDefense");
+
+            GT_Hazards::hazardHarmless($game, $player, $msg, $card);
+
+            $plyrContent = $game->newPlayerContent($plId);
+            $plyrContent->checkBattChoices($battChoices, 1);
+            $plyrContent->loseContent($battChoices, 'cell', false);
+        }
+    }
+    
     function planetChoice($game, $plId, $cardId, $choice) {
         if (!$choice) {
             GT_DBPlayer::setCardDone($game, $plId);

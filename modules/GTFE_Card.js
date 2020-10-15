@@ -2,21 +2,21 @@
 
 class GTFE_Card {
 
-    MARKER_PREFIX = 'card_marker'
+    MARKER_PREFIX = 'card_marker';
 
-    constructor(game, id, type, varData) {
+    constructor(game, id, cardData) {
         this.game = game;
         this.id = id;
 
-        // unclear if this is ever set
-        this.type = type;
+        if (cardData) {
+            // setup object based on GT_StatesCard::currentCardData()
+            this.type = cardData['type'];
+            this.curHazard = cardData['curHazard'];
+            this.card_line_done = cardData['card_line_done']; // player => {data}
+        }
 
         // onclick connects
         this.connects = {};
-
-        // varData holds variable data about the state of the card
-        // what it holds is dependent on the type of card and state of the game
-        this.varData = varData;
     }
 
     static cardBg( cardId ) {
@@ -27,6 +27,8 @@ class GTFE_Card {
 
     setId(id) {
         this.id = id;
+        // we don't have any of this data
+        this.type = this.progress = this.die1 = this.die1 = this.card_line_done = undefined;
         return this;
     }
 
@@ -40,12 +42,24 @@ class GTFE_Card {
         let cardBg = GTFE_Card.cardBg( this.id );
         dojo.style( 'current_card', 'background-position', cardBg.x+'px '+cardBg.y+'px' );
 
+        // notif will turn dice_box on when needed
+        dojo.style( 'dice_box', 'display', 'none' );
+
         // place planet elements
+        dojo.query('.planet').forEach(dojo.destroy);
         for (let i = 1; i <= 4; i++) {
             dojo.place( game.format_block('jstpl_circle', 
-                { idx: i, top: 7+i*47, classes: "planet" }),
-                'current_card'
+                { idx: i, classes: "planet" }), 'current_card'
             );
+        }
+
+        if (!this.type)
+            return this;
+
+        if (this.curHazard && this.curHazard.die1 != "0") { 
+            this._placeDice(this.curHazard.die1, this.curHazard.die2); 
+            if (this.card_line_done[game.player_id]['card_line_done'] != 2)
+                this._placeHazard(this.curHazard)
         }
 
         return this;
@@ -68,13 +82,23 @@ class GTFE_Card {
         payload['ids_str'] = payload['ids'].join();
 
         // Returns false if payload was not processed
-        if (! payload['contentType'] in ['engine', 'crew']) {
+        if (! payload['contentType'] in ['engine', 'cannon', 'shield', 'crew']) {
             this.game.throw_bug_report("Unknown content type in GTFE_Card.processContentChoice");
             return true;
         }
-        if (payload['contentType'] == 'engine' && payload['str'] == 0) {
+        if (payload['contentType'] == 'engine' && payload['strength'] == 0) {
             let msg = 'Are you sure you do not want to power any engines?'
             this.game.giveUpDialog(msg, 'contentChoice.html', payload);
+            return true;
+        }
+        if (payload['contentType'] == 'cannon' && payload['strength'] == 0 && this.type == 'meteoric') {
+            let msg = 'Are you sure you do not want to power cannons. Your ship will be damaged!';
+            this.game.confirmDialog(msg, 'contentChoice.html', payload);
+            return true;
+        }
+        if (payload['contentType'] == 'shield' && payload['strength'] == 0) {
+            let msg = 'Are you sure you do not want to power shields. Your ship will be damaged!';
+            this.game.confirmDialog(msg, 'contentChoice.html', payload);
             return true;
         }
 
@@ -194,5 +218,98 @@ class GTFE_Card {
         dojo.query('.ship_marker', 'current_card').forEach( n => dojo.destroy(n) );
     }
 
+    /// ################# HAZARDS #########################
+    notif_hazardDiceRoll(args, gaveUp) {
+        let game = this.game;
+
+        // don't turn off dice_box, clean-up code will do so
+
+        console.log("placing hazard with", args, args.hazResults.die1, gaveUp);
+        let anim = game.myFadeOutAndDestroy(dojo.query('.die','dice_box'), 500);
+        dojo.connect(anim, "onEnd", () => {
+            this._placeDice(args.hazResults.die1, args.hazResults.die2);
+            if (!gaveUp)
+                this._placeHazard(args.hazResults);
+        } );
+        anim.play();
+    }
+
+    hazardMissed(args) {
+        let endDiv = this._hazResultsToDiv(args.hazResults, true);
+        console.log("Sliding to: ", endDiv);
+        this.game.slideToObjectAndDestroy('current_hazard', endDiv, 500);
+    }
+
+    hazardHit(tileId, hazResults) {
+        // Slide hazard to hit the exposed tile. Move it a few pixels onto the tile
+        // so it appears to actually hit the ship :). 
+        let x = 0;
+        let y = 0;
+        let hazHeight = (hazResults.size == 'b' ? 54 : 30) - 10;
+        let hazWidth = (hazResults.size == 'b' ? 48 : 40) - 10;
+        switch (hazResults.orient) {
+            case 0: y = -hazHeight; break; // from top, shift up by it's height
+            case 90: x = 40; break; // from right, shift to right of tile
+            case 180: y = 40; break; // from bottom, shift down by a tile's height
+            case 270: x = -hazWidth; break; // from left, shift left by it's width
+            default: this.game.throw_bug_report('Unexpected orient: ' + orient);
+        };
+        let anim = this.game.slideToObjectPos(
+            'current_hazard', "tile_" + tileId, x, y, 500);
+        dojo.connect(anim, "onEnd", () => dojo.fadeOut(
+            {node: 'current_hazard', delay: 500 , onEnd: dojo.destroy}
+        ).play() );
+        anim.play();
+    }
+    
+    _placeDice(die1, die2) {
+        let game = this.game;
+
+        dojo.style( 'dice_box', 'display', 'block' );
+
+        dojo.place( game.format_block( 'jstpl_die', {'nbr': die1, 'idx': 1}), 'current_card');
+        dojo.place( game.format_block( 'jstpl_die', {'nbr': die2, 'idx': 2}), 'current_card');
+        let i = 0;
+        dojo.query('.die', 'current_card')
+            .forEach( n => game.slideToDomNode(n, 'dice_box', 500, (i++)*100));
+    }
+
+    _placeHazard(hazard) {
+        let game = this.game;
+        // hazard needs: die1, die2, type, row_col, size, orient, missed (see GT_StatesCard.currentCardData)
+        let sizeClass = hazard.size == 's' ? 'small' : 'big';
+        let startDiv = this._hazResultsToDiv(hazard);
+
+        // Place hazard and blink it
+        dojo.place( game.format_block( 'jstpl_hazard', {
+            size: sizeClass, type: hazard.type, row_col: hazard.row_col
+        }), startDiv);
+        let anim = dojo.fx.chain ( [
+            dojo.fadeOut( { node: 'current_hazard'}, 500, 1500 ),
+            dojo.fadeIn( { node: 'current_hazard'} ),
+            dojo.fadeOut( { node: 'current_hazard'} ),
+            dojo.fadeIn( { node: 'current_hazard'} ),
+        ]);
+        anim.play(); 
+    }
+
+    _hazResultsToDiv(hazard, reverse) {
+        // given a hazard result, create the row or column div
+        // reverse will give the opposite side
+
+        let roll = parseInt(hazard.die1) + parseInt(hazard.die2);
+
+        let orient = hazard.orient;
+        if (reverse) 
+            orient = (orient + 180) % 360;
+
+        switch (orient) {
+            case 0: return 'column_' + roll + '_top'; break;
+            case 90: return 'row_' + roll + '_right'; break;
+            case 180: return 'column_' + roll + '_bottom'; break;
+            case 270: return 'row_' + roll + '_left'; break;
+            default: this.game.throw_bug_report('Unexpected orient: ' + orient);
+        }
+    }
 
 }

@@ -2,10 +2,27 @@
 
 /* Collection of functions to handle states associated with cards */
 
+require_once('GT_Constants.php');
 require_once('GT_DBPlayer.php');
+require_once('GT_Hazards.php');
 
 class GT_StatesCard extends APP_GameClass {
     public function __construct() {
+    }
+
+    function currentCardData($game){
+        $cardId = $game->getGameStateValue( 'currentCard'); 
+        if ($cardId < 0)
+            return ['id' => $cardId];
+
+        $card = $game->card[$cardId];
+
+        return array(
+            "id" => $cardId,
+            "type" => $card['type'],
+            "curHazard" => GT_Hazards::getHazardRoll($game, $card),
+            "card_line_done" => GT_DBPlayer::getCardProgress($game)
+        );
     }
 
     function stDrawCard($game) {
@@ -25,6 +42,8 @@ class GT_StatesCard extends APP_GameClass {
         }
         else {
             $game->setGameStateValue( 'currentCard', $currentCard );
+            GT_Hazards::resetHazardProgress($game);
+
             // temp, so that there is an active player when going to notImpl state
             if ( $game->getUniqueValueFromDB('SELECT global_value FROM global WHERE global_id=2') == 0 )// temp
                 $game->myActiveNextPlayer();// temp
@@ -44,6 +63,7 @@ class GT_StatesCard extends APP_GameClass {
                             'cardTypeStr' => $game->cardNames[$cardType],
                             'cardRound' => $game->card[ $currentCard ]['round'],
                             'cardId' => $currentCard,
+                            'cardData' => self::currentCardData($game)
                             ) );
         }
 
@@ -147,6 +167,56 @@ class GT_StatesCard extends APP_GameClass {
 
         return "nextCard";
     }
+
+    function stMeteoric($game) {
+        $cardId = $game->getGameStateValue( 'currentCard' );
+        $card = $game->card[$cardId];
+
+        $idx = $game->getGameStateValue( 'currentCardProgress');
+        if ($idx < 0) {
+            $idx = 0; // start of the card
+            GT_Hazards::nextHazard($game, 0);
+        }
+
+        $game->dump_var("Entering meteor with current card $cardId Meteor $idx.", $card);
+        while ($idx < count($card['meteors'])) {
+            $game->log("Running meteor $idx.");
+
+            // Get previous dice roll, if available. If not roll and notif
+            $hazResults = GT_Hazards::getHazardRoll($game, $card, $idx);
+
+            if ($hazResults['missed']) {
+                $game->notifyAllPlayers( "hazardMissed", 
+                            clienttranslate( 'Meteor missed all ships'), 
+                            [ 'hazResults' => $hazResults ] );
+                GT_Hazards::nextHazard($game, ++$idx);
+                continue;
+            }
+
+            // Go through players until finding one that has to act
+            $players = GT_DBPlayer::getPlayersForCard($game);
+            foreach ( $players as $plId => $player ) {
+                $game->log("stMeteoric for player $plId, index $idx.");
+                $nextState = GT_Hazards::applyHazardToShip($game, $hazResults, $player);
+                $game->log("Got $nextState");
+                if ($nextState) {
+                    GT_DBPlayer::setCardInProgress($game, $plId);
+                    $game->gamestate->changeActivePlayer( $plId );
+                    return $nextState;
+                } 
+            }
+
+            $game->log("Finished index $idx");
+            // no players left to act for this hazard, go to next hazard 
+            GT_Hazards::nextHazard($game, ++$idx);
+            GT_DBPlayer::clearCardProgress($game);
+        }
+
+        // TODO hide dice (see how we're hiding cards)
+        return 'nextCard';
+    }
+
+    // ###################### HELPERS ##########################
 
 }
 

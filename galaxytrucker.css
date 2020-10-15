@@ -269,6 +269,33 @@ html {
     display: inline-block;
     margin: 20px;
 }
+.row_col {
+    position: absolute;
+}
+.hazard {
+    position: absolute;
+    background-image: url('img/dangers.png');
+    z-index: 10;
+}
+.meteor.small {
+    background-position: -25px -45px;
+    width: 40px;
+    height: 30px;
+}
+.meteor.big {
+    background-position: -19px -112px;
+    width: 48px;
+    height: 54px;
+}
+.row_col_left .meteor.small  { top: -15px; left : -20px }
+.row_col_right .meteor.small { top: -15px; }
+.row_col_top .meteor.small{ top: -15px; left : -20px }
+.row_col_bottom .meteor.small { top: 15px; left : -20px }
+.row_col_left .meteor.big { top: -27px; left : -24px }
+.row_col_right .meteor.big { top: -27px; }
+.row_col_top .meteor.big { top: -27px; left: -24px }
+.row_col_bottom .meteor.big { top: 27px; width: -24px }
+
 #trash_box {
     display: none;
     position: relative;
@@ -276,6 +303,28 @@ html {
     height: 60px;
     margin: 10px;
 }
+#dice_box {
+    display: none;
+    position: relative;
+    width: 165px;
+    height: 60px;
+    margin: 10px;
+}
+.die{
+    position: absolute;
+    background-image: url('img/30_30_colored_dice.png');
+    top: 15px;
+    width: 29px; 
+    height: 29px;
+}
+.die_1 { background-position: -0px -30px;}
+.die_2 { background-position: -30px -30px;}
+.die_3 { background-position: -60px -30px;}
+.die_4 { background-position: -90px -30px;}
+.die_5 { background-position: -120px -30px;}
+.die_6 { background-position: -150px -30px;}
+.die_place_1 { left: 30px; }
+.die_place_2 { left: 90px; }
 
 #pile {
     display: none;
@@ -570,7 +619,13 @@ html {
 
 .planet {
     position: absolute;
+    left: 7px;
 }
+
+#planet_1 { top: 54px; }
+#planet_2 { top: 101px; }
+#planet_3 { top: 148px; }
+#planet_4 { top: 195px; }
 
 .planet.available{
     width: 38px;

@@ -21,6 +21,7 @@ require_once( APP_GAMEMODULE_PATH.'module/table/table.game.php' );
 require_once('modules/GT_ActionsBuild.php');
 require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
+require_once('modules/GT_DBComponent.php');
 require_once('modules/GT_DBPlayer.php');
 require_once('modules/GT_GameStates.php');
 require_once('modules/GT_FlightBoard.php');
@@ -51,13 +52,18 @@ class GalaxyTrucker extends Table {
                         // to add in the adventure cards deck
                         // May be different from 'flight' when using some variants like
                         // shorter or longer games
-            "cardOrderInFlight" => 12,
-            "timerStartTime" => 13,
-            "timerPlace" => 14,
-            "buildingStartTime" => 15, // (for stats)
-            "currentCard" => 16,
-            "overlayTilesPlaced" => 17, // used in GetAllDatas to know if the client
+            "shipClass" => 12,
+            "cardOrderInFlight" => 13,
+            "timerStartTime" => 14,
+            "timerPlace" => 15,
+            "buildingStartTime" => 16, // (for stats)
+            "currentCard" => 20,
+            "overlayTilesPlaced" => 21, // used in GetAllDatas to know if the client
                                 // must place overlay tiles in case of a page reload
+            "currentCardProgress" => 22,   // which part of card is in progress, e.g. which meteor #
+            "currentCardDie1" => 23,   // what is the current die roll being resolved
+            "currentCardDie2" => 24,   
+            "currentHazardPlayerTile" => 25,   
             "testGameState" => 99, // use a test scenario from GT_GameStates 
 
             // flight_variants is a game option (gameoptions.inc.php)
@@ -112,6 +118,10 @@ class GalaxyTrucker extends Table {
     self::setGameStateInitialValue( 'flight', 1 );
     self::setGameStateInitialValue( 'cardOrderInFlight', 0 );
     self::setGameStateInitialValue( 'currentCard', null );
+    self::setGameStateInitialValue( 'currentCardProgress', null );
+    self::setGameStateInitialValue( 'currentCardDie1', null );
+    self::setGameStateInitialValue( 'currentCardDie2', null );
+    self::setGameStateInitialValue( 'currentHazardPlayerTile', null ); // Tile of current player threatened by the hazard
     self::setGameStateInitialValue( 'round', 1 ); // will be changed in stPrepareRound
                         // in case of a short flight variant that begins with a level 2 flight
     self::setGameStateInitialValue( 'timerStartTime', 0 );
@@ -156,7 +166,7 @@ class GalaxyTrucker extends Table {
     self::DbQuery( $sql );
 
     self::log("Game initialized");
-    self::setGameStateInitialValue( 'testGameState', 0 ); 
+    self::setGameStateInitialValue( 'testGameState', 1 ); 
 
     /************ End of the game initialization *****/
   }
@@ -286,7 +296,7 @@ class GalaxyTrucker extends Table {
     $result['content'] = self::getObjectListFromDB( "SELECT * FROM content" );
     $result['tiles'] = array_values($this->tiles);
 
-    $result['currentCard'] = self::getGameStateValue( 'currentCard' );
+    $result['currentCard'] = GT_StatesCard::currentCardData($this);
 
     return $result;
   }
@@ -401,28 +411,39 @@ class GalaxyTrucker extends Table {
       return $this->tiles[ $id ]['type'];
   }
 
-  function getTileHold(int $id) {
-        $tile = $this->tiles[ $id ];
-        if (array_key_exists('hold', $tile))
-            return $tile['hold'];
-        return $this->tileHoldCnt[$this->getTileType($id)];
+  function getTileTypeName(int $id) {
+      return $this->tileNames[ $this->getTileType($id) ];
   }
 
-  function updNotifPlInfos( $plId, $plBoard=null, $plContent=null)
-  {
+  function getTileHold(int $id) {
+      $tile = $this->tiles[ $id ];
+      if (array_key_exists('hold', $tile))
+          return $tile['hold'];
+      return $this->tileHoldCnt[$this->getTileType($id)];
+  }
+
+  function updNotifPlInfos( $plId, $plBoard=null, $plContent=null) {
+      // Same function as updNotifPlInfos but with raw plBoard (tiles) and plContent data,
+      //  not the associated objects 
+      $brd = $this->newPlayerBoard($plId, $plBoard);
+      $plyrContent = $this->newPlayerContent($plId, $plContent);
+      return $this->updNotifPlInfosObj($plId, $brd, $plyrContent);
+  }
+
+  function updNotifPlInfosObj( $plId, $plBrd=null, $plyrContent=null) {
     // This function is called each time a player loses batteries, aliens, components
     // (in this last case $bExpConn is true), and once when ships are built and content
     // (including aliens) placed. It gets updated values for this player and uses them
     // to update the player table and notify players so that they can update these
     // informations in BGA's side player boards.
-    if ( $plBoard == null ) { $plBoard = self::getPlayerBoard( $plId ); }
-    if ( $plContent == null ) { $plContent = self::getPlContent( $plId ); }
     
-    $brd = $this->newPlayerBoard($plId, $plBoard);
-    $plyrContent = $this->newPlayerContent($plId, $plContent);
+    if (!$plBrd) $plBrd = $this->newPlayerBoard($plId);
+    if (!$plyrContent) $plyrContent = $this->newPlayerContent($plId);
 
-    $minMaxCann = $brd->getMinMaxStrengthX2 ( $plyrContent, 'cannon' );
-    $minMaxEng = $brd->getMinMaxStrengthX2 ( $plyrContent, 'engine' );
+    $minMaxCann = $plBrd->getMinMaxStrengthX2 ( $plyrContent, 'cannon' );
+    $minMaxEng = $plBrd->getMinMaxStrengthX2 ( $plyrContent, 'engine' );
+    $dblCann = $plBrd->countDoubleCannons();
+    $dblEng = $plBrd->countDoubleEngines();
     $items = array ( array (
                         'type' => 'minMaxCann',
                         'value' => ($minMaxCann['min']/2)."/".($minMaxCann['max']/2),
@@ -438,18 +459,24 @@ class GalaxyTrucker extends Table {
     $sql .= "nb_crew=".$nbCrewMembers.", ";
     $items[] = array ( 'type' => "nbCrew", 'value' => $nbCrewMembers );
 
-    $nbExp = $brd->nbOfExposedConnectors();
+    $nbExp = $plBrd->nbOfExposedConnectors();
     $sql .= "exp_conn=".$nbExp.", ";
     $items[] = array ( 'type' => "expConn", 'value' => $nbExp );
 
     $sql .= "min_cann_x2=".$minMaxCann['min'].", max_cann_x2=".$minMaxCann['max'].", ".
-            "min_eng=".($minMaxEng['min']/2).", max_eng=".($minMaxEng['max']/2)." ".
+            "min_eng=".($minMaxEng['min']/2).", max_eng=".($minMaxEng['max']/2).", ".
+            "num_dbl_eng={$dblEng}, num_dbl_cann={$dblCann} ".
             "WHERE player_id=$plId";
     self::DbQuery( $sql );
     self::notifyAllPlayers( "updatePlBoardItems", "", array(
                   'plId' => $plId,
                   'items' => $items,
                   ) );
+    
+    // If player has zero crew, then they have to give up
+    if (count($plyrContent->getContent('crew', 'human')) == 0) {
+        self::newFlightBoard()->giveUp($plId, 'lost all humans');
+    }
   }
 
   function getConnectorType( $tile, $side ) {
@@ -616,6 +643,34 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( 'nextPlayer' );
   }
 
+  function powerShields( $battChoices ) {
+      self::checkAction( 'contentChoice' );
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
+      GT_DBPlayer::setCardDone($this, $plId);
+      if ($this->card[$cardId]['type'] == 'meteoric')
+          $this->gamestate->nextState('nextMeteor');
+      else
+          $this->gamestate->nextState('notImpl');
+  }
+
+  function powerCannons( $battChoices ) {
+      self::checkAction( 'contentChoice' );
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      GT_DBPlayer::setCardDone($this, $plId);
+
+      if ($this->card[$cardId]['type'] == 'meteoric') {
+          GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons'); 
+          $this->gamestate->nextState('nextMeteor');
+      }
+      else
+          $this->gamestate->nextState('notImpl');
+  }
+
   function exploreChoice( $choice ) {
       self::checkAction( 'exploreChoice' );
       $plId = self::getActivePlayerId();
@@ -665,7 +720,16 @@ class GalaxyTrucker extends Table {
 
   function goOn( ) {
       self::checkAction( 'goOn' );
-      $this->gamestate->nextState( 'goOn' );
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $this->dump_var("card $cardId is neteoric", $this->card[$cardId]);
+      if ($cardId && $this->card[$cardId]['type'] == 'meteoric') {
+          $this->log("card is meteoric");
+          $this->gamestate->nextState('nextMeteor');
+      }
+      else {
+        $this->log("drawing card");
+        $this->gamestate->nextState( 'nextCard' );
+      }
   }
 
   function tempTestNextRound( ) {
@@ -707,8 +771,13 @@ class GalaxyTrucker extends Table {
       $player_id = self::getCurrentPlayerId();
       $brd = $this->newPlayerBoard($player_id);
       $plyrContent = $this->newPlayerContent($player_id);
-      $ret = $brd->checkIfCannonOnLine( $plyrContent, $rowOrCol, $sideToCheck );
-      $msg = "###### checkIfCannonOnLine() returns ".var_export( $ret, true )." ";
+      $singRet = $brd->checkSingleCannonOnLine( $rowOrCol, $sideToCheck );
+      $msg = "###### checkIfSingleCannonOnLine() returns ".var_export( $singRet, true )." ";
+      self::trace($msg);
+      self::log_console($msg);
+
+      $doubRet = $brd->checkDoubleCannonOnLine( $rowOrCol, $sideToCheck, $plyrContent );
+      $msg = "###### checkIfDoubleCannonOnLine() returns ".var_export( $doubRet, true )." ";
       self::trace($msg);
       self::log_console($msg);
   }
@@ -745,15 +814,31 @@ class GalaxyTrucker extends Table {
 
     function argPowerEngines() {
         $plId = self::getActivePlayerId();
-        $player = self::getObjectFromDb( "SELECT min_eng, max_eng FROM player ".
+        $player = self::getObjectFromDb( "SELECT min_eng, max_eng, num_dbl_eng FROM player ".
                                 "WHERE player_id=".$plId );
-        $nbDoubleEngines = $this->newPlayerBoard($plId)->countDoubleEngines( $plId );
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_eng'], 
                       'maxStr' => $player['max_eng'],
-                      'maxSel' => ( min( $nbDoubleEngines, $nbCells ) ),
+                      'maxSel' => ( min( $player['num_dbl_eng'], $nbCells ) ),
                       'hasAlien' => $plyrContent->checkIfAlien('brown')  ) ;
+    }
+
+    function argPowerCannons() {
+        $plId = self::getActivePlayerId();
+        $player = self::getObjectFromDb( "SELECT min_cann_x2, max_cann_x2, num_dbl_cann FROM player ".
+                                "WHERE player_id=".$plId );
+        $plyrContent = $this->newPlayerContent( $plId );
+        $nbCells = $plyrContent->checkIfCellLeft();
+        return array( 'baseStr' => $player['min_cann_x2']/2, 
+                      'maxStr' => $player['max_cann_x2']/2,
+                      'maxSel' => ( min( $player['num_dbl_cann'], $nbCells ) ),
+                      'hasAlien' => $plyrContent->checkIfAlien('purple')  ) ;
+    }
+
+    function argPowerShields() {
+        $plId = self::getActivePlayerId();
+        return array();
     }
 
     function argExploreAbandoned() {
@@ -779,8 +864,6 @@ class GalaxyTrucker extends Table {
         $currentCard = self::getGameStateValue( 'currentCard' );
         $card = $this->card[$currentCard];
         $alreadyChosen = GT_DBPlayer::getCardChoices($this);
-
-        $this->dump_var("alreadyChosen", $alreadyChosen);
 
         $availIdx = array();
         $planetIdxs = array(); 
@@ -875,15 +958,12 @@ class GalaxyTrucker extends Table {
     $playersToActivate = array ();
     $errors = array();
     $playersShipPartsToKeep = array();
-    $tilesToRemoveInDb = array();
 
     self::setGameStateValue( 'timerPlace', -1 );
     self::setGameStateValue( 'timerStartTime', 0 );
 
     foreach ( $players as $player_id => $player ) {
         $player_name = $player['player_name'];
-        $shipParts = array();
-        $playersShipPartsToKeep[$player_id] = array();
         $actionNeeded = false;
         $brd = $this->newPlayerBoard($player_id);
 
@@ -892,8 +972,9 @@ class GalaxyTrucker extends Table {
         // other errors without considering them (so we remove them from $brd), and
         // also check if the ship holds together when these engines are removed
         $engToRemove = $brd->badEngines();
-        $tilesToRemoveInDb = array_merge($engToRemove, $tilesToRemoveInDb);
         $brd->removeTiles($engToRemove);
+        GT_DBComponent::removeComponents($this, $player_id,
+            array_map(function($x) { return $x['id']; }, $engToRemove));
         if ( $engToRemove ) {
             $idToRemove = array_map(function($x) { return $x['id']; }, $engToRemove);
             self::notifyAllPlayers( "loseComponent", clienttranslate('${player_name} '.
@@ -901,66 +982,27 @@ class GalaxyTrucker extends Table {
                     'plId' => $player_id,
                     'player_name' => $player_name,
                     'numbComp' => count($idToRemove),
-                    'compToRemove' => $idToRemove,
+                    'tileIds' => $idToRemove,
                     ) );
         }
 
-        // 2nd step: check if this ship holds together, taking into account
-        // illegal connections
+        // 2nd step: check if this ship holds together, taking into account illegal connections
         // Check if these ship parts are valid (at least one cabin), only needed if
         // more than one part OR with ship classes without starting component
         $shipParts = $brd->checkShipIntegrity();
-        if ( $shipParts > 1 ) {
-            $partsToKeep = array_keys( $shipParts );
-            foreach ( $shipParts as $partNumber => $part ) {
-                $compToRemove = array();
-                foreach ( $part as $tileId => $tile ) {
-                    if ( $this->tiles[$tileId]['type'] == 'crew' ) {
-                        //$playersShipPartsToKeep[$player_id][$partNumber] = $part;
-                        continue 2;
-                    }
-                }
-                // no cabin was found in this part, so it has to be removed from the ship
-                $cntParts = count($part);
+        $partsToKeep = $brd->removeInvalidParts($shipParts, $player_name);
 
-                $brd->removeTiles(array_values($part));
-                foreach ( $part as $tileId => $tile ) {
-                    $compToRemove[] = $tileId;
-                    $tilesToRemoveInDb[] = $tile;
-                }
-                unset( $partsToKeep[ array_search($partNumber, $partsToKeep) ] );
-                $numbComp = count($compToRemove);
-                if ( $numbComp == 1 )
-                    $notifyText = clienttranslate( '${player_name} loses a component not '.
-                                                    'connected to the ship');
-                else
-                    $notifyText = clienttranslate( '${player_name}\'s ship doesn\'t hold together.'.
-                            ' A part with ${numbComp} components (without cabin) is removed.');
-                self::notifyAllPlayers( "loseComponent", $notifyText, array(
-                        'plId' => $player_id,
-                        'player_name' => $player_name,
-                        'numbComp' => $numbComp,
-                        'compToRemove' => $compToRemove,
-                        ) );
-                
-            }
-
-            if ( count( $partsToKeep ) > 1 ) {
-                $actionNeeded = true;
-                // re-index ship parts from 1 for client
-                $index=1;
-                foreach ( $partsToKeep as $partIndex) {
-                    $playersShipPartsToKeep[$player_id][$index++] = $shipParts[$partIndex];
-                }
-            }
+        if (count($partsToKeep) > 1) {
+            $actionNeeded = true;
+            $playersShipPartsToKeep[$player_id] = $partsToKeep;
         }
 
-        // 3rd step: check for other errors once badly oriented engines and invalid
-        // ship parts have been removed. We also count exposed connectors, this will
-        // be stored in exp_conn if this player doesn't need to repair their ship
-        $errors = $brd->checkTiles();
-        if ($errors)
+        // 3rd step: check for other tile-based errors
+        $myErrors = $brd->checkTilesBuild();
+        if ($myErrors) {
               $actionNeeded = true;
+              $errors = array_merge($errors, $myErrors);
+        }
 
         if ( $actionNeeded ) {
             $playersToActivate[] = $player_id;
@@ -978,12 +1020,6 @@ class GalaxyTrucker extends Table {
         }
     } // End of foreach player
 
-    if ( $tilesToRemoveInDb ) {
-        $idsToRemove = array_map(function($x) { return $x['id']; }, $tilesToRemoveInDb);
-        self::DbQuery( "UPDATE component SET aside_discard=1, component_x=-1, ". // TODO Pb if several tiles in discard for the same player
-                    "component_y=NULL, component_orientation=0 ".
-                    "WHERE component_id IN (".implode(',', $idsToRemove).")" );
-    }
 
     if ( $playersToActivate ) {
       // Notify players so that the clients can mark ship parts
@@ -1052,6 +1088,17 @@ class GalaxyTrucker extends Table {
   function stPlanets() {
       $nextState = GT_StatesCard::stPlanets($this);
       $this->gamestate->nextState( $nextState );
+  }
+
+  function stMeteoric() {
+      $nextState = GT_StatesCard::stMeteoric($this);
+      $this->gamestate->nextState( $nextState );
+  }
+  
+  function stShipDamage() {
+      $plId = self::getActivePlayerId();
+      GT_DBPlayer::setCardDone($this, $plId);
+      $this->gamestate->nextState( 'notImpl' );
   }
 
   // ########### FINAL CLEAN UP STATES ############## 

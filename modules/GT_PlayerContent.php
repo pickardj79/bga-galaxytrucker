@@ -1,9 +1,9 @@
 <?php
 
-require_once('GT_DBPlayer.php');
-require_once('GT_DBComponent.php');
 require_once('GT_Constants.php');
+require_once('GT_DBComponent.php');
 require_once('GT_DBContent.php');
+require_once('GT_DBPlayer.php');
 
 class GT_PlayerContent extends APP_GameClass {
 
@@ -15,6 +15,19 @@ class GT_PlayerContent extends APP_GameClass {
     }
 
     ################### CHECK HELPERS #########################
+
+    // check battery choices from front end
+    function checkBattChoices($battChoices, $maxCnt) {
+        if ( count( array_unique($battChoices) ) != count($battChoices) )
+            $this->game->throw_bug_report( "Several batteries with the same id. " .var_export( $battChoices, true));
+
+        foreach ( $battChoices as $battId ) {
+            $this->checkContentById($battId, 'cell');
+        }
+
+        if ( count($battChoices) > $maxCnt )
+            $this->game->throw_bug_report("Error: too many batteries selected (more than double engines). ");
+    }
 
     // checkAll - validates all content against tiles from db (GT_PlayerBoard)
     function checkAll($brd) {
@@ -65,6 +78,7 @@ class GT_PlayerContent extends APP_GameClass {
         $this->checkContentTile($this->plContent[$id], $tileId, $checkHold);
     }
 
+    // Check that the given $content can go on tile with $tileId
     function checkContentTile($content, $tileId, $checkHold=TRUE) {
         $tileType = $this->game->getTileType($tileId);
         $tileHold = $this->game->getTileHold($tileId);
@@ -141,7 +155,7 @@ class GT_PlayerContent extends APP_GameClass {
         $tile = GT_DBComponent::getActiveComponent($this->game, $tileId);
         
         if ($tile['component_player'] != $this->player_id)
-            $this->game->throw_bug_report("Wrong player for tile", $tile);
+            $this->game->throw_bug_report_dump("Wrong player for tile", $tile);
 
         $rows = array();
         foreach ( $goodsIds as $id) {
@@ -258,14 +272,10 @@ class GT_PlayerContent extends APP_GameClass {
                             'id' => $id,
                             'tile_id' => $tileId,
                             'toCard' => $toCard);
-            // TODO: test this with cell and crew
             $type = $curCont['content_type'] . " " . $curCont['content_subtype'];
-            // $type = $curCont['content_subtype'] 
-                // ? $curCont['content_subtype'] : $curCont['content_type'];
             $contentHtml .= "<img class='content $type'></img> ";
         }
-        $sql = "DELETE FROM content WHERE content_id IN (".implode(',', $ids).")";
-        $this->game->DbQuery( $sql );
+        GT_DBContent::removeContentByIds($this->game, $ids);
 
         $player = GT_DBPlayer::getPlayer($this->game, $this->player_id);
         $this->game->notifyAllPlayers( "loseContent",
@@ -275,6 +285,6 @@ class GT_PlayerContent extends APP_GameClass {
                                         'content_icons' => $contentHtml,
                                     )
                             );
-        $this->game->updNotifPlInfos( $this->player_id, null, $this->plContent );
+        $this->game->updNotifPlInfosObj( $this->player_id, null, $this);
     }
 }

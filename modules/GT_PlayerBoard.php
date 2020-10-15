@@ -1,5 +1,8 @@
 <?php
 
+require_once('GT_DBComponent.php');
+require_once('GT_DBContent.php');
+
 class GT_PlayerBoard extends APP_GameClass {
 
     public function __construct($game, $plTiles, $player_id) {
@@ -24,11 +27,22 @@ class GT_PlayerBoard extends APP_GameClass {
         // Remove an array of tiles from plTiles
         foreach ( $tiles as $tile ) {
             unset ( $this->plTiles[ $tile['x'] ][ $tile['y'] ] );
-            // foreach ( $plTiles_x as $tile ) {
-            // }
         }
     }
 
+    function removeTilesById($tileIds) {
+        // Remove an array of tileIds from plTiles
+        $idSet = array_flip($tileIds);
+
+        $tiles = array();
+        foreach ( $this->plTiles as $plBoard_x ) {
+            foreach ( $plBoard_x as $tile ) {
+                if (array_key_exists($tile['id'], $idSet))
+                    $tiles[] = $tile;
+            }
+        }
+        $this->removeTiles($tiles);
+    }
 
     function getAdjacentTile( $tile, $side ) {
         $x = (int)$tile['x'];
@@ -253,19 +267,72 @@ class GT_PlayerBoard extends APP_GameClass {
         return $shipParts;
     }
 
-    function checkTiles() {
+    function removeInvalidParts($shipParts, $player_name) {
+        // Intended for use after checkShipIntegrity
+        // Does automatic removal of components when it can
+        // Returns index of ship parts to keep, indexing into $shipParts
+        // If more than one $partsToKeep returned then the player must make a choice
+        //  as to which part to keep 
+
+        $game = $this->game;
+
+        if (count($shipParts) <= 1)
+            return $shipParts;
+
+        $partsToKeep = [];
+        foreach ( $shipParts as $partNumber => $part ) {
+            $hasCrew = False;
+            foreach ( $part as $tileId => $tile ) {
+                if ( $game->getTileType($tileId) == 'crew' ) 
+                    $hasCrew = True;
+            }
+
+            if ($hasCrew) {
+                $partsToKeep[] = $part;
+                continue;
+            }
+
+            // no cabin was found in this part, so it has to be removed from the ship
+            $this->removeTiles(array_values($part));
+            $compToRemove = array_keys($part);
+            GT_DBContent::removeContentByTileIds($game, $compToRemove);
+            GT_DBComponent::removeComponents($game, $this->player_id, $compToRemove);
+
+            $numbComp = count($compToRemove);
+            if ( $numbComp == 1 )
+                $notifyText = clienttranslate( '${player_name} loses a component not '.
+                                                'connected to the ship');
+            else
+                $notifyText = clienttranslate( '${player_name}\'s ship doesn\'t hold together.'.
+                        ' A part with ${numbComp} components (without cabin) is removed.');
+
+            $game->notifyAllPlayers( "loseComponent", $notifyText, array(
+                    'plId' => $this->player_id,
+                    'player_name' => $player_name,
+                    'numbComp' => $numbComp,
+                    'tileIds' => $compToRemove,
+            ) );
+           
+        }
+
+        return $partsToKeep;
+    }
+
+    function checkTilesBuild() {
         $all_errors = array();
         foreach ( $this->plTiles as $plBoard_x ) {
             foreach ( $plBoard_x as $tile ) {
-                $tileErrors = $this->checkTile($tile);
+                $tileErrors = $this->checkTileBuild($tile);
+                $all_errors = array_merge($all_errors, $tileErrors);
             }
         }
         return $all_errors; 
     }
 
 
-    // checkTile is used when checking ships at the end of building
-    function checkTile($tileToCheck) {
+    // checkTileBuild is used when checking ships at the end of building
+    // looks for bad connections and tiles in front of cannons or behind engines
+    function checkTileBuild($tileToCheck) {
         $errors = array();
         $tileId = $tileToCheck['id'];
         $tileToCheckType = $this->getTileType($tileId);
@@ -278,6 +345,7 @@ class GT_PlayerBoard extends APP_GameClass {
             if ( $adjTile = $this->getAdjacentTile ($tileToCheck, $side) ) {
                 // There is one, so let's check a few things
                 $adjTileType = $this->getTileType($adjTile['id']);
+
                 // check engine placement restrictions
                 // Note: not enough for Somersault Rough Road card
                 if ( $side == 180 && $tileToCheckType == 'engine' ) {
@@ -291,7 +359,6 @@ class GT_PlayerBoard extends APP_GameClass {
                 // is a cannon that points to this tile, it's a rule error so we record it
                 if ( ($tileToCheckType == 'cannon' && $tileToCheck['o'] == $side) 
                         || ($adjTileType == 'cannon' && $side == ($adjTile['o']+180)%360) ) {
-                    //$errors[] = 'cannon_adjtile_'.$side;
                     $errors[] = array( 'tileId' => $tileId, 'side' => $side,
                         'errType' => 'cannon', 'plId' => $this->player_id,
                         'x' => $tileToCheck['x'], 'y' => $tileToCheck['y'] );
@@ -364,6 +431,14 @@ class GT_PlayerBoard extends APP_GameClass {
 
     function countDoubleEngines() {
         return $this->countTileType('engine', 2); 
+    }
+
+    function countSingleCannons() {
+        return $this->countTileType('cannon', 1); 
+    }
+
+    function countDoubleCannons() {
+        return $this->countTileType('cannon', 2); 
     }
 
     function getMinMaxStrengthX2 ( $plyrContent, $type ) {
@@ -447,43 +522,34 @@ class GT_PlayerBoard extends APP_GameClass {
         return false;
     }
    
-    function checkIfCannonOnLine ( $plyrContent, $rowOrCol, $side ) {
-        $simpleCannonPresent = false;
-        $doubleCannonPresent = false;
-    
-        // Maybe getLine() could be called just before calling checkIfCannonOnLine and $tilesOnLine
-        // passed in argument, so that it can also be used to know if there are tiles on this
-        // row/column, and which tile will be destroyed? We'll see...
-        $tilesOnLine = $this->getLine( $rowOrCol, $side );
-    
-        foreach ( $tilesOnLine as $tile ) {
-            // Is this a cannon pointing in the good direction ?
-            if ( $this->getTileType($tile['id']) == 'cannon' && $tile['o'] == $side ) {
-                // Is it a simple or double cannon?
-                switch ( $this->getTileHold($tile['id']) ) {
-                  case 1:
-                    $simpleCannonPresent = true;
-                    break 2; // Simple cannon, so we don't need to check if another cannon is
-                            // present, so break 2 to leave foreach block
-                  case 2:
-                    $doubleCannonPresent = true;
-                    break; // Double cannon, so we need to stay in this foreach loop to check
-                          // if another cannon is present, because if a simple cannon is also
-                          // present, we don't nee to check if there are cells left.
-                  default:
-                    throw new BgaVisibleSystemException( "Something went wrong in ".
-                          "checkIfCannonOnLine. Hold should be set to 1 or 2 for cannons. ".
-                          $this->plReportBug );
-                }
-            }
-        }
-        // if there is/are only double cannon(s), we must check if this player has at least
-        // one cell left
-        if ( $simpleCannonPresent )
-            return 'OK_simple';
-        elseif ( $doubleCannonPresent && ($plyrContent->checkIfCellLeft()) )
-            return 'OK_double';
+    function checkSingleCannonOnLine($rowOrCol, $side, $tilesOnLine=NULL) {
+        if (is_null($tilesOnLine)) $tilesOnLine = $this->getLine( $rowOrCol, $side );
 
+        foreach ( $tilesOnLine as $tile ) {
+            // Is this a cannon pointing in the correct direction ?
+            if (   $this->getTileType($tile['id']) == 'cannon' 
+                && $tile['o'] == $side 
+                && $this->getTileHold($tile['id']) == 1
+               )
+                return true;
+        }
+        return false;
+    }
+    
+    function checkDoubleCannonOnLine($rowOrCol, $side, $plyrContent, $tilesOnLine=NULL) {
+        if (is_null($tilesOnLine)) $tilesOnLine = $this->getLine( $rowOrCol, $side );
+
+        if (!$plyrContent->checkIfCellLeft())
+            return false;
+
+        foreach ( $tilesOnLine as $tile ) {
+            // Is this a cannon pointing in the correct direction ?
+            if (   $this->getTileType($tile['id']) == 'cannon' 
+                && $tile['o'] == $side 
+                && $this->getTileHold($tile['id']) == 2
+               )
+                return true;
+        }
         return false;
     }
 

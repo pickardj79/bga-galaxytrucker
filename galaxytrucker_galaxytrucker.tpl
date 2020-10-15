@@ -99,6 +99,7 @@
     <div id="current_card"><div id="card_rewards"></div></div>
     <div id="info_box" class="darkblock"></div>
     <div id="trash_box" class="darkblock"><h3>{AIR_LOCK}</h3></div>
+    <div id="dice_box" class="darkblock"></div>
 
 
   </div>
@@ -122,16 +123,19 @@ var jstpl_hidden_tile='<div class="hidden_tile" style="-ms-transform: rotate(${d
 var jstpl_cardBack='<div class="card_back round_${round} nb_${nb}" id="card_back_${pile}_${nb}"></div>';
 var jstpl_card='<div class="card" id="card_${id}" style="background-position:${x}px ${y}px;"></div>';
 var jstpl_square='<div class="square${cssClasses}" id="square_${plId}_${x}_${y}" style="left:${left}px; top:${top}px;"></div>';
+var jstpl_row_col='<div class="row_col row_col_${side}" id="${type}_${nbr}_${side}" style="left:${left}px; top:${top}px;"></div>';
 var jstpl_overlay_tile='<div class="overlay_tile" id="overlaytile_${i}"></div>';
 var jstpl_rev_space='<div id="rev_space_${i}" class="rev_space additional"></div>';
 
 // markers on card to aid in goods placement; circle - used for planet selection options
-var jstpl_circle='<div class="circle ${classes}" id="planet_${idx}" style="left:7px; top:${top}px;"></div>';
+var jstpl_circle='<div class="circle ${classes}" id="planet_${idx}"></div>';
+var jstpl_die='<div class="die die_${nbr} die_place_${idx}"></div>';
 
 var jstpl_order_tile='<div class="order_tile" id="order_tile_${i}"></div>';
 var jstpl_ord_tile_slot='<div class="order_tile_slot" id="ordTileSlotOnShip_${id}"></div>';
 var jstpl_ship_marker='<div class="ship_marker clr${color}" id="ship_marker_${plId}"></div>';
 var jstpl_card_marker='<div class="ship_marker clr${color}" id="card_marker_${plId}"></div>';
+var jstpl_hazard='<div class="hazard ${size} ${type} ${row_col}" id="current_hazard"></div>';
 
 var jstpl_content='<div class="content ${classes}" id="content_${content_id}"></div>';
 //var jstpl_cell='<div class="content cell ${posClass}" id="tile_${tile_id}_cell_${place}"></div>';
