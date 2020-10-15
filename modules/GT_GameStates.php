@@ -61,7 +61,7 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        $this->setCardOrder(9,1); // meteor card
+        $this->setCardOrder(8,1); // meteor card
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
@@ -179,10 +179,11 @@ class GT_GameState {
             $cargo = self::newTile(22, 7, 6, 0); // cargo north
             array_push($tiles, $cargo);
             array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above cargo 
+            array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
             array_push($tiles, self::newTile(115, 6, 7, 0)); // shield west of $startTile
             array_push($tiles, self::newTile(56, 5, 7, 0)); // hazard west of shield 
-            array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
-            array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
+            // array_push($tiles, self::newTile(98, 5, 8, 90)); // laser south of hazard 
+            // array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
             array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));
         }
         else if ($variant == 2) {

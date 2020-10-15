@@ -9,15 +9,15 @@ require_once('GT_DBPlayer.php');
 class GT_Hazards extends APP_GameClass  {
 
     function nextHazard($game, $idx) {
+        self::resetHazardProgress($game);
         $game->setGameStateValue( 'currentCardProgress', $idx);
-        $game->setGameStateValue( 'currentCardDie1', 0);
-        $game->setGameStateValue( 'currentCardDie2', 0);
     }
 
     function resetHazardProgress($game) {
         $game->setGameStateValue( 'currentCardProgress', -1);
         $game->setGameStateValue( 'currentCardDie1', 0);
         $game->setGameStateValue( 'currentCardDie2', 0);
+        $game->setGameStateValue( 'currentHazardPlayerTile', -1);
     }
 
     function getHazardRoll($game, $card, $progress=NULL) {
@@ -49,8 +49,8 @@ class GT_Hazards extends APP_GameClass  {
         $die2 = $game->getGameStateValue( 'currentCardDie2');
         $new_roll = $die1 ? FALSE : TRUE;
         if ($new_roll) {
-            $die1= 4; //bga_rand(1,6);
-            $die2= 2; //bga_rand(1,6);
+            $die1= bga_rand(1,6);
+            $die2= bga_rand(1,6);
             $game->setGameStateValue( 'currentCardDie1', $die1);
             $game->setGameStateValue( 'currentCardDie2', $die2);
             $game->log("New dice roll $die1 and $die2.");
@@ -82,7 +82,7 @@ class GT_Hazards extends APP_GameClass  {
                         'row_col' => $row_col,
                         'sizeName' => GT_Constants::$SIZE_NAMES[$size],
                         'direction' => GT_Constants::$DIRECTION_NAMES[$orient],
-                        'hazResults' => $hazResults
+                        'hazResults' => $hazResults,
                     ]
             );
         }
@@ -111,18 +111,18 @@ class GT_Hazards extends APP_GameClass  {
                       'hazResults' => $hazResults ] );
             return;
         }
+
+        // It's a hit!
+        $firstTileId = reset($tilesInLine)['id'];
+        $game->setGameStateValue( 'currentHazardPlayerTile', $firstTileId);
+        $game->log("hazard will hit tile $firstTileId");
         
         // Small meteors
         if ($hazResults['type'] == 'meteor' && $hazResults['size'] == 's') {
             // not an exposed connector, no player action needed
             if (!$brd->checkIfExposedConnector($roll, $hazResults['orient'])) {
-                $game->notifyAllPlayers( "hazardHarmless", 
-                    clienttranslate( 'Meteor bounces off ${player_name}\'s ship'),
-                    [   'player_name' => $player['player_name'],
-                        'player_id' => $player['player_id'],
-                        'tile' => reset($tilesInLine),
-                        'hazResults' => $hazResults
-                    ]);
+                $msg = clienttranslate( 'Meteor bounces off ${player_name}\'s ship');
+                self::_hazardHarmless($game, $player, $msg, $firstTileId, $hazResults);
                 return;
             }
 
@@ -130,54 +130,120 @@ class GT_Hazards extends APP_GameClass  {
             $plyrContent = $game->newPlayerContent($player['player_id']);
             if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
                 $actionNeeded = self::_hazardDamage(
-                    $game, $player, $brd, $plyrContent, reset($tilesInLine), 
-                    'meteor strike.', $hazResults);
+                    $game, $player, $brd, $firstTileId, $hazResults);
 
                 return $actionNeeded ? 'shipDamage' : NULL;
             }
-            // TODO - notif about meteor striking exposed connector and player having to decide
+            $game->notifyAllPlayers("onlyLogMessage", 
+                clienttranslate('${player_name} must decide to activate a shield'),
+                ['player_name' => $player['player_name']]
+            );
+
             return 'powerShields';
         }
 
         // Big meteors
         if ($hazResults['type'] == 'meteor' && $hazResults['size'] == 'b') {
-            $game->notifyAllPlayers( "hazardMissed", 
-                    clienttranslate( 'Meteor missed ${player_name}\'s ship'), 
-                    [ 'player_name' => $player['player_name'], 
-                      'player_id' => $player['player_id'],
-                      'hazResults' => $hazResults ] );
-            // TODO - temporary
-            return;
+            // This assumes that big meteors cannot come from the rear - the rules do not handle this case
+            $singleCannon = $brd->checkSingleCannonOnLine(
+                $roll, $hazResults['orient'], $tilesInLine);
+
+            if ($hazResults['orient'] != 0) {
+                $single1 = $brd->checkSingleCannonOnLine(
+                    $roll - 1, $hazResults['orient']);
+                $single2 = $brd->checkSingleCannonOnLine(
+                    $roll + 1, $hazResults['orient']);
+
+                $singleCannon = $singleCannon || $single1 || $single2; 
+            }
+
+            if ($singleCannon) {
+                $msg = clienttranslate( 'Meteor shot by ${player_name}\'s cannon');
+                self::_hazardHarmless($game, $player, $msg, $firstTileId, $hazResults);
+                return;
+            }
+
+            // Now check for double cannons
+            $plyrContent = $game->newPlayerContent($player['player_id']);
+
+            $doubleCannon = $brd->checkDoubleCannonOnLine(
+                $roll, $hazResults['orient'], $plyrContent, $tilesInLine);
+
+            if ($hazResults['orient'] != 0) {
+                $double1 = $brd->checkDoubleCannonOnLine(
+                    $roll - 1, $hazResults['orient'], $plyrContent, $tilesInLine);
+                $double2 = $brd->checkDoubleCannonOnLine(
+                    $roll + 1, $hazResults['orient'], $plyrContent, $tilesInLine);
+
+                $doubleCannon = $doubleCannon || $double1 || $double2; 
+            }
+
+            if ($doubleCannon) {
+                $game->notifyAllPlayers("onlyLogMessage", 
+                    clienttranslate('${player_name} must decide to activate a cannon'),
+                    ['player_name' => $player['player_name']]
+                );
+
+                return 'powerCannons';
+            }
+
+            // No cannons available - damage :(
+            $actionNeeded = self::_hazardDamage(
+                $game, $player, $brd, $firstTileId, $hazResults);
+
+            return $actionNeeded ? 'shipDamage' : NULL;
         }
     }
 
+    function hazardHarmless($game, $player, $msg, $card) {
+        // Wrapper for _hazardHarmless to collect hazard-related DB information
+        // $msg must already be clienttranslate'd, can have '$player_name' in it
+        $tileId = $game->getGameStateValue( 'currentHazardPlayerTile'); 
+        $hazResults = self::getHazardRoll($game, $card);
+        return self::_hazardHarmless($game, $player, $msg, $tileId, $hazResults);
+    }
+
+    function _hazardHarmless($game, $player, $msg, $tileId, $hazResults) {
+        // $msg must already be clienttranslate'd, can have '$player_name' in it
+        $game->notifyAllPlayers("hazardHarmless", $msg,
+            [   'player_name' => $player['player_name'],
+                'player_id' => $player['player_id'],
+                'tileId' => $tileId,
+                'hazResults' => $hazResults
+            ]
+        );
+    }
+
     function hazardDamage($game, $plId, $card) {
+        // Wrapper for _hazardDamage to collect hazard-related DB information
+        $game->log("hazardDamage for player $plId card {$card['id']}");
         $player = GT_DBPlayer::getPlayer($game, $plId);
         $brd = $game->newPlayerBoard($player['player_id']);
         $hazResults = self::getHazardRoll($game, $card);
-        return self::_hazardDamage($game, $player, $brd, Null, ...,..., $hazResults);
+        $tileId = $game->getGameStateValue( 'currentHazardPlayerTile');
+        return self::_hazardDamage($game, $player, $brd, $tileId, $hazResults);
     }
 
-    function _hazardDamage($game, $player, $brd, $plyrContent=Null, $tile, $msg, $hazResults) {
-        // see notifyAllPlayers for how $msg fits
-        GT_DBComponent::removeComponents($game, $player['player_id'], [$tile['id']]);
-        GT_DBContent::removeContentByTileIds($game, [$tile['id']]);
-        $brd->removeTiles([$tile]);
+    function _hazardDamage($game, $player, $brd, $tileId, $hazResults) {
+        $game->dump_var("_hazardDamage to tile $tileId, hazResults", $hazResults);
+        GT_DBComponent::removeComponents($game, $player['player_id'], [$tileId]);
+        GT_DBContent::removeContentByTileIds($game, [$tileId]);
+        $brd->removeTilesById([$tileId]);
         $game->notifyAllPlayers( "loseComponent", 
-            clienttranslate( '${player_name} loses ${typename} tile from ${msg}'),
+            clienttranslate( '${player_name} loses ${tiletype} tile from ${haztype} strike'),
             [   'player_name' => $player['player_name'],
-                'msg' => $msg,
-                'typename' => $game->getTileTypeName($tile['id']),
+                'haztype' => $hazResults['type'],
+                'tiletype' => $game->getTileTypeName($tileId),
                 'plId' => $player['player_id'],
                 'numbComp' => 1,
-                'tileIds' => [ $tile['id'] ],
+                'tileIds' => array_values([ $tileId ]),
                 'hazResults' => $hazResults
             ]);
 
         $shipParts = $brd->checkShipIntegrity();
         $partsToKeep = $brd->removeInvalidParts($shipParts, $player['player_name']);
 
-        $game->updNotifPlInfosObj($player['player_id'], $brd, $plyrContent);
+        $game->updNotifPlInfosObj($player['player_id'], $brd);
 
         if (count($partsToKeep) > 1) {
             // TODO: notify with $partsToKeep

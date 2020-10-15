@@ -46,6 +46,7 @@ class GTFE_Card {
         dojo.style( 'dice_box', 'display', 'none' );
 
         // place planet elements
+        dojo.query('.planet').forEach(dojo.destroy);
         for (let i = 1; i <= 4; i++) {
             dojo.place( game.format_block('jstpl_circle', 
                 { idx: i, classes: "planet" }), 'current_card'
@@ -57,7 +58,7 @@ class GTFE_Card {
 
         if (this.curHazard && this.curHazard.die1 != "0") { 
             this._placeDice(this.curHazard.die1, this.curHazard.die2); 
-            if (this.card_line_done[game.player_id]['card_line_done'] == 0)
+            if (this.card_line_done[game.player_id]['card_line_done'] != 2)
                 this._placeHazard(this.curHazard)
         }
 
@@ -81,13 +82,23 @@ class GTFE_Card {
         payload['ids_str'] = payload['ids'].join();
 
         // Returns false if payload was not processed
-        if (! payload['contentType'] in ['engine', 'crew']) {
+        if (! payload['contentType'] in ['engine', 'cannon', 'shield', 'crew']) {
             this.game.throw_bug_report("Unknown content type in GTFE_Card.processContentChoice");
             return true;
         }
-        if (payload['contentType'] == 'engine' && payload['str'] == 0) {
+        if (payload['contentType'] == 'engine' && payload['strength'] == 0) {
             let msg = 'Are you sure you do not want to power any engines?'
             this.game.giveUpDialog(msg, 'contentChoice.html', payload);
+            return true;
+        }
+        if (payload['contentType'] == 'cannon' && payload['strength'] == 0 && this.type == 'meteoric') {
+            let msg = 'Are you sure you do not want to power cannons. Your ship will be damaged!';
+            this.game.confirmDialog(msg, 'contentChoice.html', payload);
+            return true;
+        }
+        if (payload['contentType'] == 'shield' && payload['strength'] == 0) {
+            let msg = 'Are you sure you do not want to power shields. Your ship will be damaged!';
+            this.game.confirmDialog(msg, 'contentChoice.html', payload);
             return true;
         }
 
@@ -208,16 +219,17 @@ class GTFE_Card {
     }
 
     /// ################# HAZARDS #########################
-    notif_hazardDiceRoll(args) {
+    notif_hazardDiceRoll(args, gaveUp) {
         let game = this.game;
 
         // don't turn off dice_box, clean-up code will do so
 
-        console.log("placing hazard with", args, args.hazResults.die1);
+        console.log("placing hazard with", args, args.hazResults.die1, gaveUp);
         let anim = game.myFadeOutAndDestroy(dojo.query('.die','dice_box'), 500);
         dojo.connect(anim, "onEnd", () => {
             this._placeDice(args.hazResults.die1, args.hazResults.die2);
-            this._placeHazard(args.hazResults);
+            if (!gaveUp)
+                this._placeHazard(args.hazResults);
         } );
         anim.play();
     }

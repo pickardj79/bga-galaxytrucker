@@ -169,7 +169,10 @@ function (dojo, declare) {
                 var shipPos = ( +(player.player_position)+40 ) % 40;
                 dojo.place( this.format_block( 'jstpl_ship_marker',
                         { plId: player.id, color: player.color } ), 'flight_pos_'+shipPos );
+                this.playerGaveUp = false;
             }
+            else
+                this.playerGaveUp = true;
         }
 
 
@@ -305,8 +308,7 @@ function (dojo, declare) {
         //                  You can use this method to perform some user interface changes at this moment.
         //
     onEnteringState: function( stateName, args ) {
-        console.log( 'Entering state: '+stateName );
-        console.log( 'args for state: ', args.args);
+        console.log( 'Entering state: '+stateName + ' with args', args.args);
         this.stateName = stateName;
 
         let noEntering = ['drawCard', 'notImpl', 'gameEnd', 
@@ -394,7 +396,6 @@ function (dojo, declare) {
         case 'epidemic':
         case 'sabotage':
         case 'loseGoods':
-        case 'powerCannons':
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
@@ -407,9 +408,15 @@ function (dojo, declare) {
                     args.args.maxSel, false, 
                     args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
+        case 'powerCannons':
+            if ( this.isCurrentPlayerActive() )
+                this.ship.prepareContentChoice('cannon', 
+                    args.args.maxSel, false, 
+                    args.args.baseStr, args.args.maxStr, args.args.hasAlien);
+            break;
         case 'powerShields':
             if (this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('shield', 1, true);
+                this.ship.prepareContentChoice('shield', 1, false);
             break;
         case 'chooseCrew':
             if ( this.isCurrentPlayerActive() ) 
@@ -443,7 +450,7 @@ function (dojo, declare) {
         console.log( 'Leaving state: '+stateName );
 
         let noLeaving = ['drawCard', 'notImpl', 'gameEnd', 
-            'abandoned', 'planet', 'stardust',
+            'openspace', 'abandoned', 'planet', 'stardust',
         ];
         if (noLeaving.includes(stateName))
             return;
@@ -483,13 +490,13 @@ function (dojo, declare) {
          
         // Not implemented
         case 'meteoric':
-        case 'powerCannons': // probably this will use onLeavingContentChoice
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
             this.wholeCrewWillLeave = false;
             break;
         case 'powerEngines':
+        case 'powerCannons': 
         case 'powerShields': 
         case 'chooseCrew':
             this.ship.onLeavingContentChoice();
@@ -529,8 +536,12 @@ function (dojo, declare) {
         case 'powerEngines' :
             this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
+        case 'powerCannons' :
+            this.addActionButton( 'button_cancelCannons', _('Pass'), 'onCancelCannons' );
+            this.addActionButton( 'button_powerCannons', _('Validate'), 'onValidateContentChoice' );
+            break;
         case 'powerShields' :
-            this.addActionButton( 'button_cancelShields', _('Cancel'), 'onCancelShields' );
+            this.addActionButton( 'button_cancelShields', _('Pass'), 'onCancelShields' );
             this.addActionButton( 'button_powerShields', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'exploreAbandoned' :
@@ -973,13 +984,18 @@ function (dojo, declare) {
     },
 
     giveUpDialog: function(msg, endpoint, payload) {
+        let fullMsg = msg + ' You will have to give up for this flight.';
+        this.confirmDialog(fullMsg, endpoint, payload);
+    },
+
+    confirmDialog: function(msg, endpoint, payload) {
         // Confirm player wants to give up, make specified ajax call on confirmed
         // msg: Question to ask player, untranslated.
         // endpoint: e.g. exploreChoice.html
         // payload: dict to send with ajax call, will have lock:true added
-        console.log('confirm ok?');
+        console.log('confirm ok?', endpoint, payload);
         if (!'lock' in payload) payload['lock'] = true;
-        this.confirmationDialog( _(msg + ' You will have to give up for this flight.'),
+        this.confirmationDialog( _(msg),
             dojo.hitch( this, function() {
                 this.ajaxcall( '/galaxytrucker/galaxytrucker/' + endpoint,
                                 payload, 
@@ -1296,9 +1312,20 @@ function (dojo, declare) {
             this.ajaxAction( 'contentChoice', payload );
     },
 
-    onPowerShields: function(evt) {
-        console.log( 'onExploreChoice - might meld with onValidateContentChoice' );
-        this.ajaxAction('contentChoice', { 'ids': {}, 'contentType': 'shield', 'ids_str': ''});
+    onCancelCannons: function(evt) {
+        // Just a wrapper around choosing nothing
+        console.log( 'onCancelCannons' );
+        if ( !this.checkAction( 'contentChoice' ) )
+            return;
+        this.onValidateContentChoice(evt);
+    },
+
+    onCancelShields: function(evt) {
+        // Just a wrapper around choosing nothing
+        console.log( 'onCancelShields' );
+        if ( !this.checkAction( 'contentChoice' ) )
+            return;
+        this.onValidateContentChoice(evt);
     },
 
     onExploreChoice: function( evt ) {
@@ -1792,7 +1819,7 @@ function (dojo, declare) {
 
     notif_cardDrawn: function( notif ) {
         console.log( 'notif_cardDrawn', notif );
-        this.card.setId(notif.args.cardId).setupImage();
+        this.card = new GTFE_Card(this, notif.args.cardId, notif.args.cardData).setupImage();
     },
 
     notif_moveShip: function( notif ) {
@@ -1806,6 +1833,7 @@ function (dojo, declare) {
         console.log( 'notif_giveUp', notif );
         this.slideToObjectAndDestroy( 'ship_marker_'+notif.args.player_id, 
                               'overall_player_board_' + notif.args.player_id, 1500 );
+        this.playerGaveUp = true;
     },
 
     notif_gainContent: function(notif) {
@@ -1837,11 +1865,14 @@ function (dojo, declare) {
 
     notif_hazardDiceRoll: function(notif) {
         console.log("notif_hazardDiceRoll", notif.args);
-        this.card.notif_hazardDiceRoll(notif.args);
+        this.card.notif_hazardDiceRoll(notif.args, this.playerGaveUp);
     },
 
     notif_hazardMissed: function(notif) {
         console.log("notif_hazardMissed", notif.args);
+        if (this.playerGaveUp)
+            return;
+
         // if there's not a player_id then this applies to all players
         // if there is a player_id, only use this for the active player
         if (notif.args.player_id === undefined || notif.args.player_id == this.player_id)
@@ -1851,7 +1882,7 @@ function (dojo, declare) {
     notif_hazardHarmless: function(notif) {
         console.log("notif_hazardHarmless", notif.args);
         if (this.player_id == notif.args.player_id)
-            this.card.hazardHit(notif.args.tile.id, notif.args.hazResults);
+            this.card.hazardHit(notif.args.tileId, notif.args.hazResults);
     },
 
     notif_newRound: function( notif ) {

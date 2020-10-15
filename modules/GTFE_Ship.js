@@ -4,6 +4,8 @@ class GTFE_Ship {
         'cannon' : undefined,
         'engine' : "<p>"+_('Engine strength:')+" <span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>",
+        'cannon' : "<p>"+_('Cannon strength:')+" <span id='curr_sel'>${curr}</span></p>"+
+            "<p>"+_('Max cannon strength:')+" <span id='max_str'>${max}</span></p>",
         'shield' : "<p>"+_('Shield powered:')+" <span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Shield required:')+" <span id='max_str'>${max}</span></p>",
         'crew' : "<p>"+_('Crew selected:')+"<span id='curr_sel'>${curr}</span></p>"+
@@ -153,12 +155,11 @@ class GTFE_Ship {
     selectedStr() {
         // strength of selected items including aliens and base strength
         switch ( this._typeToSelect ) {
+            case 'cannon':
             case 'engine':
                 var currentStrength = this._baseStrength + this._nbSelected*2;
                 console.log('base strength: ', this._baseStrength);
                 console.log('current strength: ', currentStrength);
-                // dojo.query is temporary, I'll use something more reliable when
-                // the changes in content table are done.
                 if ( this._baseStrength==0 && this._nbSelected>0 && this._hasAlien ) {
                     // baseStrength == 0 means that the alien bonus (if present) is not counted
                     // in baseStrength (because no simple engine/cannon), so we must add it if
@@ -195,7 +196,7 @@ class GTFE_Ship {
         return {
             ids: divids.map( i => this.game.getPart(i.id, 1) ),
             contentType: this._typeToSelect,
-            str: this.selectedStr()
+            strength: this.selectedStr()
         }
     }
 

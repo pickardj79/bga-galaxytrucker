@@ -25,7 +25,7 @@ class GT_PlayerContent extends APP_GameClass {
             $this->checkContentById($battId, 'cell');
         }
 
-        if ( $nbBatt > $maxCnt )
+        if ( count($battChoices) > $maxCnt )
             $this->game->throw_bug_report("Error: too many batteries selected (more than double engines). ");
     }
 
@@ -155,7 +155,7 @@ class GT_PlayerContent extends APP_GameClass {
         $tile = GT_DBComponent::getActiveComponent($this->game, $tileId);
         
         if ($tile['component_player'] != $this->player_id)
-            $this->game->throw_bug_report("Wrong player for tile", $tile);
+            $this->game->throw_bug_report_dump("Wrong player for tile", $tile);
 
         $rows = array();
         foreach ( $goodsIds as $id) {

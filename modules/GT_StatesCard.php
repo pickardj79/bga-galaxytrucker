@@ -63,6 +63,7 @@ class GT_StatesCard extends APP_GameClass {
                             'cardTypeStr' => $game->cardNames[$cardType],
                             'cardRound' => $game->card[ $currentCard ]['round'],
                             'cardId' => $currentCard,
+                            'cardData' => self::currentCardData($game)
                             ) );
         }
 
@@ -172,7 +173,10 @@ class GT_StatesCard extends APP_GameClass {
         $card = $game->card[$cardId];
 
         $idx = $game->getGameStateValue( 'currentCardProgress');
-        if ($idx < 0) $idx = 0; // start of the card
+        if ($idx < 0) {
+            $idx = 0; // start of the card
+            GT_Hazards::nextHazard($game, 0);
+        }
 
         $game->dump_var("Entering meteor with current card $cardId Meteor $idx.", $card);
         while ($idx < count($card['meteors'])) {
@@ -192,13 +196,12 @@ class GT_StatesCard extends APP_GameClass {
             // Go through players until finding one that has to act
             $players = GT_DBPlayer::getPlayersForCard($game);
             foreach ( $players as $plId => $player ) {
-                $game->log("Working on player $plId, index $idx.");
+                $game->log("stMeteoric for player $plId, index $idx.");
                 $nextState = GT_Hazards::applyHazardToShip($game, $hazResults, $player);
                 $game->log("Got $nextState");
                 if ($nextState) {
                     GT_DBPlayer::setCardInProgress($game, $plId);
                     $game->gamestate->changeActivePlayer( $plId );
-                    // TODO - within nextState - mark player done for card
                     return $nextState;
                 } 
             }
@@ -213,7 +216,7 @@ class GT_StatesCard extends APP_GameClass {
         return 'nextCard';
     }
 
-    // ###################### HELPER ##########################
+    // ###################### HELPERS ##########################
 
 }
 

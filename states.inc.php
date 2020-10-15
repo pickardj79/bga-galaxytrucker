@@ -275,7 +275,8 @@ $machinestates = array(
         "transitions" => array( 
             "nextCard" => STATE_DRAW_CARD,
             "shipDamage" => STATE_SHIP_DAMAGE,
-            "powerShields" => STATE_POWER_SHIELDS)
+            "powerShields" => STATE_POWER_SHIELDS,
+            "powerCannons" => STATE_POWER_CANNONS)
     ),
     
     STATE_PLANETS => array(
@@ -312,7 +313,7 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPowerEngines",
         "possibleactions" => array( "contentChoice" ),
-        "transitions" => array( "nextPlayer" => STATE_OPEN_SPACE ) // or "enginesPowered"?
+        "transitions" => array( "nextPlayer" => STATE_OPEN_SPACE )
     ),
 
     STATE_POWER_SHIELDS => array(
@@ -321,6 +322,16 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must choose a battery for activating a shield'),
         "type" => "activeplayer",
         "args" => "argPowerShields",
+        "possibleactions" => array( "contentChoice" ),
+        "transitions" => array( "nextMeteor" => STATE_METEORIC)
+    ),
+
+    STATE_POWER_CANNONS => array(
+        "name" => "powerCannons",
+        "description" => clienttranslate('${actplayer} must choose a battery for activating cannons'),
+        "descriptionmyturn" => clienttranslate('${you} must choose a battery for activating cannons'),
+        "type" => "activeplayer",
+        "args" => "argPowerCannons",
         "possibleactions" => array( "contentChoice" ),
         "transitions" => array( "nextMeteor" => STATE_METEORIC)
     ),

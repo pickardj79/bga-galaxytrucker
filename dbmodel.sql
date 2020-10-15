@@ -88,8 +88,12 @@ ALTER TABLE `player` ADD `max_eng` TINYINT unsigned DEFAULT NULL;
 ALTER TABLE `player` ADD `min_cann_x2` TINYINT unsigned DEFAULT NULL;
 ALTER TABLE `player` ADD `max_cann_x2` TINYINT unsigned DEFAULT NULL;
 -- Multiplied by 2 in order to avoid float imprecision when comparing
+ALTER TABLE `player` ADD `num_dbl_eng` TINYINT unsigned DEFAULT NULL;
+ALTER TABLE `player` ADD `num_dbl_cann` TINYINT unsigned DEFAULT NULL;
 ALTER TABLE `player` ADD `card_line_done` TINYINT unsigned NOT NULL DEFAULT 0;
+-- card_line_done set to 1 for player in the middle of resolving, set to 2 for fully done with this card
 ALTER TABLE `player` ADD `card_action_choice` TINYINT unsigned NOT NULL DEFAULT 0;
+-- card_action_choice is used to store a card-specific choice, for example the planet number choosen by each player
 
 CREATE TABLE IF NOT EXISTS `content` (
   `content_id` SMALLINT unsigned NOT NULL AUTO_INCREMENT,

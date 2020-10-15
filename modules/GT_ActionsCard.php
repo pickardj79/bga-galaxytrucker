@@ -115,18 +115,34 @@ class GT_ActionsCard extends APP_GameClass {
         }
     }
 
-    function powerShields($game, $plId, $card, $battChoices) {
+
+    function powerDefense($game, $plId, $card, $battChoices, $defenseType) {
+        // Powering shields or cannons against incoming laser or meteors
         if (count($battChoices) == 0) {
             GT_Hazards::hazardDamage($game, $plId, $card);
         }
         else {
+            $player = GT_DBPlayer::getPlayer($game, $plId);
+            if ($defenseType == 'shields') {
+                if ($card['type'] == 'meteoric')
+                    $msg = clienttranslate( 'Meteor deflected by ${player_name}\'s shield');
+                else
+                    $msg = clienttranslate( 'Laser blast deflected by ${player_name}\'s shield');
+            }
+            elseif ($defenseType == 'cannons') {
+                $msg = clienttranslate( 'Meteor blasted by ${player_name}\'s cannon');
+            }
+            else
+                $game->throw_bug_report("Invalid defenseType ($defenseType) for powerDefense");
+
+            GT_Hazards::hazardHarmless($game, $player, $msg, $card);
+
             $plyrContent = $game->newPlayerContent($plId);
             $plyrContent->checkBattChoices($battChoices, 1);
             $plyrContent->loseContent($battChoices, 'cell', false);
-            $game->updNotifPlInfosObj($plId, NULL, $plyrContent);
         }
     }
-
+    
     function planetChoice($game, $plId, $cardId, $choice) {
         if (!$choice) {
             GT_DBPlayer::setCardDone($game, $plId);

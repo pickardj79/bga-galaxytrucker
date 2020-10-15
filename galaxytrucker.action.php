@@ -147,10 +147,12 @@
       switch ($contType) { 
         case 'engine':
           $this->game->powerEngines( $contChoices ); break;
-        case 'crew':
-          $this->game->crewChoice( $contChoices ); break;
+        case 'cannon':
+          $this->game->powerCannons( $contChoices ); break;  
         case 'shield':
           $this->game->powerShields( $contChoices ); break;  
+        case 'crew':
+          $this->game->crewChoice( $contChoices ); break;
         default:
           $this->game->throw_bug_report("Unknown contentType `$contType` in action.php contentChoice");
       }

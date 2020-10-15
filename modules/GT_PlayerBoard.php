@@ -27,11 +27,22 @@ class GT_PlayerBoard extends APP_GameClass {
         // Remove an array of tiles from plTiles
         foreach ( $tiles as $tile ) {
             unset ( $this->plTiles[ $tile['x'] ][ $tile['y'] ] );
-            // foreach ( $plTiles_x as $tile ) {
-            // }
         }
     }
 
+    function removeTilesById($tileIds) {
+        // Remove an array of tileIds from plTiles
+        $idSet = array_flip($tileIds);
+
+        $tiles = array();
+        foreach ( $this->plTiles as $plBoard_x ) {
+            foreach ( $plBoard_x as $tile ) {
+                if (array_key_exists($tile['id'], $idSet))
+                    $tiles[] = $tile;
+            }
+        }
+        $this->removeTiles($tiles);
+    }
 
     function getAdjacentTile( $tile, $side ) {
         $x = (int)$tile['x'];
@@ -422,6 +433,14 @@ class GT_PlayerBoard extends APP_GameClass {
         return $this->countTileType('engine', 2); 
     }
 
+    function countSingleCannons() {
+        return $this->countTileType('cannon', 1); 
+    }
+
+    function countDoubleCannons() {
+        return $this->countTileType('cannon', 2); 
+    }
+
     function getMinMaxStrengthX2 ( $plyrContent, $type ) {
         // $type can be 'cannon' or 'engine'
         // Strength is multiplied by 2 throughout the process, till it is compared to ennemy
@@ -503,43 +522,34 @@ class GT_PlayerBoard extends APP_GameClass {
         return false;
     }
    
-    function checkIfCannonOnLine ( $plyrContent, $rowOrCol, $side ) {
-        $simpleCannonPresent = false;
-        $doubleCannonPresent = false;
-    
-        // Maybe getLine() could be called just before calling checkIfCannonOnLine and $tilesOnLine
-        // passed in argument, so that it can also be used to know if there are tiles on this
-        // row/column, and which tile will be destroyed? We'll see...
-        $tilesOnLine = $this->getLine( $rowOrCol, $side );
-    
-        foreach ( $tilesOnLine as $tile ) {
-            // Is this a cannon pointing in the good direction ?
-            if ( $this->getTileType($tile['id']) == 'cannon' && $tile['o'] == $side ) {
-                // Is it a simple or double cannon?
-                switch ( $this->getTileHold($tile['id']) ) {
-                  case 1:
-                    $simpleCannonPresent = true;
-                    break 2; // Simple cannon, so we don't need to check if another cannon is
-                            // present, so break 2 to leave foreach block
-                  case 2:
-                    $doubleCannonPresent = true;
-                    break; // Double cannon, so we need to stay in this foreach loop to check
-                          // if another cannon is present, because if a simple cannon is also
-                          // present, we don't nee to check if there are cells left.
-                  default:
-                    throw new BgaVisibleSystemException( "Something went wrong in ".
-                          "checkIfCannonOnLine. Hold should be set to 1 or 2 for cannons. ".
-                          $this->plReportBug );
-                }
-            }
-        }
-        // if there is/are only double cannon(s), we must check if this player has at least
-        // one cell left
-        if ( $simpleCannonPresent )
-            return 'OK_simple';
-        elseif ( $doubleCannonPresent && ($plyrContent->checkIfCellLeft()) )
-            return 'OK_double';
+    function checkSingleCannonOnLine($rowOrCol, $side, $tilesOnLine=NULL) {
+        if (is_null($tilesOnLine)) $tilesOnLine = $this->getLine( $rowOrCol, $side );
 
+        foreach ( $tilesOnLine as $tile ) {
+            // Is this a cannon pointing in the correct direction ?
+            if (   $this->getTileType($tile['id']) == 'cannon' 
+                && $tile['o'] == $side 
+                && $this->getTileHold($tile['id']) == 1
+               )
+                return true;
+        }
+        return false;
+    }
+    
+    function checkDoubleCannonOnLine($rowOrCol, $side, $plyrContent, $tilesOnLine=NULL) {
+        if (is_null($tilesOnLine)) $tilesOnLine = $this->getLine( $rowOrCol, $side );
+
+        if (!$plyrContent->checkIfCellLeft())
+            return false;
+
+        foreach ( $tilesOnLine as $tile ) {
+            // Is this a cannon pointing in the correct direction ?
+            if (   $this->getTileType($tile['id']) == 'cannon' 
+                && $tile['o'] == $side 
+                && $this->getTileHold($tile['id']) == 2
+               )
+                return true;
+        }
         return false;
     }
 

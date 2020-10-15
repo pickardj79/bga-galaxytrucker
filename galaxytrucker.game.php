@@ -63,6 +63,7 @@ class GalaxyTrucker extends Table {
             "currentCardProgress" => 22,   // which part of card is in progress, e.g. which meteor #
             "currentCardDie1" => 23,   // what is the current die roll being resolved
             "currentCardDie2" => 24,   
+            "currentHazardPlayerTile" => 25,   
             "testGameState" => 99, // use a test scenario from GT_GameStates 
 
             // flight_variants is a game option (gameoptions.inc.php)
@@ -117,6 +118,10 @@ class GalaxyTrucker extends Table {
     self::setGameStateInitialValue( 'flight', 1 );
     self::setGameStateInitialValue( 'cardOrderInFlight', 0 );
     self::setGameStateInitialValue( 'currentCard', null );
+    self::setGameStateInitialValue( 'currentCardProgress', null );
+    self::setGameStateInitialValue( 'currentCardDie1', null );
+    self::setGameStateInitialValue( 'currentCardDie2', null );
+    self::setGameStateInitialValue( 'currentHazardPlayerTile', null ); // Tile of current player threatened by the hazard
     self::setGameStateInitialValue( 'round', 1 ); // will be changed in stPrepareRound
                         // in case of a short flight variant that begins with a level 2 flight
     self::setGameStateInitialValue( 'timerStartTime', 0 );
@@ -422,7 +427,7 @@ class GalaxyTrucker extends Table {
       //  not the associated objects 
       $brd = $this->newPlayerBoard($plId, $plBoard);
       $plyrContent = $this->newPlayerContent($plId, $plContent);
-      return updNotifPlInfosObj($plId, $brd, $plyrContent);
+      return $this->updNotifPlInfosObj($plId, $brd, $plyrContent);
   }
 
   function updNotifPlInfosObj( $plId, $plBrd=null, $plyrContent=null) {
@@ -437,6 +442,8 @@ class GalaxyTrucker extends Table {
 
     $minMaxCann = $plBrd->getMinMaxStrengthX2 ( $plyrContent, 'cannon' );
     $minMaxEng = $plBrd->getMinMaxStrengthX2 ( $plyrContent, 'engine' );
+    $dblCann = $plBrd->countDoubleCannons();
+    $dblEng = $plBrd->countDoubleEngines();
     $items = array ( array (
                         'type' => 'minMaxCann',
                         'value' => ($minMaxCann['min']/2)."/".($minMaxCann['max']/2),
@@ -457,13 +464,19 @@ class GalaxyTrucker extends Table {
     $items[] = array ( 'type' => "expConn", 'value' => $nbExp );
 
     $sql .= "min_cann_x2=".$minMaxCann['min'].", max_cann_x2=".$minMaxCann['max'].", ".
-            "min_eng=".($minMaxEng['min']/2).", max_eng=".($minMaxEng['max']/2)." ".
+            "min_eng=".($minMaxEng['min']/2).", max_eng=".($minMaxEng['max']/2).", ".
+            "num_dbl_eng={$dblEng}, num_dbl_cann={$dblCann} ".
             "WHERE player_id=$plId";
     self::DbQuery( $sql );
     self::notifyAllPlayers( "updatePlBoardItems", "", array(
                   'plId' => $plId,
                   'items' => $items,
                   ) );
+    
+    // If player has zero crew, then they have to give up
+    if (count($plyrContent->getContent('crew', 'human')) == 0) {
+        self::newFlightBoard()->giveUp($plId, 'lost all humans');
+    }
   }
 
   function getConnectorType( $tile, $side ) {
@@ -635,9 +648,27 @@ class GalaxyTrucker extends Table {
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
-      GT_ActionsCard::powerShields($this, $plId, $card, $battChoices); 
+      GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
       GT_DBPlayer::setCardDone($this, $plId);
-      $this->gamestate->nextState( 'nextMeteor' );
+      if ($this->card[$cardId]['type'] == 'meteoric')
+          $this->gamestate->nextState('nextMeteor');
+      else
+          $this->gamestate->nextState('notImpl');
+  }
+
+  function powerCannons( $battChoices ) {
+      self::checkAction( 'contentChoice' );
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      GT_DBPlayer::setCardDone($this, $plId);
+
+      if ($this->card[$cardId]['type'] == 'meteoric') {
+          GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons'); 
+          $this->gamestate->nextState('nextMeteor');
+      }
+      else
+          $this->gamestate->nextState('notImpl');
   }
 
   function exploreChoice( $choice ) {
@@ -740,8 +771,13 @@ class GalaxyTrucker extends Table {
       $player_id = self::getCurrentPlayerId();
       $brd = $this->newPlayerBoard($player_id);
       $plyrContent = $this->newPlayerContent($player_id);
-      $ret = $brd->checkIfCannonOnLine( $plyrContent, $rowOrCol, $sideToCheck );
-      $msg = "###### checkIfCannonOnLine() returns ".var_export( $ret, true )." ";
+      $singRet = $brd->checkSingleCannonOnLine( $rowOrCol, $sideToCheck );
+      $msg = "###### checkIfSingleCannonOnLine() returns ".var_export( $singRet, true )." ";
+      self::trace($msg);
+      self::log_console($msg);
+
+      $doubRet = $brd->checkDoubleCannonOnLine( $rowOrCol, $sideToCheck, $plyrContent );
+      $msg = "###### checkIfDoubleCannonOnLine() returns ".var_export( $doubRet, true )." ";
       self::trace($msg);
       self::log_console($msg);
   }
@@ -778,15 +814,26 @@ class GalaxyTrucker extends Table {
 
     function argPowerEngines() {
         $plId = self::getActivePlayerId();
-        $player = self::getObjectFromDb( "SELECT min_eng, max_eng FROM player ".
+        $player = self::getObjectFromDb( "SELECT min_eng, max_eng, num_dbl_eng FROM player ".
                                 "WHERE player_id=".$plId );
-        $nbDoubleEngines = $this->newPlayerBoard($plId)->countDoubleEngines( $plId );
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_eng'], 
                       'maxStr' => $player['max_eng'],
-                      'maxSel' => ( min( $nbDoubleEngines, $nbCells ) ),
+                      'maxSel' => ( min( $player['num_dbl_eng'], $nbCells ) ),
                       'hasAlien' => $plyrContent->checkIfAlien('brown')  ) ;
+    }
+
+    function argPowerCannons() {
+        $plId = self::getActivePlayerId();
+        $player = self::getObjectFromDb( "SELECT min_cann_x2, max_cann_x2, num_dbl_cann FROM player ".
+                                "WHERE player_id=".$plId );
+        $plyrContent = $this->newPlayerContent( $plId );
+        $nbCells = $plyrContent->checkIfCellLeft();
+        return array( 'baseStr' => $player['min_cann_x2']/2, 
+                      'maxStr' => $player['max_cann_x2']/2,
+                      'maxSel' => ( min( $player['num_dbl_cann'], $nbCells ) ),
+                      'hasAlien' => $plyrContent->checkIfAlien('purple')  ) ;
     }
 
     function argPowerShields() {

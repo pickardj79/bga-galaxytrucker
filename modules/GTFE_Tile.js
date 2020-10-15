@@ -7,9 +7,23 @@ class GTFE_Tile {
             id = id.split("_")[1];
         this.game = game;
         this.id = id;
-        this.nodeId = "tile_" + id;
         this.type = game.tiles[id]['type'];
         this.hold = game.tiles[id]['hold'];
+
+        let nodeId = "";
+        switch( this.type ) {
+            case 'human':
+            case 'purple':
+            case 'brown':
+            case 'ask_purple':
+            case 'ask_brown':
+            case 'ask_human':
+                nodeId = "overlaytile_" + id;
+                break;
+            default:
+                nodeId = "tile_" + id;
+        }
+        this.nodeId = nodeId;
     }
 
     // static functions but not declared as such since I don't know how to get this
@@ -52,15 +66,12 @@ class GTFE_Tile {
         if (cont.tile_id != this.id)
             game.throw_bug_report("Wrong content for tile (" + cont.tile_id + "," + this.id + ")");
 
-        var tileId = cont.tile_id;
         var ctSubtype = cont.content_subtype;
         //var error = false;
         //var alien = false;
-        var rotWithTile = false;
 
         switch( ctSubtype ) {
             case 'cell':
-                rotWithTile = true;
                 var classes = 'cell';
                 break;
             case 'human':
@@ -84,7 +95,6 @@ class GTFE_Tile {
             case 'yellow':
             case 'green':
             case 'blue':
-                rotWithTile = true;
                 var classes = 'goods '+ctSubtype;
                 break;
 
@@ -93,7 +103,6 @@ class GTFE_Tile {
                 return;
         }
 
-        var destDivId = ( rotWithTile ) ? 'tile_'+tileId : 'overlaytile_'+tileId;
         // position (given by CSS, eg. class p2on3) will depend on the
         // tile (eg. 2 cells batteries vs 3 cells batteries)
         //var posClass = ( alien ) ? 'p1on1' : 'p'+cont.place+'on'+cont.capacity;
@@ -110,7 +119,7 @@ class GTFE_Tile {
             dojo.place( game.format_block( 'jstpl_content', {
                         content_id: cont.content_id,
                         classes: classes + ' ' + this.getPlaceClass(cont.place)
-                    } ), destDivId );
+                    } ), this.nodeId );
         }
         
         return contentDiv;
@@ -151,6 +160,7 @@ class GTFE_Tile {
 
         dojo.style( divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
         this._attachToSquare(divId);
+
         if ( toCard || cont.toCard ) {
             this.game.slideToObjectAndDestroy( divId, "current_card", 1200, delay );
         }
@@ -173,8 +183,9 @@ class GTFE_Tile {
             contDiv = $(contDiv);
 
         let gParent = contDiv.parentNode.parentNode;
-        if (gParent.classList.contains('square'))
+        if (gParent.classList.contains('square') ) {
             dojo.place(contDiv, gParent, "last");
+        }
     }
 
 }
