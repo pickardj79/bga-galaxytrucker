@@ -67,6 +67,7 @@ if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, sin
     define("STATE_OPEN_SPACE", 41);
     define("STATE_ABANDONED", 42);
     define("STATE_METEORIC", 43);
+    define("STATE_ENEMY", 44);
     define("STATE_PLANETS", 46);
     define("STATE_EXPLORE_ABANDONED", 58);
     define("STATE_POWER_ENGINES", 60);
@@ -74,7 +75,9 @@ if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, sin
     define("STATE_POWER_CANNONS", 62);
     define("STATE_CHOOSE_PLANET", 63);
     define("STATE_CHOOSE_CREW", 66);
-    define("STATE_PLACE_GOODS", 68);
+    define("STATE_PLACE_GOODS", 67);
+    define("STATE_LOSE_GOODS", 68);
+    define("STATE_LOSE_CELLS", 69);
     define("STATE_SHIP_DAMAGE", 70);
     define("STATE_JOURNEYS_END", 80);
     define("STATE_END_GAME", 99);
@@ -148,16 +151,6 @@ $machinestates = array(
         "transitions" => array( "shipsDone" => STATE_REPAIR_SHIPS )
     ),
 
-    // May be removed
-    // 14 => array(
-    //     "name" => "checkShips",
-    //     "description" => '',
-    //     "type" => "game",
-    //     "action" => "stCheckShips",
-    //     "updateGameProgression" => true,
-    //     "transitions" => array( "shipsNotOk" => 15, "shipsOk" => 20 )
-    // ),
-
     STATE_REPAIR_SHIPS => array(
         "name" => "repairShips",
         "description" => clienttranslate('Some players must yet fix their ship'),
@@ -213,13 +206,11 @@ $machinestates = array(
             "openspace" => STATE_OPEN_SPACE,
             "abandoned" => STATE_ABANDONED,
             "planets" => STATE_PLANETS, 
-
-            "enemies" => STATE_NOT_IMPL, 
+            "enemy" => STATE_ENEMY, 
             "meteoric" => STATE_METEORIC, 
             "combatzone" => STATE_NOT_IMPL, 
             "epidemic" => STATE_NOT_IMPL, 
             "sabotage" => STATE_NOT_IMPL, 
-
             "cardsDone" => STATE_JOURNEYS_END )
     ),
 
@@ -266,7 +257,7 @@ $machinestates = array(
             "exploreAbandoned" => STATE_EXPLORE_ABANDONED )
     ),
 
-    STATE_METEORIC=> array(
+    STATE_METEORIC => array(
         "name" => "meteoric",
         "description" => '',
         "type" => "game",
@@ -277,6 +268,21 @@ $machinestates = array(
             "shipDamage" => STATE_SHIP_DAMAGE,
             "powerShields" => STATE_POWER_SHIELDS,
             "powerCannons" => STATE_POWER_CANNONS)
+    ),
+    
+    STATE_ENEMY => array(
+        "name" => "enemy",
+        "description" => '',
+        "type" => "game",
+        "action" => "stEnemy",
+        "updateGameProgression" => false,
+        "transitions" => array( 
+            "nextCard" => STATE_DRAW_CARD,
+            "shipDamage" => STATE_SHIP_DAMAGE,
+            "powerShields" => STATE_POWER_SHIELDS,
+            "powerCannons" => STATE_POWER_CANNONS,
+            "chooseCrew" => STATE_CHOOSE_CREW,
+            "placeGoods" => STATE_PLACE_GOODS)
     ),
     
     STATE_PLANETS => array(
@@ -354,10 +360,12 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must decide which crew to lose'),
         "type" => "activeplayer",
         "args" => "argChooseCrew",
-        "possibleactions" => array( "contentChoice", "cancelExplore", "pass" ),
+        "possibleactions" => array( "contentChoice" ),
         "transitions" => array( 
             "nextCard" => STATE_DRAW_CARD,
-            "nextPlayer" => STATE_ABANDONED )
+            "nextPlayerEnemy" => STATE_ENEMY,
+            "loseGoods" => STATE_LOSE_GOODS,
+            "loseCells" => STATE_LOSE_CELLS )
     ),
 
     STATE_PLACE_GOODS => array(
@@ -373,17 +381,27 @@ $machinestates = array(
     ),
 
 
-    // TODO: DO WE NEED THIS STATE? (CLEAN UP galaxytrucker.js too)
-    44 => array(
+    STATE_LOSE_GOODS => array(
         "name" => "loseGoods",
         "description" => clienttranslate('${actplayer} must decide which goods to lose'),
         "descriptionmyturn" => clienttranslate('${you} must decide which goods to lose'),
         "type" => "activeplayer",
-        "possibleactions" => array( "loseGood", "choiceMade",
-                                        "pass" ),
-        "transitions" => array( "choiceMade" => 40 )
+        "args" => "argLoseGoods",
+        "possibleactions" => array( "contentChoice" ),
+        "transitions" => array( "nextPlayerEnemy" => STATE_ENEMY )
     ),
 
+    STATE_LOSE_CELLS => array(
+        "name" => "loseCells",
+        "description" => clienttranslate('${actplayer} must decide which cells to lose'),
+        "descriptionmyturn" => clienttranslate('${you} must decide which cells to lose'),
+        "type" => "activeplayer",
+        "args" => "argLoseCells",
+        "possibleactions" => array( "contentChoice" ),
+        "transitions" => array( "nextPlayerEnemy" => STATE_ENEMY )
+    ),
+
+    // TODO: DO WE NEED THIS STATE? (CLEAN UP galaxytrucker.js too)
     STATE_SHIP_DAMAGE => array(
         "name" => "shipDamage",
         "description" => '',

@@ -312,7 +312,7 @@ function (dojo, declare) {
         this.stateName = stateName;
 
         let noEntering = ['drawCard', 'notImpl', 'gameEnd', 
-            'openspace', 'abandoned', 'meteoric', 'planet'
+            'openspace', 'abandoned', 'enemy', 'meteoric', 'planet'
         ];
         if (noEntering.includes(stateName))
             return;
@@ -391,11 +391,9 @@ function (dojo, declare) {
             break;
  
         case 'stardust':
-        case 'enemies':
         case 'combatzone':
         case 'epidemic':
         case 'sabotage':
-        case 'loseGoods':
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
@@ -417,6 +415,14 @@ function (dojo, declare) {
         case 'powerShields':
             if (this.isCurrentPlayerActive() )
                 this.ship.prepareContentChoice('shield', 1, false);
+            break;
+        case 'loseGoods':
+            if ( this.isCurrentPlayerActive() ) 
+                this.ship.prepareContentChoice('goods', args.args.nbGoods, true);
+            break;
+        case 'loseCells':
+            if ( this.isCurrentPlayerActive() ) 
+                this.ship.prepareContentChoice('cell', args.args.nbCells, true);
             break;
         case 'chooseCrew':
             if ( this.isCurrentPlayerActive() ) 
@@ -450,7 +456,7 @@ function (dojo, declare) {
         console.log( 'Leaving state: '+stateName );
 
         let noLeaving = ['drawCard', 'notImpl', 'gameEnd', 
-            'openspace', 'abandoned', 'planet', 'stardust',
+            'openspace', 'abandoned', 'enemy', 'planet', 'stardust'
         ];
         if (noLeaving.includes(stateName))
             return;
@@ -495,6 +501,8 @@ function (dojo, declare) {
         case 'exploreAbandoned':
             this.wholeCrewWillLeave = false;
             break;
+        case 'loseGoods':
+        case 'loseCells':
         case 'powerEngines':
         case 'powerCannons': 
         case 'powerShields': 
@@ -549,7 +557,6 @@ function (dojo, declare) {
             this.addActionButton( 'button_explore_0', _('No'), 'onExploreChoice' );
             break;
         case 'chooseCrew' :
-            this.addActionButton( 'button_cancelExplore', _('Cancel'), 'onCancelExplore' );
             this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'notImpl' :
@@ -1339,14 +1346,6 @@ function (dojo, declare) {
         }
         else
             this.ajaxAction( 'exploreChoice', { explChoice: choice } );
-    },
-
-    onCancelExplore: function( evt ) {
-        console.log( 'onCancelExplore' );
-        dojo.stopEvent( evt );
-        if(! this.checkAction( 'contentChoice' ) )
-            return;
-        this.ajaxAction( 'cancelExplore', {} );
     },
 
     onConfirmPlanet: function (evt) {

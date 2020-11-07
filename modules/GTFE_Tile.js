@@ -12,12 +12,7 @@ class GTFE_Tile {
 
         let nodeId = "";
         switch( this.type ) {
-            case 'human':
-            case 'purple':
-            case 'brown':
-            case 'ask_purple':
-            case 'ask_brown':
-            case 'ask_human':
+            case 'crew':
                 nodeId = "overlaytile_" + id;
                 break;
             default:

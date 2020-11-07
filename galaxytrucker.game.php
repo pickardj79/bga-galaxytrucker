@@ -24,6 +24,7 @@ require_once('modules/GT_DBCard.php');
 require_once('modules/GT_DBComponent.php');
 require_once('modules/GT_DBPlayer.php');
 require_once('modules/GT_GameStates.php');
+require_once('modules/GT_Enemy.php');
 require_once('modules/GT_FlightBoard.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
@@ -64,6 +65,8 @@ class GalaxyTrucker extends Table {
             "currentCardDie1" => 23,   // what is the current die roll being resolved
             "currentCardDie2" => 24,   
             "currentHazardPlayerTile" => 25,   
+            "cardArg1" => 30, // args related to cards to pass values to front-end
+            "cardArg2" => 31,
             "testGameState" => 99, // use a test scenario from GT_GameStates 
 
             // flight_variants is a game option (gameoptions.inc.php)
@@ -122,12 +125,15 @@ class GalaxyTrucker extends Table {
     self::setGameStateInitialValue( 'currentCardDie1', null );
     self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'currentHazardPlayerTile', null ); // Tile of current player threatened by the hazard
+    self::setGameStateInitialValue( 'cardArg1', null );
+    self::setGameStateInitialValue( 'cardArg2', null );
+    self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'round', 1 ); // will be changed in stPrepareRound
                         // in case of a short flight variant that begins with a level 2 flight
     self::setGameStateInitialValue( 'timerStartTime', 0 );
     self::setGameStateInitialValue( 'timerPlace', -1 );
     self::setGameStateInitialValue( 'overlayTilesPlaced', 0 );
-
+    
     // Init game statistics
     // (note: statistics used in this file must be defined in your stats.inc.php file)
     //self::initStat( 'table', 'table_teststat1', 0 );    // Init a table statistics
@@ -680,22 +686,14 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState($nextState);
   }
 
-  function cancelExplore() {
-    self::checkAction( 'cancelExplore' );
-    $plId = self::getActivePlayerId();
-    GT_DBPlayer::setCardDone($this, $plId);
-    GT_ActionsCard::noStopMsg($this);
-    $this->gamestate->nextState( 'nextPlayer');
-  }
-
   function crewChoice( $crewChoices ) {
       self::checkAction( 'contentChoice' );
       self::dump_var("Action contentChoice ", $crewChoices);
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
-      GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
+      $nextState = GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
 
-      $this->gamestate->nextState( 'nextCard' ); 
+      $this->gamestate->nextState( $nextState ); 
   }
 
   function planetChoice( $choice ) {
@@ -855,7 +853,24 @@ class GalaxyTrucker extends Table {
 
     function argChooseCrew() {
         $currentCard = self::getGameStateValue( 'currentCard' );
-        return array( 'nbCrewMembers' => $this->card[$currentCard]['crew'] );
+        $card = $this->card[$currentCard];
+        if ($card['type'] == 'slavers') {
+            return array( 'nbCrewMembers' => $card['enemy_penalty'] );
+        }
+        elseif ($card['type'] == 'abship') {
+            return array( 'nbCrewMembers' => $card['crew'] );
+        }
+    }
+
+    function argLoseGoods() {
+        $req_idx = self::getGameStateValue('cardArg1');
+        return ['subtype' => GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$req_idx],
+                'nbGoods' => self::getGameStateValue('cardArg2')
+        ];
+    }
+
+    function argLoseCells() {
+        return [ 'nbCells' => self::getGameStateValue('cardArg2') ];
     }
 
     function argChoosePlanet() {
@@ -1095,6 +1110,12 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( $nextState );
   }
   
+  function stEnemy() {
+      $nextState = GT_StatesCard::stEnemy($this);
+      $this->log("Next state is $nextState");
+      $this->gamestate->nextState( $nextState );
+  }
+
   function stShipDamage() {
       $plId = self::getActivePlayerId();
       GT_DBPlayer::setCardDone($this, $plId);

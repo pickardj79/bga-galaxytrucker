@@ -4,6 +4,7 @@
 
 require_once('GT_Constants.php');
 require_once('GT_DBPlayer.php');
+require_once('GT_Enemy.php');
 require_once('GT_Hazards.php');
 
 class GT_StatesCard extends APP_GameClass {
@@ -51,7 +52,7 @@ class GT_StatesCard extends APP_GameClass {
             $cardType = $game->card[ $currentCard ][ 'type' ];
 
             if ( in_array( $cardType, array( "slavers", "smugglers", "pirates" ) ) )
-                $nextState = 'enemies';
+                $nextState = 'enemy';
             else if ( in_array( $cardType, array( "abship", "abstation" ) ) )
                 $nextState = 'abandoned';
             else
@@ -213,6 +214,40 @@ class GT_StatesCard extends APP_GameClass {
         }
 
         // TODO hide dice (see how we're hiding cards)
+        return 'nextCard';
+    }
+
+    function stEnemy($game) {
+        $cardId = $game->getGameStateValue( 'currentCard' );
+        $card = $game->card[$cardId];
+
+        $enemy = new GT_Enemy($game, $card);
+        $players = GT_DBPlayer::getPlayersForCard($game);
+        foreach ( $players as $plId => $player ) {
+            $game->log("stEnemy for player $plId");
+            $nextState = $enemy->fightPlayer($player);
+            if ($nextState) {
+                GT_DBPlayer::setCardInProgress($game, $plId);
+                $game->gamestate->changeActivePlayer( $plId );
+                return $nextState;
+            }
+            else {
+                // no $nextState - this player is done
+                GT_DBPlayer::setCardDone($game, $plId);
+            }
+        }
+        // Start with lead player and compare minimum cannon to required
+
+        // GT_Enemy has functions for reward, enemy_penalty, and tie
+        //      enemy_penalty can use Hazard (with shield powering) if necessary
+
+        // In action powerCannons, like powerDefense (content checking and DB update)
+        //    but ties mean nothing (next player), losing goes to enemy_penalty,
+        //    winning goes to reward
+
+        // Move ship back days_loss
+
+        GT_DBPlayer::setCardAllDone($game);
         return 'nextCard';
     }
 

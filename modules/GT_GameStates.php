@@ -61,13 +61,14 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        $this->setCardOrder(8,1); // meteor card
+        // $this->setCardOrder(8,1); // meteor card
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
         // $this->setCardOrder(17,1); // abship card
         // $this->setCardOrder(18,1); // abstation card 
-        $this->setCardOrder(2,1); // pirates card 
+        $this->setCardOrder(0,1); // slavers card 
+        $this->setCardOrder(15,1); // combat zone card 
 
         // Add cargo to ships
         $sql = "INSERT INTO content (player_id, tile_id, square_x, square_y, content_type, content_subtype, place, capacity) VALUES";
@@ -182,8 +183,8 @@ class GT_GameState {
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
             array_push($tiles, self::newTile(115, 6, 7, 0)); // shield west of $startTile
             array_push($tiles, self::newTile(56, 5, 7, 0)); // hazard west of shield 
-            // array_push($tiles, self::newTile(98, 5, 8, 90)); // laser south of hazard 
-            // array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
+            array_push($tiles, self::newTile(98, 5, 8, 90)); // laser south of hazard 
+            array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
             array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));
         }
         else if ($variant == 2) {

@@ -28,7 +28,7 @@ class GT_DBPlayer extends APP_GameClass {
         return $game->getCollectionFromDB ( "
             SELECT player_id, player_name, player_color, player_position, nb_crew, 
                 card_line_done, card_action_choice,
-                min_eng, max_eng, exp_conn
+                min_eng, max_eng, min_cann_x2, max_cann_x2, exp_conn
             FROM player 
             WHERE still_flying=1 $extra_where
             ORDER BY player_position $order" );

@@ -14,6 +14,8 @@ class GT_PlayerContent extends APP_GameClass {
         $this->player_id = $player_id;
     }
 
+    ################### HELPERS #########################
+
     ################### CHECK HELPERS #########################
 
     // check battery choices from front end
@@ -124,6 +126,15 @@ class GT_PlayerContent extends APP_GameClass {
                 function($c) use ($subtype) { return $c['content_subtype'] == $subtype; }
             );
         return $conts;
+    }
+
+    function getContentIds($type, $subtype=NULL) {
+        $conts = $this->getContent($type, $subtype);
+        return array_map(function($x) { return $x['content_id']; }, $conts);
+    }
+
+    function getIds($conts) {
+        return array_map(function($x) { return $x['content_id']; }, $conts);
     }
 
     function nbOfCrewMembers() {
@@ -252,6 +263,7 @@ class GT_PlayerContent extends APP_GameClass {
     }
 
     function loseContent($ids, $expType, $toCard) {
+        // $ids: array of ids (ints) to remove
         if (!$ids)
             return;
 

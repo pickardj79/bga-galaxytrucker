@@ -166,12 +166,6 @@
       self::ajaxResponse( );
   }
 
-  public function cancelExplore() {
-      self::setAjaxMode();
-      $this->game->cancelExplore( );
-      self::ajaxResponse( );
-  }
-
   public function planetChoice() {
       self::setAjaxMode();
       $choice = self::getArg("idx", AT_posint, false);

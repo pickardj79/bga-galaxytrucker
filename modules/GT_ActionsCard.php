@@ -32,8 +32,7 @@ class GT_ActionsCard extends APP_GameClass {
                 // This player sends ALL their remaining crew members
                 // Remove all crew members:
                 $plyrContent = $game->newPlayerContent($plId);
-                $crewIds= array_map(function($i) { return $i['content_id']; },
-                    $plyrContent->getContent('crew'));
+                $crewIds= $plyrContent->getContentIds('crew');
                 $plyrContent->loseContent($crewIds, 'crew', true);
 
                 $flBrd = $game->newFlightBoard();
@@ -76,16 +75,28 @@ class GT_ActionsCard extends APP_GameClass {
         $plyrContent->loseContent($crewChoices, 'crew', $bToCard);
 
         $flBrd = $game->newFlightBoard();
-        $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
+        $card = $game->card[$cardId];
+        $nextState = NULL;
+        if ($card['type'] == 'slavers') {
+            GT_DBPlayer::setCardDone($game, $plId);
+            $nextState = 'nextPlayerEnemy';
+        }
+        elseif ($card['type' == 'abship']) {
+            $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
+            $nbDays = -($game->card[$cardId]['days_loss']);
+            $flBrd->moveShip($plId, $nbDays);
+            $nextState = 'nextCard';
+        }
+        else {
+            $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
+        }
 
         // if no humans remain, giveUp
         if (!$plyrContent->getContent('crew', 'human')) {
             $flBrd->giveUp($plId, 'lost all humans');
         }
-        else {
-            $nbDays = -($game->card[$cardId]['days_loss']);
-            $flBrd->moveShip($plId, $nbDays);
-        }
+
+        return $nextState;
     }
 
 
@@ -184,8 +195,7 @@ class GT_ActionsCard extends APP_GameClass {
         $plyrContent = $game->newPlayerContent($plId);
 
         // note original content ids to remove those not chosen
-        $origContentIds = array_map(function($i) { return $i['content_id']; },
-            $plyrContent->getContent('goods'));
+        $origContentIds = $plyrContent->getContentIds('goods');
 
         // $goodsOnTile is all goods on the ship. Clear places in preparation
         // This allows us to not care about order of moving stuff around

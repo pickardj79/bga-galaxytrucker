@@ -97,7 +97,8 @@ class GTFE_Ship {
         // maxStr: max str (includes alien)
         // hasAlien: whether or not there's a relevant alien (for adding 2 to strength)
         
-        if (type != 'engine' && type != 'shield' && type != 'cannon' && type != 'crew' && type != 'goods')
+        if (type != 'engine' && type != 'shield' && type != 'cannon' && type != 'crew' 
+            && type != 'goods' && type != 'cell')
             this.game.throw_bug_report("Unexpected content type: " + type);
 
         this._nbSelected = 0;
