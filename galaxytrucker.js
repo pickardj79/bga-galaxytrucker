@@ -311,8 +311,9 @@ function (dojo, declare) {
         console.log( 'Entering state: '+stateName + ' with args', args.args);
         this.stateName = stateName;
 
-        let noEntering = ['drawCard', 'notImpl', 'gameEnd', 
-            'openspace', 'abandoned', 'enemy', 'meteoric', 'planet'
+        let noEntering = ['drawCard', 'gameEnd', 'notImpl',
+            'abandoned', 'enemy', 'meteoric', 'openspace', 'planet',
+            'cannonBlasts'
         ];
         if (noEntering.includes(stateName))
             return;
@@ -402,31 +403,31 @@ function (dojo, declare) {
             break;
         case 'powerEngines':
             if ( this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('engine', 
+                this.ship.prepareContentChoice('engine', null, 
                     args.args.maxSel, false, 
                     args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
         case 'powerCannons':
             if ( this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('cannon', 
+                this.ship.prepareContentChoice('cannon', null, 
                     args.args.maxSel, false, 
                     args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
         case 'powerShields':
             if (this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('shield', 1, false);
+                this.ship.prepareContentChoice('shield', null, 1, false);
             break;
         case 'loseGoods':
             if ( this.isCurrentPlayerActive() ) 
-                this.ship.prepareContentChoice('goods', args.args.nbGoods, true);
+                this.ship.prepareContentChoice('goods', args.args.subtype, args.args.nbGoods, true);
             break;
         case 'loseCells':
             if ( this.isCurrentPlayerActive() ) 
-                this.ship.prepareContentChoice('cell', args.args.nbCells, true);
+                this.ship.prepareContentChoice('cell', null, args.args.nbCells, true);
             break;
         case 'chooseCrew':
             if ( this.isCurrentPlayerActive() ) 
-                this.ship.prepareContentChoice('crew', args.args.nbCrewMembers, true);
+                this.ship.prepareContentChoice('crew', null, args.args.nbCrewMembers, true);
             break;
         case 'choosePlanet':
             if ( this.isCurrentPlayerActive() ) 
@@ -455,8 +456,9 @@ function (dojo, declare) {
     onLeavingState: function( stateName ) {
         console.log( 'Leaving state: '+stateName );
 
-        let noLeaving = ['drawCard', 'notImpl', 'gameEnd', 
-            'openspace', 'abandoned', 'enemy', 'planet', 'stardust'
+        let noLeaving = ['drawCard', 'gameEnd', 'notImpl',
+            'abandoned', 'enemy', 'meteoric', 'openspace', 'planet',
+            'cannonBlasts'
         ];
         if (noLeaving.includes(stateName))
             return;
@@ -495,7 +497,6 @@ function (dojo, declare) {
             break;
          
         // Not implemented
-        case 'meteoric':
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
@@ -557,6 +558,8 @@ function (dojo, declare) {
             this.addActionButton( 'button_explore_0', _('No'), 'onExploreChoice' );
             break;
         case 'chooseCrew' :
+        case 'loseCells' :
+        case 'loseGoods' :
             this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'notImpl' :
@@ -1846,8 +1849,12 @@ function (dojo, declare) {
           dojo.query('.selected', 'my_ship').removeClass('selected');
       }
       for ( var i in notif.args.content ) {
+          // never loseContent to card if not active player
           tile = new GTFE_Tile(this, notif.args.content[i].tile_id);
-          tile.loseContent(notif.args.content[i], i*200);
+          if (notif.args.player_id == this.player_id)
+              tile.loseContent(notif.args.content[i], i*200);
+          else
+              tile.loseContent(notif.args.content[i], i*200, false);
       }
     },
 

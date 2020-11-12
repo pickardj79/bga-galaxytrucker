@@ -151,8 +151,13 @@
           $this->game->powerCannons( $contChoices ); break;  
         case 'shield':
           $this->game->powerShields( $contChoices ); break;  
+        case 'cell':
+          $this->game->loseContentChoice( 'cell', $contChoices ); break;  
+        case 'goods':
+          $this->game->loseContentChoice( 'goods', $contChoices ); break;  
         case 'crew':
-          $this->game->crewChoice( $contChoices ); break;
+          $this->game->loseContentChoice( 'crew', $contChoices ); break;  
+        //   $this->game->crewChoice( $contChoices ); break;
         default:
           $this->game->throw_bug_report("Unknown contentType `$contType` in action.php contentChoice");
       }

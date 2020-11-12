@@ -68,6 +68,7 @@ if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, sin
     define("STATE_ABANDONED", 42);
     define("STATE_METEORIC", 43);
     define("STATE_ENEMY", 44);
+    define("STATE_CANNON_BLASTS", 45);
     define("STATE_PLANETS", 46);
     define("STATE_EXPLORE_ABANDONED", 58);
     define("STATE_POWER_ENGINES", 60);
@@ -277,12 +278,28 @@ $machinestates = array(
         "action" => "stEnemy",
         "updateGameProgression" => false,
         "transitions" => array( 
+            // "nextCard" => STATE_DRAW_CARD,
+            "nextCard" => STATE_NOT_IMPL,
+            "shipDamage" => STATE_SHIP_DAMAGE,
+            "powerCannons" => STATE_POWER_CANNONS,
+            "chooseCrew" => STATE_CHOOSE_CREW,
+            "loseGoods"  => STATE_LOSE_GOODS,
+            "loseCells" => STATE_LOSE_CELLS,
+            "cannonBlasts" => STATE_CANNON_BLASTS,
+            "placeGoods" => STATE_PLACE_GOODS)
+    ),
+
+    STATE_CANNON_BLASTS => array(
+        "name" => "cannonBlasts",
+        "description" => '',
+        "type" => "game",
+        "action" => "stCannonBlasts",
+        "updateGameProgression" => false,
+        "transitions" => array( 
             "nextCard" => STATE_DRAW_CARD,
             "shipDamage" => STATE_SHIP_DAMAGE,
             "powerShields" => STATE_POWER_SHIELDS,
-            "powerCannons" => STATE_POWER_CANNONS,
-            "chooseCrew" => STATE_CHOOSE_CREW,
-            "placeGoods" => STATE_PLACE_GOODS)
+            "nextPlayerEnemy" => STATE_ENEMY)
     ),
     
     STATE_PLANETS => array(
@@ -329,7 +346,10 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPowerShields",
         "possibleactions" => array( "contentChoice" ),
-        "transitions" => array( "nextMeteor" => STATE_METEORIC)
+        "transitions" => array( 
+            "nextMeteor" => STATE_METEORIC,
+            "nextCannon" => STATE_CANNON_BLASTS,
+            )
     ),
 
     STATE_POWER_CANNONS => array(
@@ -363,9 +383,7 @@ $machinestates = array(
         "possibleactions" => array( "contentChoice" ),
         "transitions" => array( 
             "nextCard" => STATE_DRAW_CARD,
-            "nextPlayerEnemy" => STATE_ENEMY,
-            "loseGoods" => STATE_LOSE_GOODS,
-            "loseCells" => STATE_LOSE_CELLS )
+            "nextPlayerEnemy" => STATE_ENEMY)
     ),
 
     STATE_PLACE_GOODS => array(

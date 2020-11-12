@@ -251,6 +251,55 @@ class GT_StatesCard extends APP_GameClass {
         return 'nextCard';
     }
 
+    function stCannonBlasts($game) {
+        // In process of looping over all cannon blasts from combat or pirates card
+        $cardId = $game->getGameStateValue( 'currentCard' );
+        $card = $game->card[$cardId];
+
+        $plId = $game->getActivePlayerId();
+        $player = GT_DBPlayer::getPlayer($game, $plId);
+
+        $idx = $game->getGameStateValue( 'currentCardProgress');
+        if ($idx < 0) {
+            $idx = 0; // start of the card
+            GT_Hazards::nextHazard($game, 0);
+        }
+
+        $game->dump_var("Entering cannon blasts with current card $cardId blast $idx.", $card);
+        $blasts = $card['type'] == 'pirates' 
+            ? $card['enemy_penalty'] 
+            : $card['lines'][3]['penalty_value'];
+
+        while ($idx < count($blasts)) {
+            $game->log("Running cannon blast $idx on player $plId.");
+            $nextState = NULL;
+
+            // Get a dice roll
+            $hazResults = GT_Hazards::getHazardRoll($game, $card, $idx);
+
+            if ($hazResults['missed']) {
+                $game->notifyAllPlayers( "hazardMissed", 
+                            clienttranslate( "Cannon blast missed ${player_name}\'s ship"), 
+                            [ 'hazResults' => $hazResults,
+                              'player_id' => $player['player_id'],
+                              'player_name' => $player['player_name']
+                            ] );
+            }
+            else {
+                $nextState = GT_Hazards::applyHazardToShip($game, $hazResults, $player);
+            }
+
+            $game->log("Finished index $idx");
+            GT_Hazards::nextHazard($game, ++$idx);
+
+            if ($nextState) 
+                return $nextState;
+        }
+
+        // TODO hide dice (see how we're hiding cards)
+        return 'nextCard';
+    }
+
     // ###################### HELPERS ##########################
 
 }

@@ -23,13 +23,13 @@ require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
 require_once('modules/GT_DBComponent.php');
 require_once('modules/GT_DBPlayer.php');
-require_once('modules/GT_GameStates.php');
 require_once('modules/GT_Enemy.php');
 require_once('modules/GT_FlightBoard.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
 require_once('modules/GT_StatesCard.php');
 require_once('modules/GT_StatesSetup.php');
+require_once('modules/GT_TestGameState.php');
 
 class GalaxyTrucker extends Table {
     public static $instance = null;
@@ -67,7 +67,7 @@ class GalaxyTrucker extends Table {
             "currentHazardPlayerTile" => 25,   
             "cardArg1" => 30, // args related to cards to pass values to front-end
             "cardArg2" => 31,
-            "testGameState" => 99, // use a test scenario from GT_GameStates 
+            "testGameState" => 99, // use a test scenario from GT_TestGameState
 
             // flight_variants is a game option (gameoptions.inc.php)
             // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
@@ -125,8 +125,8 @@ class GalaxyTrucker extends Table {
     self::setGameStateInitialValue( 'currentCardDie1', null );
     self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'currentHazardPlayerTile', null ); // Tile of current player threatened by the hazard
-    self::setGameStateInitialValue( 'cardArg1', null );
-    self::setGameStateInitialValue( 'cardArg2', null );
+    self::setGameStateInitialValue( 'cardArg1', null ); // Used for subtype of content to lose
+    self::setGameStateInitialValue( 'cardArg2', null ); // Used for number of content to lose
     self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'round', 1 ); // will be changed in stPrepareRound
                         // in case of a short flight variant that begins with a level 2 flight
@@ -650,14 +650,21 @@ class GalaxyTrucker extends Table {
   }
 
   function powerShields( $battChoices ) {
+      # TODO: can powerShields be combined with powerCannons? For meteoric it can
       self::checkAction( 'contentChoice' );
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
-      GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
       GT_DBPlayer::setCardDone($this, $plId);
-      if ($this->card[$cardId]['type'] == 'meteoric')
+
+      if ($this->card[$cardId]['type'] == 'meteoric') {
+          GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
           $this->gamestate->nextState('nextMeteor');
+      }
+      elseif ($this->card[$cardId]['type'] == 'pirates') {
+          GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
+          $this->gamestate->nextState('nextCannon');
+      }
       else
           $this->gamestate->nextState('notImpl');
   }
@@ -684,6 +691,17 @@ class GalaxyTrucker extends Table {
       $nextState = GT_ActionsCard::exploreChoice($this, $plId, $cardId, $choice); 
 
       $this->gamestate->nextState($nextState);
+  }
+
+  function loseContentChoice ( $type, $ids ) {
+      self::checkAction( 'contentChoice' );
+      self::dump_var("Action contentChoice type $type", $ids);
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      $nextState = GT_ActionsCard::loseContentChoice($this, $plId, $card, $type, $ids);
+
+      $this->gamestate->nextState( $nextState ); 
   }
 
   function crewChoice( $crewChoices ) {
@@ -853,13 +871,7 @@ class GalaxyTrucker extends Table {
 
     function argChooseCrew() {
         $currentCard = self::getGameStateValue( 'currentCard' );
-        $card = $this->card[$currentCard];
-        if ($card['type'] == 'slavers') {
-            return array( 'nbCrewMembers' => $card['enemy_penalty'] );
-        }
-        elseif ($card['type'] == 'abship') {
-            return array( 'nbCrewMembers' => $card['crew'] );
-        }
+        return array( 'nbCrewMembers' => self::getGameStateValue('cardArg2') );
     }
 
     function argLoseGoods() {
@@ -934,7 +946,7 @@ class GalaxyTrucker extends Table {
 
       // Setup a test game state
       if ( self::getGameStateValue( 'testGameState' ) ) {
-        $gt_state = new GT_GameState($this, $players);
+        $gt_state = new GT_TestGameState($this, $players);
         $gt_state->prepareRound();
       }
       else {
@@ -1057,7 +1069,7 @@ class GalaxyTrucker extends Table {
       $nextState = GT_StatesSetup::stPrepareFlight($this, $players);
 
       if ( self::getGameStateValue( 'testGameState' ) ) {
-          $gt_state = new GT_GameState($this, $players);
+          $gt_state = new GT_TestGameState($this, $players);
           $gt_state->prepareFlight($nextState);
       }
       else {
@@ -1113,6 +1125,11 @@ class GalaxyTrucker extends Table {
   function stEnemy() {
       $nextState = GT_StatesCard::stEnemy($this);
       $this->log("Next state is $nextState");
+      $this->gamestate->nextState( $nextState );
+  }
+
+  function stCannonBlasts() {
+      $nextState = GT_StatesCard::stCannonBlasts($this);
       $this->gamestate->nextState( $nextState );
   }
 

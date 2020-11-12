@@ -1,6 +1,6 @@
 <?php
 
-/* Collection of functions to handle resolving hazards (laser and meteors) */
+/* Collection of functions to handle resolving hazards (cannon and meteors) */
 
 require_once('GT_DBComponent.php');
 require_once('GT_DBContent.php');
@@ -76,12 +76,13 @@ class GT_Hazards extends APP_GameClass  {
 
         if ($new_roll) {
             $game->notifyAllPlayers( "hazardDiceRoll", 
-                    clienttranslate( '${sizeName} meteor incoming from the ${direction}'
+                    clienttranslate( '${sizeName} ${type} incoming from the ${direction}'
                         . ', ${row_col} ${roll}' ),
                     [   'roll' => $die1 + $die2,
                         'row_col' => $row_col,
                         'sizeName' => GT_Constants::$SIZE_NAMES[$size],
                         'direction' => GT_Constants::$DIRECTION_NAMES[$orient],
+                        'type' => $hazResults['type'],
                         'hazResults' => $hazResults,
                     ]
             );
@@ -105,10 +106,12 @@ class GT_Hazards extends APP_GameClass  {
         // if no tiles, then the row/col is empty
         if (!$tilesInLine) {
             $game->notifyAllPlayers( "hazardMissed", 
-                    clienttranslate( 'Meteor missed ${player_name}\'s ship'), 
+                    clienttranslate( '${type} missed ${player_name}\'s ship'), 
                     [ 'player_name' => $player['player_name'], 
                       'player_id' => $player['player_id'],
-                      'hazResults' => $hazResults ] );
+                      'hazResults' => $hazResults ,
+                      'type' => ucfirst($hazResults['type'])
+                    ] );
             return;
         }
 
@@ -126,20 +129,22 @@ class GT_Hazards extends APP_GameClass  {
                 return;
             }
 
-            // If cannot power shields then take damage
-            $plyrContent = $game->newPlayerContent($player['player_id']);
-            if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
-                $actionNeeded = self::_hazardDamage(
-                    $game, $player, $brd, $firstTileId, $hazResults);
+            return self::checkShields($game, $player, $brd, $firstTileId, $hazResults);
 
-                return $actionNeeded ? 'shipDamage' : NULL;
-            }
-            $game->notifyAllPlayers("onlyLogMessage", 
-                clienttranslate('${player_name} must decide to activate a shield'),
-                ['player_name' => $player['player_name']]
-            );
+            // // If cannot power shields then take damage
+            // $plyrContent = $game->newPlayerContent($player['player_id']);
+            // if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
+            //     $actionNeeded = self::_hazardDamage(
+            //         $game, $player, $brd, $firstTileId, $hazResults);
 
-            return 'powerShields';
+            //     return $actionNeeded ? 'shipDamage' : NULL;
+            // }
+            // $game->notifyAllPlayers("onlyLogMessage", 
+            //     clienttranslate('${player_name} must decide to activate a shield'),
+            //     ['player_name' => $player['player_name']]
+            // );
+
+            // return 'powerShields';
         }
 
         // Big meteors
@@ -193,6 +198,18 @@ class GT_Hazards extends APP_GameClass  {
 
             return $actionNeeded ? 'shipDamage' : NULL;
         }
+
+        // Small cannon
+        if ($hazResults['type'] == 'cannon' && $hazResults['size'] == 's') {
+            return self::checkShields($game, $player, $brd, $firstTileId, $hazResults);
+        }
+
+        // Big cannon
+        if ($hazResults['type'] == 'cannon' && $hazResults['size'] == 'b') {
+            return self::_hazardDamage($game, $player, $brd, $tileId, $hazResults);
+        }
+
+        $game->throw_bug_report_dump("_applyHazardToShip should not get here", $hazResults);
     }
 
     function hazardHarmless($game, $player, $msg, $card) {
@@ -212,6 +229,24 @@ class GT_Hazards extends APP_GameClass  {
                 'hazResults' => $hazResults
             ]
         );
+    }
+
+    function checkShields($game, $player, $brd, $firstTileId, $hazResults) {
+        // If cannot power shields then take damage
+        $plyrContent = $game->newPlayerContent($player['player_id']);
+        if (!$brd->checkIfPowerableShield($plyrContent, $hazResults['orient'])) {
+            $actionNeeded = self::_hazardDamage(
+                $game, $player, $brd, $firstTileId, $hazResults);
+
+            return $actionNeeded ? 'shipDamage' : NULL;
+        }
+        $game->notifyAllPlayers("onlyLogMessage", 
+            clienttranslate('${player_name} must decide to activate a shield'),
+            ['player_name' => $player['player_name']]
+        );
+
+        return 'powerShields';
+
     }
 
     function hazardDamage($game, $plId, $card) {

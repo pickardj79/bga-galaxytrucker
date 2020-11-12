@@ -360,7 +360,7 @@ foreach ( $tileConnectors as $id => $tile )
         $this->tiles[$id][$dir] = $conType;
   }
 
-  // combatzone must have laser attacks as 3rd element of 'lines'
+  // combatzone must have cannon attacks as 3rd element of 'lines'
 $this->cardNames = array (
     'slavers' => clienttranslate('Slavers'),
     'smugglers' => clienttranslate('Smugglers'),
@@ -381,13 +381,13 @@ $this->card = array (
                'id' => 0,
                'type' => 'slavers',
                'enemy_strength' => 6,
-               'enemy_penalty' => 1,
+               'enemy_penalty' => 3,
                'reward' => 5,
                'days_loss' => 1, ),
   1 => array ( 'round' => 1,
                'id' => 1,
                'type' => 'smugglers',
-               'enemy_strength' => 0,
+               'enemy_strength' => 4,
                'enemy_penalty' => 2,
                'reward' => [ 'yellow', 'green', 'blue' ],
                'days_loss' => 1, ),
