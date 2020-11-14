@@ -264,6 +264,11 @@ class GT_StatesCard extends APP_GameClass {
             $idx = 0; // start of the card
             GT_Hazards::nextHazard($game, 0);
         }
+        else {
+            // Returning here from another state, move on to next hazard
+            $game->log("Finished index $idx");
+            GT_Hazards::nextHazard($game, ++$idx);
+        }
 
         $game->dump_var("Entering cannon blasts with current card $cardId blast $idx.", $card);
         $blasts = $card['type'] == 'pirates' 
@@ -279,7 +284,7 @@ class GT_StatesCard extends APP_GameClass {
 
             if ($hazResults['missed']) {
                 $game->notifyAllPlayers( "hazardMissed", 
-                            clienttranslate( "Cannon blast missed ${player_name}\'s ship"), 
+                            clienttranslate( 'Cannon blast missed ${player_name}\'s ship'), 
                             [ 'hazResults' => $hazResults,
                               'player_id' => $player['player_id'],
                               'player_name' => $player['player_name']
@@ -289,11 +294,11 @@ class GT_StatesCard extends APP_GameClass {
                 $nextState = GT_Hazards::applyHazardToShip($game, $hazResults, $player);
             }
 
-            $game->log("Finished index $idx");
-            GT_Hazards::nextHazard($game, ++$idx);
-
             if ($nextState) 
                 return $nextState;
+
+            $game->log("Finished index $idx");
+            GT_Hazards::nextHazard($game, ++$idx);
         }
 
         // TODO hide dice (see how we're hiding cards)

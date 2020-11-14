@@ -245,8 +245,8 @@ class GTFE_Card {
         // so it appears to actually hit the ship :). 
         let x = 0;
         let y = 0;
-        let hazHeight = (hazResults.size == 'b' ? 54 : 30) - 10;
-        let hazWidth = (hazResults.size == 'b' ? 48 : 40) - 10;
+        let hazHeight = $('current_hazard').offsetHeight - 10;
+        let hazWidth = $('current_hazard').offsetWidth - 10;
         switch (hazResults.orient) {
             case 0: y = -hazHeight; break; // from top, shift up by it's height
             case 90: x = 40; break; // from right, shift to right of tile

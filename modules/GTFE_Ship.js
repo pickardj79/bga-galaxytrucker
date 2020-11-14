@@ -108,7 +108,7 @@ class GTFE_Ship {
         let typeClass = type == 'engine' || type == 'shield' || type == 'cannon' 
             ? 'cell' : type;
         
-        if (type == 'goods') {/subtype
+        if (type == 'goods') {
             if (!subtype)
                 this.game.throw_bug_report("Subtype needed for content type " + type);
             typeClass = ['goods', subtype].join('.');

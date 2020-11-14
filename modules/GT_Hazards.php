@@ -206,7 +206,7 @@ class GT_Hazards extends APP_GameClass  {
 
         // Big cannon
         if ($hazResults['type'] == 'cannon' && $hazResults['size'] == 'b') {
-            return self::_hazardDamage($game, $player, $brd, $tileId, $hazResults);
+            return self::_hazardDamage($game, $player, $brd, $firstTileId, $hazResults);
         }
 
         $game->throw_bug_report_dump("_applyHazardToShip should not get here", $hazResults);

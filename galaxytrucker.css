@@ -310,10 +310,10 @@ html {
 .row_col_right .cannon.small { top: -15px; }
 .row_col_top .cannon.small{ top: -15px; left : -20px }
 .row_col_bottom .cannon.small { top: 15px; left : -20px }
-.row_col_left .cannon.big { top: -27px; left : -24px }
+.row_col_left .cannon.big { top: -27px; left : -34px }
 .row_col_right .cannon.big { top: -27px; }
-.row_col_top .cannon.big { top: -27px; left: -24px }
-.row_col_bottom .cannon.big { top: 27px; width: -24px }
+.row_col_top .cannon.big { top: -27px; left: -34px }
+.row_col_bottom .cannon.big { top: 27px; width: -34px }
 
 #trash_box {
     display: none;
