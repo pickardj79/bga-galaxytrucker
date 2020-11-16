@@ -381,18 +381,23 @@ class GT_PlayerBoard extends APP_GameClass {
 
     // ###################################################################
     // ############ FUNCTIONS TO SUMMARIZE SHIP ############
-    function countTileType($type, $hold=null, $orientation=null) {
-        $cnt = 0;
+    function getTilesOfType($type, $hold=null, $orientation=null) {
+        $tiles = [];
         foreach ( $this->plTiles as $plBoard_x ) {
             foreach ( $plBoard_x as $tile ) {
                 if ( $this->getTileType($tile['id']) == $type ) {
                     if (is_null($hold) or $this->getTileHold($tile['id']) == $hold)
                         if (is_null($orientation) or $tile['o'] == $orientation)
-                            $cnt++;
+                            $tiles[] = $tile;
                 }
             }
         }
-        return $cnt;
+        return $tiles;
+    }
+
+    function countTileType($type, $hold=null, $orientation=null) {
+        $cnt = 0;
+        return count(getTilesOfType($type,$hold,$orientation));
     }
 
 
@@ -457,28 +462,25 @@ class GT_PlayerBoard extends APP_GameClass {
         else throw new BgaVisibleSystemException ( "GetMinMaxStrengthX2: type is ".
                           $type." ".$this->plReportBug);
     
-        foreach ( $this->plTiles as $plBoard_x ) {
-            foreach ( $plBoard_x as $tile ) {
-                // for each tile, we check if it is an engine or cannon
-                if ( $this->getTileType($tile['id']) == $type ) {
-                    if ( $this->getTileHold( $tile['id'] ) == 1 ) { // simple engine or cannon
-                        if ( $type == 'cannon' && $tile['o'] != 0 )
-                            $strengthX2 += 1;
-                        else
-                            $strengthX2 += 2;
-                    }
-                    else { 
-                        // double engine or cannon ('hold' should be 2, is it better to check
-                        // if it really is? Expansions: what about bi-directional cannons?)
-                        if ( $type == 'cannon' && $tile['o'] != 0 )
-                            $nbActivableFor1 += 1; // do we need to keep track of the tile id,
-                                                // or do we only count?
-                        else
-                            $nbActivableFor2 += 1;
-                    }
-                }
+        $tiles = $this->getTilesOfType($type);
+        foreach ( $tiles as $tile ) {
+            if ( $this->getTileHold($tile['id']) == 1) { // simple engine or cannon
+                if ( $type == 'cannon' && $tile['o'] != 0 )
+                    $strengthX2 += 1;
+                else
+                    // engines have to be oriented backwards (o = 180)
+                    $strengthX2 += 2;
+            }
+            else { 
+                // double engine or cannon ('hold' should be 2, is it better to check
+                // if it really is? Expansions: what about bi-directional cannons?)
+                if ( $type == 'cannon' && $tile['o'] != 0 )
+                    $nbActivableFor1 += 1;
+                else
+                    $nbActivableFor2 += 1;
             }
         }
+
         $minStrengthX2 = $maxStrengthX2 = $strengthX2;
     
         // check for number of cells left, to compute max strength

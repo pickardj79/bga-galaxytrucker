@@ -674,11 +674,16 @@ class GalaxyTrucker extends Table {
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
+      $type = $card['type'];
       GT_DBPlayer::setCardDone($this, $plId);
 
-      if ($this->card[$cardId]['type'] == 'meteoric') {
+      if ($type == 'meteoric') {
           GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons'); 
           $this->gamestate->nextState('nextMeteor');
+      }
+      if ( in_array( $cardType, array( "slavers", "smugglers", "pirates" )) ) {
+          $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
+          $this->gamestate->nextState($nextState);
       }
       else
           $this->gamestate->nextState('notImpl');

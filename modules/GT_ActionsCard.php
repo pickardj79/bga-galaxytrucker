@@ -3,6 +3,7 @@
 /* Collection of function to handle player actions in response to cards */
 
 require_once('GT_DBPlayer.php');
+require_once('GT_Enemy.php');
 require_once('GT_Hazards.php');
 
 class GT_ActionsCard extends APP_GameClass {
@@ -182,11 +183,52 @@ class GT_ActionsCard extends APP_GameClass {
             else
                 $game->throw_bug_report("Invalid defenseType ($defenseType) for powerDefense");
 
-            GT_Hazards::hazardHarmless($game, $player, $msg, $card);
-
             $plyrContent = $game->newPlayerContent($plId);
             $plyrContent->checkBattChoices($battChoices, 1);
             $plyrContent->loseContent($battChoices, 'cell');
+
+            GT_Hazards::hazardHarmless($game, $player, $msg, $card);
+        }
+    }
+
+    function powerCannonEnemy($game, $plId, $card, $battChoices) {
+        // powering cannons against an enemy
+
+        $player = GT_DBPlayer::getPlayer($game, $plId);
+        $brd = $game->newPlayerBoard($plId);
+        $plyrContent = $game->newPlayerContent($plId);
+        $nbBatt = count($battChoices);
+        $nbDblCannons = $brd->countDoubleCannons();
+        $nbFwdDblCannons = $brd->countTileType('cannon', 2, 0);
+
+        // Checks
+        if ($nbBatt > $nbDblCannons) 
+            $game->throw_bug_report_dump("Too many batteries selected for fightPlayer", $battChoices);
+
+        $plyrContent->checkBattChoices($battChoices, $nbDblCannons);
+
+        // Assume forward-facing double-cannons are activated first
+        $str = $player['min_cannon_x2'] / 2;
+        if ($nbBatt > $nbFwdDblCannons) {
+            $str += $nbFwdDblCannons * 2;
+            $nbBatt -= $nbFwdDblCannons;
+            $str += $nbBatt; // remaining batteries power side-facing cannons, which give 1 each
+        }
+        else {
+            // all batteries power forward-facing double cannons
+            $str += $nbBatt * 2;
+        }
+
+        $enemy = new GT_Enemy($game, $card);
+        if ($str > $card['enemy_strength']) {
+            return $enemy->giveReward($player);
+        }
+        elseif ($str == $card['enemy_strength']) {
+            $enemy->fightIsTie($player);
+            return 'nextPlayerEnemy';
+        }
+        else {
+            return $enemy->applyPenalty($player);
         }
     }
     

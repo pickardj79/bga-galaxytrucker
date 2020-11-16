@@ -10,23 +10,20 @@ class GT_Enemy extends APP_GameClass {
     }
 
     function fightPlayer($player) {
-        if ($this->card['enemy_strength'] < $player['min_cann_x2'] / 2) {
-            $this->game->notifyAllPlayers("onlyLogMessage",
-                clienttranslate('${player_name} defeats ${type} in battle'),
-                [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
-            );
+        $enemy_str = $this->card['enemy_strength'];
+        if ($enemy_str < $player['min_cann_x2'] / 2) {
             return $this->giveReward($player);
         }
-        elseif ($this->card['enemy_strength'] > $player['min_cann_x2'] / 2) {
-            $this->game->notifyAllPlayers("onlyLogMessage",
-                clienttranslate('${player_name} is defeated by ${type} in battle'),
-                [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
-            );
+        elseif ($enemy_str > $player['max_cann_x2'] / 2) {
             return $this->applyPenalty($player);
+        }
+        elseif ($enemy_str == $player['min_cann_x2'] && $enemy_str == $player['max_cann_x2']) {
+            // must be a tie
+            return $this->fightIsTie($player);
         }
         else {
             // player must choose to power cannons (or not)
-            $game->notifyAllPlayers("onlyLogMessage", 
+            $this->game->notifyAllPlayers("onlyLogMessage", 
                 clienttranslate('${player_name} must decide whether to activate a cannon against ${type}'),
                 ['player_name' => $player['player_name'], 'type' => $this->card['type']]
             );
@@ -34,8 +31,21 @@ class GT_Enemy extends APP_GameClass {
         }
     }
 
+    function fightIsTie($player) {
+        $this->game->notifyAllPlayers("onlyLogMessage",
+            clienttranslate('${player_name} defeats ${type} in battle'),
+            [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
+        );
+        return;
+    }
+
     function giveReward($player) {
         // based on type of card give the correct reward and return the needed state
+        $this->game->notifyAllPlayers("onlyLogMessage",
+            clienttranslate('${player_name} defeats ${type} in battle'),
+            [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
+        );
+
         $type = $this->card['type'];
         $nextState = NULL;
         $flBrd = $this->game->newFlightBoard();
@@ -61,6 +71,11 @@ class GT_Enemy extends APP_GameClass {
 
     function applyPenalty($player) {
         // based on type of card, apply the penalty and return needed state
+        $this->game->notifyAllPlayers("onlyLogMessage",
+            clienttranslate('${player_name} is defeated by ${type} in battle'),
+            [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
+        );
+
         $game = $this->game;
         $type = $this->card['type'];
         $flBrd = $game->newFlightBoard();
