@@ -65,8 +65,9 @@ class GalaxyTrucker extends Table {
             "currentCardDie1" => 23,   // what is the current die roll being resolved
             "currentCardDie2" => 24,   
             "currentHazardPlayerTile" => 25,   
-            "cardArg1" => 30, // args related to cards to pass values to front-end
+            "cardArg1" => 30, // args related to cards to pass values to front-end; or between back-end states
             "cardArg2" => 31,
+            "cardArg3" => 32,
             "testGameState" => 99, // use a test scenario from GT_TestGameState
 
             // flight_variants is a game option (gameoptions.inc.php)
@@ -127,6 +128,7 @@ class GalaxyTrucker extends Table {
     self::setGameStateInitialValue( 'currentHazardPlayerTile', null ); // Tile of current player threatened by the hazard
     self::setGameStateInitialValue( 'cardArg1', null ); // Used for subtype of content to lose
     self::setGameStateInitialValue( 'cardArg2', null ); // Used for number of content to lose
+    self::setGameStateInitialValue( 'cardArg3', null ); // Used for number of content to lose
     self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'round', 1 ); // will be changed in stPrepareRound
                         // in case of a short flight variant that begins with a level 2 flight
@@ -650,12 +652,10 @@ class GalaxyTrucker extends Table {
   }
 
   function powerShields( $battChoices ) {
-      # TODO: can powerShields be combined with powerCannons? For meteoric it can
       self::checkAction( 'contentChoice' );
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
-      GT_DBPlayer::setCardDone($this, $plId);
 
       if ($this->card[$cardId]['type'] == 'meteoric') {
           GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
@@ -675,13 +675,12 @@ class GalaxyTrucker extends Table {
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
       $type = $card['type'];
-      GT_DBPlayer::setCardDone($this, $plId);
 
       if ($type == 'meteoric') {
           GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons'); 
           $this->gamestate->nextState('nextMeteor');
       }
-      if ( in_array( $cardType, array( "slavers", "smugglers", "pirates" )) ) {
+      if ( in_array( $type, array( "slavers", "smugglers", "pirates" )) ) {
           $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
           $this->gamestate->nextState($nextState);
       }
@@ -835,8 +834,7 @@ class GalaxyTrucker extends Table {
 
     function argPowerEngines() {
         $plId = self::getActivePlayerId();
-        $player = self::getObjectFromDb( "SELECT min_eng, max_eng, num_dbl_eng FROM player ".
-                                "WHERE player_id=".$plId );
+        $player = GT_DBPlayer::getPlayer($this, $plId);
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_eng'], 
@@ -847,8 +845,7 @@ class GalaxyTrucker extends Table {
 
     function argPowerCannons() {
         $plId = self::getActivePlayerId();
-        $player = self::getObjectFromDb( "SELECT min_cann_x2, max_cann_x2, num_dbl_cann FROM player ".
-                                "WHERE player_id=".$plId );
+        $player = GT_DBPlayer::getPlayer($this, $plId);
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_cann_x2']/2, 
@@ -1129,7 +1126,23 @@ class GalaxyTrucker extends Table {
   
   function stEnemy() {
       $nextState = GT_StatesCard::stEnemy($this);
-      $this->log("Next state is $nextState");
+      $this->gamestate->nextState( $nextState );
+  }
+
+  function stEnemyResults() {
+      $player = GT_DBPlayer::getPlayerCardInProgress($this);
+      $cardId = $this->getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      $str = $this->getGameStateValue('cardArg1');
+
+      $enemy = new GT_Enemy($this, $card, $player);
+      $nextState = $enemy->fightPlayer($str);
+
+      if (is_null($nextState)) {
+          $nextState = 'nextPlayerEnemy';
+          GT_DBPlayer::setCardDone($this, $player['player_id']);
+          $this->setGameStateValue('cardArg1', -1);
+      }
       $this->gamestate->nextState( $nextState );
   }
 

@@ -62,16 +62,29 @@ class GT_ActionsCard extends APP_GameClass {
     function loseContentChoice($game, $plId, $card, $type, $ids) {
         # Validate $ids is correct size, get $subtype for validation
         # $type is also validated against $card (pulled from DB) below
-        $idx = $game->getGameStateValue('cardArg1');
-        $subtype = GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$idx];
+        
+        # Required count is stored in cardArg2
         $req_cnt = $game->getGameStateValue('cardArg2');
         if (count($ids) != $req_cnt)
             $game->throw_bug_report_dump("loseContentChoice: wrong number of ids expected $req_cnt", $ids);
 
+        # Required content type is stored in cardArg3. If -1 or NULL, assume cell
+        $expTypeInt = $game->getGameStateValue('cardArg3');
+        if (is_null($expTypeInt) or $expTypeInt < 0)
+            $expType = 'cell';
+        else
+            $expType = GT_Constants::$CONTENT_INT_TYPE_MAP[$expTypeInt]; 
+
+        if ($expType != $type)
+            $game->throw_bug_report("loseContentChoice: type ($type) does not match expected type ($expType)");
+
+        # Required subtype, if applicable, is stored in cardArg1
+        $idx = $game->getGameStateValue('cardArg1');
+        $subtype = $type == 'goods' ? GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$idx] : NULL;
+
         $plyrContent = $game->newPlayerContent( $plId );
         $bToCard = true; // Will be set to false only for Combat Zone
         $plyrContent->loseContent($ids, $type, $subtype, $bToCard);
-        GT_DBPlayer::setCardDone($game, $plId);
 
         $nextState = NULL;
         if ($card['type'] == 'slavers' && $type == 'crew') {
@@ -91,6 +104,7 @@ class GT_ActionsCard extends APP_GameClass {
             $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
         }
 
+        GT_DBPlayer::setCardDone($game, $plId);
         return $nextState;
     }
 
@@ -191,7 +205,7 @@ class GT_ActionsCard extends APP_GameClass {
         }
     }
 
-    function powerCannonEnemy($game, $plId, $card, $battChoices) {
+    function powerCannonsEnemy($game, $plId, $card, $battChoices) {
         // powering cannons against an enemy
 
         $player = GT_DBPlayer::getPlayer($game, $plId);
@@ -206,9 +220,10 @@ class GT_ActionsCard extends APP_GameClass {
             $game->throw_bug_report_dump("Too many batteries selected for fightPlayer", $battChoices);
 
         $plyrContent->checkBattChoices($battChoices, $nbDblCannons);
+        $plyrContent->loseContent($battChoices, 'cell');
 
         // Assume forward-facing double-cannons are activated first
-        $str = $player['min_cannon_x2'] / 2;
+        $str = $player['min_cann_x2'] / 2;
         if ($nbBatt > $nbFwdDblCannons) {
             $str += $nbFwdDblCannons * 2;
             $nbBatt -= $nbFwdDblCannons;
@@ -219,17 +234,8 @@ class GT_ActionsCard extends APP_GameClass {
             $str += $nbBatt * 2;
         }
 
-        $enemy = new GT_Enemy($game, $card);
-        if ($str > $card['enemy_strength']) {
-            return $enemy->giveReward($player);
-        }
-        elseif ($str == $card['enemy_strength']) {
-            $enemy->fightIsTie($player);
-            return 'nextPlayerEnemy';
-        }
-        else {
-            return $enemy->applyPenalty($player);
-        }
+        $game->setGameStateValue('cardArg1', $str);
+        return 'enemyResults';
     }
     
     function planetChoice($game, $plId, $cardId, $choice) {

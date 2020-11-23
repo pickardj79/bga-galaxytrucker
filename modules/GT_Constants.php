@@ -1,5 +1,14 @@
 <?php
 class GT_Constants {
+    public static $CONTENT_INT_TYPE_MAP = [
+        1 => 'crew', 2 => 'cell', 3 => 'goods'
+    ];
+
+    // Must be array_flip of $CONTENT_INT_TYPE_MAP
+    public static $CONTENT_TYPE_INT_MAP = [
+        'crew' => 1, 'cell' => 2, 'goods' => 3
+    ];
+
     public static $ALLOWABLE_SUBTYPES = array(
         "crew" => array("human", "brown", "purple", "ask_human", "ask_brown", "ask_purple"),
         "cell" => array("cell"),

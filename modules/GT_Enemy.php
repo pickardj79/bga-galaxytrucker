@@ -4,62 +4,71 @@ require_once('GT_DBPlayer.php');
 require_once('GT_Constants.php');
 
 class GT_Enemy extends APP_GameClass {
-    public function __construct($game, $card) {
+    public function __construct($game, $card, $player) {
         $this->game = $game;
         $this->card = $card;
+        $this->player = $player;
     }
 
-    function fightPlayer($player) {
+    function playerCannonValue() {
+        // If we have a definitive cannon value relative to the current card, return it
+        // Null otherwise
+        $pl = $this->player;
+        if ($pl['min_cann_x2'] == $pl['max_cann_x2'])
+            return $pl['min_cann_x2'] / 2;
+        
         $enemy_str = $this->card['enemy_strength'];
-        if ($enemy_str < $player['min_cann_x2'] / 2) {
-            return $this->giveReward($player);
-        }
-        elseif ($enemy_str > $player['max_cann_x2'] / 2) {
-            return $this->applyPenalty($player);
-        }
-        elseif ($enemy_str == $player['min_cann_x2'] && $enemy_str == $player['max_cann_x2']) {
-            // must be a tie
-            return $this->fightIsTie($player);
-        }
-        else {
-            // player must choose to power cannons (or not)
-            $this->game->notifyAllPlayers("onlyLogMessage", 
-                clienttranslate('${player_name} must decide whether to activate a cannon against ${type}'),
-                ['player_name' => $player['player_name'], 'type' => $this->card['type']]
-            );
-            return 'powerCannons';
-        }
+        
+        if ($enemy_str < $pl['min_cann_x2'] / 2)
+            return $pl['min_cann_x2'] / 2;
+        elseif ($enemy_str > $pl['max_cann_x2'] / 2)
+            return $pl['max_cann_x2'] / 2;
+        
+        return;
     }
 
-    function fightIsTie($player) {
+    function fightPlayer($playerCannon) {
+        if ($playerCannon < 0)
+            $this->game->throw_bug_report_dump("playerCannon less than zero: $playerCannon");
+
+        $enemy_str = $this->card['enemy_strength'];
+        if ($enemy_str < $playerCannon)
+            return $this->giveReward();
+        elseif ($enemy_str > $playerCannon)
+            return $this->applyPenalty();
+        else
+            return $this->fightIsTie();
+    }
+
+    function fightIsTie() {
         $this->game->notifyAllPlayers("onlyLogMessage",
-            clienttranslate('${player_name} defeats ${type} in battle'),
-            [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
+            clienttranslate('${player_name} fights ${type} to a draw'),
+            [ 'player_name' => $this->player['player_name'], 'type' => $this->card['type'] ]
         );
         return;
     }
 
-    function giveReward($player) {
+    function giveReward() {
         // based on type of card give the correct reward and return the needed state
         $this->game->notifyAllPlayers("onlyLogMessage",
             clienttranslate('${player_name} defeats ${type} in battle'),
-            [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
+            [ 'player_name' => $this->player['player_name'], 'type' => $this->card['type'] ]
         );
 
         $type = $this->card['type'];
         $nextState = NULL;
         $flBrd = $this->game->newFlightBoard();
-        $flBrd->moveShip($player['player_id'], -$this->card['days_loss']);
+        $flBrd->moveShip($this->player['player_id'], -$this->card['days_loss']);
         switch($type) {
             case 'slavers': 
             case 'pirates':
-                $flBrd->addCredits($player['player_id'], $this->card['reward']);
-                GT_DBPlayer::setCardAllDone($game, $plId);
+                $flBrd->addCredits($this->player['player_id'], $this->card['reward']);
+                GT_DBPlayer::setCardAllDone($this->game, $this->player['player_id']);
                 break;
             case 'smugglers': 
                 $this->game->notifyAllPlayers("onlyLogMessage",
                     clienttranslate('${player_name} must place new cargo'),
-                    [ 'player_name' => $player['player_name'] ]
+                    [ 'player_name' => $this->player['player_name'] ]
                 );
                 $nextState = 'placeGoods';
                 break;
@@ -69,11 +78,11 @@ class GT_Enemy extends APP_GameClass {
         return $nextState;
     }
 
-    function applyPenalty($player) {
+    function applyPenalty() {
         // based on type of card, apply the penalty and return needed state
         $this->game->notifyAllPlayers("onlyLogMessage",
             clienttranslate('${player_name} is defeated by ${type} in battle'),
-            [ 'player_name' => $player['player_name'], 'type' => $this->card['type'] ]
+            [ 'player_name' => $this->player['player_name'], 'type' => $this->card['type'] ]
         );
 
         $game = $this->game;
@@ -81,12 +90,12 @@ class GT_Enemy extends APP_GameClass {
         $flBrd = $game->newFlightBoard();
         switch($type) {
             case 'slavers':
-                if ($player['nb_crew'] <= $this->card['enemy_penalty']) {
+                if ($this->player['nb_crew'] <= $this->card['enemy_penalty']) {
                     $game->notifyAllPlayers("onlyLogMessage",
                         clienttranslate('${player_name} loses all crew to ${type}'),
-                        [ 'player_name' => $player['player_name'], 'type' => $type ]
+                        [ 'player_name' => $this->player['player_name'], 'type' => $type ]
                     );
-                    $plyrContent = $game->newPlayerContent( $player['player_id'] );
+                    $plyrContent = $game->newPlayerContent( $this->player['player_id'] );
                     $allCrewIds = $plyrContent->getContentIds('crew');
 
                     // loseContent handles players giving up
@@ -95,9 +104,10 @@ class GT_Enemy extends APP_GameClass {
                 }
                 else {
                     $game->setGameStateValue('cardArg2', $this->card['enemy_penalty']);
+                    $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['crew']);
                     $game->notifyAllPlayers("onlyLogMessage",
                         clienttranslate('${player_name} must choose crew to lose to ${type}'),
-                        [ 'player_name' => $player['player_name'], 'type' => $type ]
+                        [ 'player_name' => $this->player['player_name'], 'type' => $type ]
                     );
                     return 'chooseCrew';
                 }
@@ -106,7 +116,7 @@ class GT_Enemy extends APP_GameClass {
                 return 'cannonBlasts';
             case 'smugglers':
                 $penalty = $this->card['enemy_penalty'];
-                $plyrContent = $game->newPlayerContent( $player['player_id'] );
+                $plyrContent = $game->newPlayerContent( $this->player['player_id'] );
                 $goodsIds = $plyrContent->getContentIds('goods');
 
                 if (count($goodsIds) == $penalty) {
@@ -137,6 +147,7 @@ class GT_Enemy extends APP_GameClass {
                             $plyrContent->loseContent($toloseIds, 'goods', null, TRUE);
                             $game->setGameStateValue('cardArg1', $idx);
                             $game->setGameStateValue('cardArg2', $left_to_lose);
+                            $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['goods']);
                             return 'loseGoods'; 
                         }
                     }
@@ -150,6 +161,7 @@ class GT_Enemy extends APP_GameClass {
                 $cellIds = $plyrContent->getContentIds('cell');
                 if ( count($cellIds) > $reqCell ) {
                     $game->setGameStateValue('cardArg2', $reqCell);
+                    $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['cells']);
                     return 'loseCells';
                 }
                 else {
@@ -160,8 +172,6 @@ class GT_Enemy extends APP_GameClass {
 
             default:
                 $game->throw_bug_report("Unknown card type ($type) in GT_Enemy::applyPenalty");
-            // if total amount of cargo or crew is < penalty just lose it automatically
-            // otherwise go to select content to lose
         }
     }
 

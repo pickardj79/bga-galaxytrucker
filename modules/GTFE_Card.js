@@ -219,16 +219,16 @@ class GTFE_Card {
     }
 
     /// ################# HAZARDS #########################
-    notif_hazardDiceRoll(args, gaveUp) {
+    notif_hazardDiceRoll(args, isCurPlayer, gaveUp) {
         let game = this.game;
 
         // don't turn off dice_box, clean-up code will do so
 
-        console.log("placing hazard with", args, args.hazResults.die1, gaveUp);
+        console.log("placing hazard with", args, args.hazResults.die1, isCurPlayer, gaveUp);
         let anim = game.myFadeOutAndDestroy(dojo.query('.die','dice_box'), 500);
         dojo.connect(anim, "onEnd", () => {
             this._placeDice(args.hazResults.die1, args.hazResults.die2);
-            if (!gaveUp)
+            if (isCurPlayer && !gaveUp)
                 this._placeHazard(args.hazResults);
         } );
         anim.play();

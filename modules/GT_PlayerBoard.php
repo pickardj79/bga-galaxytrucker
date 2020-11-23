@@ -397,7 +397,7 @@ class GT_PlayerBoard extends APP_GameClass {
 
     function countTileType($type, $hold=null, $orientation=null) {
         $cnt = 0;
-        return count(getTilesOfType($type,$hold,$orientation));
+        return count($this->getTilesOfType($type,$hold,$orientation));
     }
 
 

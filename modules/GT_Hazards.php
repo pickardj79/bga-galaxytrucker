@@ -75,16 +75,23 @@ class GT_Hazards extends APP_GameClass  {
         ];
 
         if ($new_roll) {
+            // Some rolls only affect the active player
+            $params = [
+                'roll' => $die1 + $die2,
+                'row_col' => $row_col,
+                'sizeName' => GT_Constants::$SIZE_NAMES[$size],
+                'direction' => GT_Constants::$DIRECTION_NAMES[$orient],
+                'type' => $hazResults['type'],
+                'hazResults' => $hazResults,
+            ];
+            if ($player = GT_DBPlayer::tryPlayerCardInProgress($game))
+                $params['player_id'] = $player['player_id'];
+            else
+                $params['player_id'] = NULL;
+
             $game->notifyAllPlayers( "hazardDiceRoll", 
                     clienttranslate( '${sizeName} ${type} incoming from the ${direction}'
-                        . ', ${row_col} ${roll}' ),
-                    [   'roll' => $die1 + $die2,
-                        'row_col' => $row_col,
-                        'sizeName' => GT_Constants::$SIZE_NAMES[$size],
-                        'direction' => GT_Constants::$DIRECTION_NAMES[$orient],
-                        'type' => $hazResults['type'],
-                        'hazResults' => $hazResults,
-                    ]
+                        . ', ${row_col} ${roll}' ), $params
             );
         }
         return $hazResults;

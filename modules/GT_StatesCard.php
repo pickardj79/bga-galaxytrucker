@@ -36,6 +36,10 @@ class GT_StatesCard extends APP_GameClass {
         $currentCard = $game->getUniqueValueFromDB ( "SELECT card_id id FROM card ".
                                         "WHERE card_order=$cardOrderInFlight" );
 
+        $game->setGameStateValue( 'cardArg1', -1);
+        $game->setGameStateValue( 'cardArg2', -1);
+        $game->setGameStateValue( 'cardArg3', -1);
+
         if ( is_null($currentCard) ) { 
             // no more cards, this flight is done
             $nextState = 'cardsDone' ;
@@ -218,46 +222,47 @@ class GT_StatesCard extends APP_GameClass {
     }
 
     function stEnemy($game) {
+        // Loop through active players for this card
+        // If no cannon choice needs to be made, set cannon power and move to enemy_results
+        // Otherwise, move to ask player to use power cannons
         $cardId = $game->getGameStateValue( 'currentCard' );
         $card = $game->card[$cardId];
 
-        $enemy = new GT_Enemy($game, $card);
         $players = GT_DBPlayer::getPlayersForCard($game);
         foreach ( $players as $plId => $player ) {
             $game->log("stEnemy for player $plId");
-            $nextState = $enemy->fightPlayer($player);
-            if ($nextState) {
-                GT_DBPlayer::setCardInProgress($game, $plId);
-                $game->gamestate->changeActivePlayer( $plId );
-                return $nextState;
+            $enemy = new GT_Enemy($game, $card, $player);
+            $nextState = '';
+            $cannonPower = $enemy->playerCannonValue();
+            if (is_null($cannonPower)) {
+                $game->notifyAllPlayers("onlyLogMessage", 
+                    clienttranslate('${player_name} must decide whether to activate a cannon against ${type}'),
+                    ['player_name' => $player['player_name'], 'type' => $card['type']]
+                );
+                $nextState = 'powerCannons';
             }
             else {
-                // no $nextState - this player is done
-                GT_DBPlayer::setCardDone($game, $plId);
+                $game->setGameStateValue('cardArg1', $cannonPower);
+                $nextState = 'enemyResults';
             }
+
+            GT_DBPlayer::setCardInProgress($game, $plId);
+            $game->gamestate->changeActivePlayer( $plId );
+            return $nextState;
+
         }
-        // Start with lead player and compare minimum cannon to required
-
-        // GT_Enemy has functions for reward, enemy_penalty, and tie
-        //      enemy_penalty can use Hazard (with shield powering) if necessary
-
-        // In action powerCannons, like powerDefense (content checking and DB update)
-        //    but ties mean nothing (next player), losing goes to enemy_penalty,
-        //    winning goes to reward
-
-        // Move ship back days_loss
 
         GT_DBPlayer::setCardAllDone($game);
         return 'nextCard';
     }
+
 
     function stCannonBlasts($game) {
         // In process of looping over all cannon blasts from combat or pirates card
         $cardId = $game->getGameStateValue( 'currentCard' );
         $card = $game->card[$cardId];
 
-        $plId = $game->getActivePlayerId();
-        $player = GT_DBPlayer::getPlayer($game, $plId);
+        $player = GT_DBPlayer::getPlayerCardInProgress($game);
 
         $idx = $game->getGameStateValue( 'currentCardProgress');
         if ($idx < 0) {
@@ -276,7 +281,7 @@ class GT_StatesCard extends APP_GameClass {
             : $card['lines'][3]['penalty_value'];
 
         while ($idx < count($blasts)) {
-            $game->log("Running cannon blast $idx on player $plId.");
+            $game->dump_var("Running cannon blast $idx on player.", $player);
             $nextState = NULL;
 
             // Get a dice roll
@@ -302,7 +307,8 @@ class GT_StatesCard extends APP_GameClass {
         }
 
         // TODO hide dice (see how we're hiding cards)
-        return 'nextCard';
+        GT_DBPlayer::setCardDone($game, $player['player_id']);
+        return 'nextPlayerEnemy';
     }
 
     // ###################### HELPERS ##########################

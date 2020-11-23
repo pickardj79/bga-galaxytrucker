@@ -67,10 +67,11 @@ if (!defined('STATE_END_GAME')) { // ensure this block is only invoked once, sin
     define("STATE_OPEN_SPACE", 41);
     define("STATE_ABANDONED", 42);
     define("STATE_METEORIC", 43);
-    define("STATE_ENEMY", 44);
-    define("STATE_CANNON_BLASTS", 45);
-    define("STATE_PLANETS", 46);
-    define("STATE_EXPLORE_ABANDONED", 58);
+    define("STATE_ENEMY", 44); // Loop over players, determine if powering cannons might matter
+    define("STATE_ENEMY_RESULTS", 45); // Cannons chosen, apply results
+    define("STATE_PLANETS", 49);
+    define("STATE_CANNON_BLASTS", 51); // damage from enemy or combat
+    define("STATE_EXPLORE_ABANDONED", 52);
     define("STATE_POWER_ENGINES", 60);
     define("STATE_POWER_SHIELDS", 61);
     define("STATE_POWER_CANNONS", 62);
@@ -280,14 +281,27 @@ $machinestates = array(
         "transitions" => array( 
             // "nextCard" => STATE_DRAW_CARD,
             "nextCard" => STATE_NOT_IMPL,
-            "shipDamage" => STATE_SHIP_DAMAGE,
             "powerCannons" => STATE_POWER_CANNONS,
+            "enemyResults" => STATE_ENEMY_RESULTS)
+    ),
+
+    STATE_ENEMY_RESULTS => array(
+        "name" => "enemyResults",
+        "description" => '',
+        "type" => "game",
+        "action" => "stEnemyResults",
+        "updateGameProgression" => false,
+        "transitions" => array( 
+            "shipDamage" => STATE_SHIP_DAMAGE,
             "chooseCrew" => STATE_CHOOSE_CREW,
             "loseGoods"  => STATE_LOSE_GOODS,
             "loseCells" => STATE_LOSE_CELLS,
             "cannonBlasts" => STATE_CANNON_BLASTS,
-            "placeGoods" => STATE_PLACE_GOODS)
+            "placeGoods" => STATE_PLACE_GOODS,
+            "nextPlayerEnemy" => STATE_ENEMY,
+        )
     ),
+
 
     STATE_CANNON_BLASTS => array(
         "name" => "cannonBlasts",
@@ -296,8 +310,6 @@ $machinestates = array(
         "action" => "stCannonBlasts",
         "updateGameProgression" => false,
         "transitions" => array( 
-            // "nextCard" => STATE_DRAW_CARD,
-            "nextCard" => STATE_NOT_IMPL,
             "shipDamage" => STATE_SHIP_DAMAGE,
             "powerShields" => STATE_POWER_SHIELDS,
             "nextPlayerEnemy" => STATE_ENEMY)
@@ -360,7 +372,9 @@ $machinestates = array(
         "type" => "activeplayer",
         "args" => "argPowerCannons",
         "possibleactions" => array( "contentChoice" ),
-        "transitions" => array( "nextMeteor" => STATE_METEORIC)
+        "transitions" => array( 
+            "nextMeteor" => STATE_METEORIC,
+            "enemyResults" => STATE_ENEMY_RESULTS)
     ),
 
     STATE_CHOOSE_PLANET => array(

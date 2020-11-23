@@ -394,7 +394,7 @@ $this->card = array (
   2 => array ( 'round' => 1,
                'id' => 2,
                'type' => 'pirates',
-               'enemy_strength' => 5,
+               'enemy_strength' => 2,
                'enemy_penalty' => ['s0', 'b0', 's0' ],
                'reward' => 4,
                'days_loss' => 1, ),

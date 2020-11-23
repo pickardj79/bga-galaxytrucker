@@ -185,7 +185,7 @@ class GT_TestGameState {
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
             array_push($tiles, self::newTile(115, 6, 7, 0)); // shield west of $startTile
             array_push($tiles, self::newTile(56, 5, 7, 0)); // hazard west of shield 
-            array_push($tiles, self::newTile(98, 5, 8, 90)); // cannon south of hazard 
+            // array_push($tiles, self::newTile(98, 5, 8, 90)); // side-facing cannon south of hazard 
             $cargo2 = self::newTile(19, 8, 7, 90); // cargo east of main cabin
             array_push($tiles, $cargo2);
             array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));

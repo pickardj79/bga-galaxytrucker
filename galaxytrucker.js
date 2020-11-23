@@ -312,7 +312,7 @@ function (dojo, declare) {
         this.stateName = stateName;
 
         let noEntering = ['drawCard', 'gameEnd', 'notImpl',
-            'abandoned', 'enemy', 'meteoric', 'openspace', 'planet',
+            'abandoned', 'enemy', 'enemyResults', 'meteoric', 'openspace', 'planet',
             'cannonBlasts'
         ];
         if (noEntering.includes(stateName))
@@ -457,18 +457,13 @@ function (dojo, declare) {
         console.log( 'Leaving state: '+stateName );
 
         let noLeaving = ['drawCard', 'gameEnd', 'notImpl',
-            'abandoned', 'enemy', 'meteoric', 'openspace', 'planet',
-            'cannonBlasts'
+            'abandoned', 'enemy', 'enemyResults', 'openspace', 'planet',
         ];
         if (noLeaving.includes(stateName))
             return;
 
         switch( stateName ) {
         case 'buildPhase':
-//            for( var i=1 ; i<=3 ; i++ )
-//            {
-//                this.removeTooltip( 'card_pile_'+i );// TODO either change this or destroy the face down piles
-//            }
             this.removeTooltip( 'clickable_pile' ); // sure? It can always stay, for other rounds (not displayed outside of buildPhase anyway)
             this.removeTooltip( 'revealed_pile_wrap' ); // idem
             this.removeTooltip( 'turn' ); // idem  // does this work? turn is a class, not an id
@@ -496,7 +491,6 @@ function (dojo, declare) {
             dojo.query('.ship_part_nb, .tile_error').forEach(dojo.destroy);
             break;
          
-        // Not implemented
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
@@ -516,6 +510,10 @@ function (dojo, declare) {
         case 'placeGoods':
             let goods = new GTFE_Goods(this);
             goods.onLeavingPlaceGoods();
+            break;
+        case 'meteoric':
+        case 'cannonBlasts':
+            dojo.style( 'dice_box', 'display', 'none' );
             break;
         case 'dummmy':
             this.throw_bug_report("Unknown leaving state: " + stateName);
@@ -1871,7 +1869,10 @@ function (dojo, declare) {
 
     notif_hazardDiceRoll: function(notif) {
         console.log("notif_hazardDiceRoll", notif.args);
-        this.card.notif_hazardDiceRoll(notif.args, this.playerGaveUp);
+        // if there's not a player_id then this applies to all players
+        // if there is a player_id, only use this for the active player
+        let isCurPlayer = notif.args.player_id === undefined || notif.args.player_id == this.player_id; 
+        this.card.notif_hazardDiceRoll(notif.args, isCurPlayer, this.playerGaveUp);
     },
 
     notif_hazardMissed: function(notif) {

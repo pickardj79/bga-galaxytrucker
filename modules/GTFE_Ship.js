@@ -119,7 +119,7 @@ class GTFE_Ship {
         this._typeToSelect = type;
         this._typeClassToSelect = typeClass;
         this._maxRequired = maxRequired;
-        this._baseStrength = parseInt(baseStr) || 0;
+        this._baseStrength = parseFloat(baseStr) || 0;
         this._hasAlien = hasAlien;
 
         dojo.query('.'+typeClass, 'my_ship').forEach( node => {
