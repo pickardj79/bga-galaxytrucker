@@ -161,7 +161,7 @@ class GT_Enemy extends APP_GameClass {
                 $cellIds = $plyrContent->getContentIds('cell');
                 if ( count($cellIds) > $reqCell ) {
                     $game->setGameStateValue('cardArg2', $reqCell);
-                    $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['cells']);
+                    $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['cell']);
                     return 'loseCells';
                 }
                 else {

@@ -306,7 +306,7 @@ class GT_StatesCard extends APP_GameClass {
             GT_Hazards::nextHazard($game, ++$idx);
         }
 
-        // TODO hide dice (see how we're hiding cards)
+        GT_Hazards::resetHazardProgress($game);
         GT_DBPlayer::setCardDone($game, $player['player_id']);
         return 'nextPlayerEnemy';
     }
