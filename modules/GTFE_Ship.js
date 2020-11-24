@@ -1,7 +1,6 @@
 class GTFE_Ship {
 
     INFOHTML = {
-        'cannon' : undefined,
         'engine' : "<p>"+_('Engine strength:')+" <span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Max engine strength:')+" <span id='max_str'>${max}</span></p>",
         'cannon' : "<p>"+_('Cannon strength:')+" <span id='curr_sel'>${curr}</span></p>"+
@@ -10,7 +9,10 @@ class GTFE_Ship {
             "<p>"+_('Shield required:')+" <span id='max_str'>${max}</span></p>",
         'crew' : "<p>"+_('Crew selected:')+"<span id='curr_sel'>${curr}</span></p>"+
             "<p>"+_('Crew required:')+"<span id='needed_sel'>${max}</span></p>",
-        'goods': undefined
+        'cell' : "<p>"+_('Cells selected:')+"<span id='curr_sel'>${curr}</span></p>"+
+            "<p>"+_('Cells required:')+"<span id='needed_sel'>${max}</span></p>",
+        'goods' : "<p>"+_('${subtype} goods selected:')+"<span id='curr_sel'>${curr}</span></p>"+
+            "<p>"+_('${subtype} goods required:')+"<span id='needed_sel'>${max}</span></p>",
     };
 
     constructor(game) {
@@ -89,26 +91,36 @@ class GTFE_Ship {
     ////////////////////////////////////////////////////////////
     ////////////////// CONTENT CHOOSING ////////////////////////
 
-    prepareContentChoice(type, maxSel, maxRequired, baseStr, maxStr, hasAlien) {
-        // type: type of thing, see QA check below for options
+    prepareContentChoice(type, subtype, maxSel, maxRequired, baseStr, maxStr, hasAlien) {
+        // type: type of thing, see QA check below for options; for goods, subtype is appended with a '.'
         // maxSel: maximum allowed to be selected
         // maxRequired: the player must choose the max (e.g. when selected crew to lose)
         // baseStr: base strength with nothing selected
         // maxStr: max str (includes alien)
         // hasAlien: whether or not there's a relevant alien (for adding 2 to strength)
+
+        subtype = subtype || '';
         
-        if (type != 'engine' && type != 'shield' && type != 'cannon' && type != 'crew' && type != 'goods')
+        if (type != 'engine' && type != 'shield' && type != 'cannon' && type != 'crew' 
+            && type != 'goods' && type != 'cell')
             this.game.throw_bug_report("Unexpected content type: " + type);
+
+        let typeClass = type == 'engine' || type == 'shield' || type == 'cannon' 
+            ? 'cell' : type;
+        
+        if (type == 'goods') {
+            if (!subtype)
+                this.game.throw_bug_report("Subtype needed for content type " + type);
+            typeClass = ['goods', subtype].join('.');
+        }
 
         this._nbSelected = 0;
         this._maxAllowed = parseInt(maxSel);
         this._typeToSelect = type;
+        this._typeClassToSelect = typeClass;
         this._maxRequired = maxRequired;
-        this._baseStrength = parseInt(baseStr) || 0;
+        this._baseStrength = parseFloat(baseStr) || 0;
         this._hasAlien = hasAlien;
-
-        let typeClass = type == 'engine' || type == 'shield' || type == 'cannon' 
-            ? 'cell' : type;
 
         dojo.query('.'+typeClass, 'my_ship').forEach( node => {
             this.connect( node, dojo.partial(this.onSelectContent, this));
@@ -116,6 +128,7 @@ class GTFE_Ship {
         } );
 
         dojo.place( this.game.format_string( this.INFOHTML[type], {
+                                subtype: subtype.charAt(0).toUpperCase() + subtype.slice(1),
                                 curr: this._baseStrength,
                                 max: maxStr || this._maxAllowed
                             } ), "info_box", "only" );
@@ -135,7 +148,7 @@ class GTFE_Ship {
             if ( this_ship._nbSelected === (this_ship._maxAllowed-1) ) 
                 // all content divs were previously marked as unselectable because max
                 // were selected; we add available class back to them
-                dojo.query('.'+this_ship._typeToSelect+':not(.selected)').addClass('available');
+                dojo.query('.'+this_ship._typeClassToSelect+':not(.selected)').addClass('available');
         }
         // Else this element is available, select it
         else {
@@ -158,8 +171,6 @@ class GTFE_Ship {
             case 'cannon':
             case 'engine':
                 var currentStrength = this._baseStrength + this._nbSelected*2;
-                console.log('base strength: ', this._baseStrength);
-                console.log('current strength: ', currentStrength);
                 if ( this._baseStrength==0 && this._nbSelected>0 && this._hasAlien ) {
                     // baseStrength == 0 means that the alien bonus (if present) is not counted
                     // in baseStrength (because no simple engine/cannon), so we must add it if
@@ -170,8 +181,12 @@ class GTFE_Ship {
                 return currentStrength;
             case 'shield':
                 return this._nbSelected;
+            case 'cell':
+                return this._nbSelected; 
             case 'crew':
                 return this._nbSelected; 
+            case 'goods':
+                return this._nbSelected;
         }
     }
 

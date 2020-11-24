@@ -4,6 +4,7 @@
 
 require_once('GT_Constants.php');
 require_once('GT_DBPlayer.php');
+require_once('GT_Enemy.php');
 require_once('GT_Hazards.php');
 
 class GT_StatesCard extends APP_GameClass {
@@ -35,6 +36,10 @@ class GT_StatesCard extends APP_GameClass {
         $currentCard = $game->getUniqueValueFromDB ( "SELECT card_id id FROM card ".
                                         "WHERE card_order=$cardOrderInFlight" );
 
+        $game->setGameStateValue( 'cardArg1', -1);
+        $game->setGameStateValue( 'cardArg2', -1);
+        $game->setGameStateValue( 'cardArg3', -1);
+
         if ( is_null($currentCard) ) { 
             // no more cards, this flight is done
             $nextState = 'cardsDone' ;
@@ -51,7 +56,7 @@ class GT_StatesCard extends APP_GameClass {
             $cardType = $game->card[ $currentCard ][ 'type' ];
 
             if ( in_array( $cardType, array( "slavers", "smugglers", "pirates" ) ) )
-                $nextState = 'enemies';
+                $nextState = 'enemy';
             else if ( in_array( $cardType, array( "abship", "abstation" ) ) )
                 $nextState = 'abandoned';
             else
@@ -214,6 +219,96 @@ class GT_StatesCard extends APP_GameClass {
 
         // TODO hide dice (see how we're hiding cards)
         return 'nextCard';
+    }
+
+    function stEnemy($game) {
+        // Loop through active players for this card
+        // If no cannon choice needs to be made, set cannon power and move to enemy_results
+        // Otherwise, move to ask player to use power cannons
+        $cardId = $game->getGameStateValue( 'currentCard' );
+        $card = $game->card[$cardId];
+
+        $players = GT_DBPlayer::getPlayersForCard($game);
+        foreach ( $players as $plId => $player ) {
+            $game->log("stEnemy for player $plId");
+            $enemy = new GT_Enemy($game, $card, $player);
+            $nextState = '';
+            $cannonPower = $enemy->playerCannonValue();
+            if (is_null($cannonPower)) {
+                $game->notifyAllPlayers("onlyLogMessage", 
+                    clienttranslate('${player_name} must decide whether to activate a cannon against ${type}'),
+                    ['player_name' => $player['player_name'], 'type' => $card['type']]
+                );
+                $nextState = 'powerCannons';
+            }
+            else {
+                $game->setGameStateValue('cardArg1', $cannonPower);
+                $nextState = 'enemyResults';
+            }
+
+            GT_DBPlayer::setCardInProgress($game, $plId);
+            $game->gamestate->changeActivePlayer( $plId );
+            return $nextState;
+
+        }
+
+        GT_DBPlayer::setCardAllDone($game);
+        return 'nextCard';
+    }
+
+
+    function stCannonBlasts($game) {
+        // In process of looping over all cannon blasts from combat or pirates card
+        $cardId = $game->getGameStateValue( 'currentCard' );
+        $card = $game->card[$cardId];
+
+        $player = GT_DBPlayer::getPlayerCardInProgress($game);
+
+        $idx = $game->getGameStateValue( 'currentCardProgress');
+        if ($idx < 0) {
+            $idx = 0; // start of the card
+            GT_Hazards::nextHazard($game, 0);
+        }
+        else {
+            // Returning here from another state, move on to next hazard
+            $game->log("Finished index $idx");
+            GT_Hazards::nextHazard($game, ++$idx);
+        }
+
+        $game->dump_var("Entering cannon blasts with current card $cardId blast $idx.", $card);
+        $blasts = $card['type'] == 'pirates' 
+            ? $card['enemy_penalty'] 
+            : $card['lines'][3]['penalty_value'];
+
+        while ($idx < count($blasts)) {
+            $game->dump_var("Running cannon blast $idx on player.", $player);
+            $nextState = NULL;
+
+            // Get a dice roll
+            $hazResults = GT_Hazards::getHazardRoll($game, $card, $idx);
+
+            if ($hazResults['missed']) {
+                $game->notifyAllPlayers( "hazardMissed", 
+                            clienttranslate( 'Cannon blast missed ${player_name}\'s ship'), 
+                            [ 'hazResults' => $hazResults,
+                              'player_id' => $player['player_id'],
+                              'player_name' => $player['player_name']
+                            ] );
+            }
+            else {
+                $nextState = GT_Hazards::applyHazardToShip($game, $hazResults, $player);
+            }
+
+            if ($nextState) 
+                return $nextState;
+
+            $game->log("Finished index $idx");
+            GT_Hazards::nextHazard($game, ++$idx);
+        }
+
+        GT_Hazards::resetHazardProgress($game);
+        GT_DBPlayer::setCardDone($game, $player['player_id']);
+        return 'nextPlayerEnemy';
     }
 
     // ###################### HELPERS ##########################

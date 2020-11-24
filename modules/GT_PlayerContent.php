@@ -14,6 +14,8 @@ class GT_PlayerContent extends APP_GameClass {
         $this->player_id = $player_id;
     }
 
+    ################### HELPERS #########################
+
     ################### CHECK HELPERS #########################
 
     // check battery choices from front end
@@ -52,19 +54,24 @@ class GT_PlayerContent extends APP_GameClass {
     }
 
     // Check that content id $id is valid relative to expected type $type and this player's content
-    function checkContentById($id, $type=null) {
+    function checkContentById($id, $type=null, $subtype=null) {
+        if (!$type && $subtype)
+            $this->game->throw_bug_report("Cannot for check subtype ($subtype) and not type for id $id.");
+
         if ( ! array_key_exists($id, $this->plContent) )
             $this->game->throw_bug_report("Wrong id $id: no content with this id.");
         
-        
         if ($type)
-            $this->checkContent($this->plContent[$id], $type);
+            $this->checkContent($this->plContent[$id], $type, $subtype);
     }
 
-    function checkContent($content, $type) {
+    function checkContent($content, $type, $subtype=null) {
         if ( $content['content_type'] != $type )
             $this->game->throw_bug_report_dump("Wrong content: not a $type.", $content);
         
+        if ( $subtype && $content['content_subtype'] != $subtype )
+            $this->game->throw_bug_report_dump("Wrong content: not subtype $subtype.", $content);
+
         if (!in_array($content['content_subtype'], GT_Constants::$ALLOWABLE_SUBTYPES[$type]))
             $this->game->throw_bug_report_dump("Wrong content subtype: {$content['content_subtype']} not allowed with type $type.", $content);
 
@@ -124,6 +131,15 @@ class GT_PlayerContent extends APP_GameClass {
                 function($c) use ($subtype) { return $c['content_subtype'] == $subtype; }
             );
         return $conts;
+    }
+
+    function getContentIds($type, $subtype=NULL) {
+        $conts = $this->getContent($type, $subtype);
+        return array_map(function($x) { return $x['content_id']; }, $conts);
+    }
+
+    function getIds($conts) {
+        return array_map(function($x) { return $x['content_id']; }, $conts);
     }
 
     function nbOfCrewMembers() {
@@ -251,7 +267,8 @@ class GT_PlayerContent extends APP_GameClass {
         );
     }
 
-    function loseContent($ids, $expType, $toCard) {
+    function loseContent($ids, $expType, $expSubType=null, $toCard=FALSE) {
+        // $ids: array of ids (ints) to remove
         if (!$ids)
             return;
 
@@ -262,7 +279,7 @@ class GT_PlayerContent extends APP_GameClass {
 
         $this->game->dump_var("ids", $ids);
         foreach ( $ids as $id) {
-            $this->checkContentById($id, $expType);
+            $this->checkContentById($id, $expType, $expSubType);
             $curCont = $this->plContent[$id];
             $this->game->dump_var("curCont", $curCont);
 
@@ -281,6 +298,7 @@ class GT_PlayerContent extends APP_GameClass {
         $this->game->notifyAllPlayers( "loseContent",
                                 clienttranslate( '${player_name} loses ${content_icons}'),
                                 array( 'player_name' => $player['player_name'],
+                                        'player_id' => $this->player_id,
                                         'content' => $contentLost,
                                         'content_icons' => $contentHtml,
                                     )

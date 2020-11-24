@@ -7,7 +7,7 @@ require_once('GT_DBComponent.php');
 require_once('GT_DBContent.php');
 require_once('GT_DBCard.php');
 
-class GT_GameState {
+class GT_TestGameState {
     public function __construct($game, $players) {
         $this->game = $game;
         $this->players = $players;
@@ -61,13 +61,16 @@ class GT_GameState {
         $this->log("Running prepareFlight for Test GameState");
 
         // Set cards - put planet card id 11 first
-        $this->setCardOrder(8,1); // meteor card
+        // $this->setCardOrder(8,1); // meteor card
         // $this->setCardOrder(11,1); // planet card
         // $this->setCardOrder(3,1); // stardust card
         // $this->setCardOrder(4,1); // openspace card
         // $this->setCardOrder(17,1); // abship card
         // $this->setCardOrder(18,1); // abstation card 
+        // $this->setCardOrder(0,1); // slavers card 
+        $this->setCardOrder(1,1); // smugglers card 
         $this->setCardOrder(2,1); // pirates card 
+        $this->setCardOrder(15,1); // combat zone card 
 
         // Add cargo to ships
         $sql = "INSERT INTO content (player_id, tile_id, square_x, square_y, content_type, content_subtype, place, capacity) VALUES";
@@ -178,19 +181,22 @@ class GT_GameState {
             array_push($tiles, self::newTile(74, 7, 8, 0)); // single engine directly south
             $cargo = self::newTile(22, 7, 6, 0); // cargo north
             array_push($tiles, $cargo);
-            array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above cargo 
+            array_push($tiles, self::newTile(123, 7, 5, 0)); // double-cannon above cargo 
             array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
             array_push($tiles, self::newTile(115, 6, 7, 0)); // shield west of $startTile
             array_push($tiles, self::newTile(56, 5, 7, 0)); // hazard west of shield 
-            // array_push($tiles, self::newTile(98, 5, 8, 90)); // laser south of hazard 
-            // array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
+            // array_push($tiles, self::newTile(98, 5, 8, 90)); // side-facing cannon south of hazard 
+            $cargo2 = self::newTile(19, 8, 7, 90); // cargo east of main cabin
+            array_push($tiles, $cargo2);
             array_push($content, self::newContent($cargo, 'goods', 'blue', 1, 2));
+            array_push($content, self::newContent($cargo, 'goods', 'green', 2, 2));
+            array_push($content, self::newContent($cargo2, 'goods', 'blue', 1, 2));
         }
         else if ($variant == 2) {
             array_push($tiles, self::newTile(85, 7, 8, 0)); // double engine directly south
             $cargo = self::newTile(58, 7, 6, 0); // hazard cargo north
             array_push($tiles, $cargo);
-            array_push($tiles, self::newTile(88, 7, 5, 0)); // laser above that
+            array_push($tiles, self::newTile(88, 7, 5, 0)); // cannon above that
             array_push($tiles, self::newTile(3, 6, 6, 270)); // battery to west of cargo
             array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
         }
@@ -222,7 +228,7 @@ class GT_GameState {
         $cargo = self::newTile(22, 7, 6, 0); // cargo north
         array_push($tiles, $cargo);
         array_push($tiles, self::newTile(115, 6, 6, 270)); // shield west of $cargo
-        array_push($tiles, self::newTile(123, 7, 5, 0)); // double-laser above that
+        array_push($tiles, self::newTile(123, 7, 5, 0)); // double-cannon above that
         array_push($tiles, self::newTile(12, 8, 6, 270)); // battery to east of cargo
         array_push($tiles, self::newTile(19, 8, 7, 90)); // cargo east of main cabin
 

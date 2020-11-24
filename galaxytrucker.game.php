@@ -23,12 +23,13 @@ require_once('modules/GT_ActionsCard.php');
 require_once('modules/GT_DBCard.php');
 require_once('modules/GT_DBComponent.php');
 require_once('modules/GT_DBPlayer.php');
-require_once('modules/GT_GameStates.php');
+require_once('modules/GT_Enemy.php');
 require_once('modules/GT_FlightBoard.php');
 require_once('modules/GT_PlayerBoard.php');
 require_once('modules/GT_PlayerContent.php');
 require_once('modules/GT_StatesCard.php');
 require_once('modules/GT_StatesSetup.php');
+require_once('modules/GT_TestGameState.php');
 
 class GalaxyTrucker extends Table {
     public static $instance = null;
@@ -64,7 +65,10 @@ class GalaxyTrucker extends Table {
             "currentCardDie1" => 23,   // what is the current die roll being resolved
             "currentCardDie2" => 24,   
             "currentHazardPlayerTile" => 25,   
-            "testGameState" => 99, // use a test scenario from GT_GameStates 
+            "cardArg1" => 30, // args related to cards to pass values to front-end; or between back-end states
+            "cardArg2" => 31,
+            "cardArg3" => 32,
+            "testGameState" => 99, // use a test scenario from GT_TestGameState
 
             // flight_variants is a game option (gameoptions.inc.php)
             // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
@@ -122,12 +126,16 @@ class GalaxyTrucker extends Table {
     self::setGameStateInitialValue( 'currentCardDie1', null );
     self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'currentHazardPlayerTile', null ); // Tile of current player threatened by the hazard
+    self::setGameStateInitialValue( 'cardArg1', null ); // Used for subtype of content to lose
+    self::setGameStateInitialValue( 'cardArg2', null ); // Used for number of content to lose
+    self::setGameStateInitialValue( 'cardArg3', null ); // Used for number of content to lose
+    self::setGameStateInitialValue( 'currentCardDie2', null );
     self::setGameStateInitialValue( 'round', 1 ); // will be changed in stPrepareRound
                         // in case of a short flight variant that begins with a level 2 flight
     self::setGameStateInitialValue( 'timerStartTime', 0 );
     self::setGameStateInitialValue( 'timerPlace', -1 );
     self::setGameStateInitialValue( 'overlayTilesPlaced', 0 );
-
+    
     // Init game statistics
     // (note: statistics used in this file must be defined in your stats.inc.php file)
     //self::initStat( 'table', 'table_teststat1', 0 );    // Init a table statistics
@@ -648,10 +656,15 @@ class GalaxyTrucker extends Table {
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
-      GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
-      GT_DBPlayer::setCardDone($this, $plId);
-      if ($this->card[$cardId]['type'] == 'meteoric')
+
+      if ($this->card[$cardId]['type'] == 'meteoric') {
+          GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
           $this->gamestate->nextState('nextMeteor');
+      }
+      elseif ($this->card[$cardId]['type'] == 'pirates') {
+          GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields'); 
+          $this->gamestate->nextState('nextCannon');
+      }
       else
           $this->gamestate->nextState('notImpl');
   }
@@ -661,11 +674,15 @@ class GalaxyTrucker extends Table {
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
       $card = $this->card[$cardId];
-      GT_DBPlayer::setCardDone($this, $plId);
+      $type = $card['type'];
 
-      if ($this->card[$cardId]['type'] == 'meteoric') {
+      if ($type == 'meteoric') {
           GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons'); 
           $this->gamestate->nextState('nextMeteor');
+      }
+      if ( in_array( $type, array( "slavers", "smugglers", "pirates" )) ) {
+          $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
+          $this->gamestate->nextState($nextState);
       }
       else
           $this->gamestate->nextState('notImpl');
@@ -680,12 +697,15 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState($nextState);
   }
 
-  function cancelExplore() {
-    self::checkAction( 'cancelExplore' );
-    $plId = self::getActivePlayerId();
-    GT_DBPlayer::setCardDone($this, $plId);
-    GT_ActionsCard::noStopMsg($this);
-    $this->gamestate->nextState( 'nextPlayer');
+  function loseContentChoice ( $type, $ids ) {
+      self::checkAction( 'contentChoice' );
+      self::dump_var("Action contentChoice type $type", $ids);
+      $plId = self::getActivePlayerId();
+      $cardId = self::getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      $nextState = GT_ActionsCard::loseContentChoice($this, $plId, $card, $type, $ids);
+
+      $this->gamestate->nextState( $nextState ); 
   }
 
   function crewChoice( $crewChoices ) {
@@ -693,9 +713,9 @@ class GalaxyTrucker extends Table {
       self::dump_var("Action contentChoice ", $crewChoices);
       $plId = self::getActivePlayerId();
       $cardId = self::getGameStateValue( 'currentCard' );
-      GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
+      $nextState = GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
 
-      $this->gamestate->nextState( 'nextCard' ); 
+      $this->gamestate->nextState( $nextState ); 
   }
 
   function planetChoice( $choice ) {
@@ -814,8 +834,7 @@ class GalaxyTrucker extends Table {
 
     function argPowerEngines() {
         $plId = self::getActivePlayerId();
-        $player = self::getObjectFromDb( "SELECT min_eng, max_eng, num_dbl_eng FROM player ".
-                                "WHERE player_id=".$plId );
+        $player = GT_DBPlayer::getPlayer($this, $plId);
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_eng'], 
@@ -826,8 +845,7 @@ class GalaxyTrucker extends Table {
 
     function argPowerCannons() {
         $plId = self::getActivePlayerId();
-        $player = self::getObjectFromDb( "SELECT min_cann_x2, max_cann_x2, num_dbl_cann FROM player ".
-                                "WHERE player_id=".$plId );
+        $player = GT_DBPlayer::getPlayer($this, $plId);
         $plyrContent = $this->newPlayerContent( $plId );
         $nbCells = $plyrContent->checkIfCellLeft();
         return array( 'baseStr' => $player['min_cann_x2']/2, 
@@ -855,7 +873,18 @@ class GalaxyTrucker extends Table {
 
     function argChooseCrew() {
         $currentCard = self::getGameStateValue( 'currentCard' );
-        return array( 'nbCrewMembers' => $this->card[$currentCard]['crew'] );
+        return array( 'nbCrewMembers' => self::getGameStateValue('cardArg2') );
+    }
+
+    function argLoseGoods() {
+        $req_idx = self::getGameStateValue('cardArg1');
+        return ['subtype' => GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$req_idx],
+                'nbGoods' => self::getGameStateValue('cardArg2')
+        ];
+    }
+
+    function argLoseCells() {
+        return [ 'nbCells' => self::getGameStateValue('cardArg2') ];
     }
 
     function argChoosePlanet() {
@@ -919,7 +948,7 @@ class GalaxyTrucker extends Table {
 
       // Setup a test game state
       if ( self::getGameStateValue( 'testGameState' ) ) {
-        $gt_state = new GT_GameState($this, $players);
+        $gt_state = new GT_TestGameState($this, $players);
         $gt_state->prepareRound();
       }
       else {
@@ -1042,7 +1071,7 @@ class GalaxyTrucker extends Table {
       $nextState = GT_StatesSetup::stPrepareFlight($this, $players);
 
       if ( self::getGameStateValue( 'testGameState' ) ) {
-          $gt_state = new GT_GameState($this, $players);
+          $gt_state = new GT_TestGameState($this, $players);
           $gt_state->prepareFlight($nextState);
       }
       else {
@@ -1095,6 +1124,33 @@ class GalaxyTrucker extends Table {
       $this->gamestate->nextState( $nextState );
   }
   
+  function stEnemy() {
+      $nextState = GT_StatesCard::stEnemy($this);
+      $this->gamestate->nextState( $nextState );
+  }
+
+  function stEnemyResults() {
+      $player = GT_DBPlayer::getPlayerCardInProgress($this);
+      $cardId = $this->getGameStateValue( 'currentCard' );
+      $card = $this->card[$cardId];
+      $str = $this->getGameStateValue('cardArg1');
+
+      $enemy = new GT_Enemy($this, $card, $player);
+      $nextState = $enemy->fightPlayer($str);
+
+      if (is_null($nextState)) {
+          $nextState = 'nextPlayerEnemy';
+          GT_DBPlayer::setCardDone($this, $player['player_id']);
+          $this->setGameStateValue('cardArg1', -1);
+      }
+      $this->gamestate->nextState( $nextState );
+  }
+
+  function stCannonBlasts() {
+      $nextState = GT_StatesCard::stCannonBlasts($this);
+      $this->gamestate->nextState( $nextState );
+  }
+
   function stShipDamage() {
       $plId = self::getActivePlayerId();
       GT_DBPlayer::setCardDone($this, $plId);

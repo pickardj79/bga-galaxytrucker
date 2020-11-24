@@ -12,12 +12,7 @@ class GTFE_Tile {
 
         let nodeId = "";
         switch( this.type ) {
-            case 'human':
-            case 'purple':
-            case 'brown':
-            case 'ask_purple':
-            case 'ask_brown':
-            case 'ask_human':
+            case 'crew':
                 nodeId = "overlaytile_" + id;
                 break;
             default:
@@ -152,6 +147,12 @@ class GTFE_Tile {
     loseContent(cont, delay, toCard) {
         // This has nothing to do with "this" Tile
 
+        // toCard takes precedence over cont.toCard
+        console.log("before", toCard);
+        if (toCard === undefined)
+            toCard = cont.toCard;
+        console.log("after", toCard);
+
         let divId = '';
         if (typeof(cont.id) != 'string' || !cont.id.startsWith('content_'))
             divId = 'content_' + cont.id;
@@ -161,7 +162,7 @@ class GTFE_Tile {
         dojo.style( divId, 'z-index', '50' ); // Not working, certainly due to stacking context. TODO
         this._attachToSquare(divId);
 
-        if ( toCard || cont.toCard ) {
+        if ( toCard ) {
             this.game.slideToObjectAndDestroy( divId, "current_card", 1200, delay );
         }
         else {

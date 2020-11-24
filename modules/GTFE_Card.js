@@ -219,16 +219,16 @@ class GTFE_Card {
     }
 
     /// ################# HAZARDS #########################
-    notif_hazardDiceRoll(args, gaveUp) {
+    notif_hazardDiceRoll(args, isCurPlayer, gaveUp) {
         let game = this.game;
 
         // don't turn off dice_box, clean-up code will do so
 
-        console.log("placing hazard with", args, args.hazResults.die1, gaveUp);
+        console.log("placing hazard with", args, args.hazResults.die1, isCurPlayer, gaveUp);
         let anim = game.myFadeOutAndDestroy(dojo.query('.die','dice_box'), 500);
         dojo.connect(anim, "onEnd", () => {
             this._placeDice(args.hazResults.die1, args.hazResults.die2);
-            if (!gaveUp)
+            if (isCurPlayer && !gaveUp)
                 this._placeHazard(args.hazResults);
         } );
         anim.play();
@@ -245,8 +245,8 @@ class GTFE_Card {
         // so it appears to actually hit the ship :). 
         let x = 0;
         let y = 0;
-        let hazHeight = (hazResults.size == 'b' ? 54 : 30) - 10;
-        let hazWidth = (hazResults.size == 'b' ? 48 : 40) - 10;
+        let hazHeight = $('current_hazard').offsetHeight - 10;
+        let hazWidth = $('current_hazard').offsetWidth - 10;
         switch (hazResults.orient) {
             case 0: y = -hazHeight; break; // from top, shift up by it's height
             case 90: x = 40; break; // from right, shift to right of tile

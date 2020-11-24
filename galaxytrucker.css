@@ -287,6 +287,16 @@ html {
     width: 48px;
     height: 54px;
 }
+.cannon.small{
+    background-position: -260px -53px;
+    width: 35px;
+    height: 34px;
+}
+.cannon.big {
+    background-position: -243px -111px;
+    width: 68px;
+    height: 55px;
+}
 .row_col_left .meteor.small  { top: -15px; left : -20px }
 .row_col_right .meteor.small { top: -15px; }
 .row_col_top .meteor.small{ top: -15px; left : -20px }
@@ -295,6 +305,15 @@ html {
 .row_col_right .meteor.big { top: -27px; }
 .row_col_top .meteor.big { top: -27px; left: -24px }
 .row_col_bottom .meteor.big { top: 27px; width: -24px }
+
+.row_col_left .cannon.small  { top: -15px; left : -20px }
+.row_col_right .cannon.small { top: -15px; }
+.row_col_top .cannon.small{ top: -15px; left : -20px }
+.row_col_bottom .cannon.small { top: 15px; left : -20px }
+.row_col_left .cannon.big { top: -27px; left : -34px }
+.row_col_right .cannon.big { top: -27px; }
+.row_col_top .cannon.big { top: -27px; left: -34px }
+.row_col_bottom .cannon.big { top: 27px; width: -34px }
 
 #trash_box {
     display: none;

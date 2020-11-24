@@ -311,8 +311,9 @@ function (dojo, declare) {
         console.log( 'Entering state: '+stateName + ' with args', args.args);
         this.stateName = stateName;
 
-        let noEntering = ['drawCard', 'notImpl', 'gameEnd', 
-            'openspace', 'abandoned', 'meteoric', 'planet'
+        let noEntering = ['drawCard', 'gameEnd', 'notImpl',
+            'abandoned', 'enemy', 'enemyResults', 'meteoric', 'openspace', 'planet',
+            'cannonBlasts'
         ];
         if (noEntering.includes(stateName))
             return;
@@ -391,11 +392,9 @@ function (dojo, declare) {
             break;
  
         case 'stardust':
-        case 'enemies':
         case 'combatzone':
         case 'epidemic':
         case 'sabotage':
-        case 'loseGoods':
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
@@ -404,23 +403,31 @@ function (dojo, declare) {
             break;
         case 'powerEngines':
             if ( this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('engine', 
+                this.ship.prepareContentChoice('engine', null, 
                     args.args.maxSel, false, 
                     args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
         case 'powerCannons':
             if ( this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('cannon', 
+                this.ship.prepareContentChoice('cannon', null, 
                     args.args.maxSel, false, 
                     args.args.baseStr, args.args.maxStr, args.args.hasAlien);
             break;
         case 'powerShields':
             if (this.isCurrentPlayerActive() )
-                this.ship.prepareContentChoice('shield', 1, false);
+                this.ship.prepareContentChoice('shield', null, 1, false);
+            break;
+        case 'loseGoods':
+            if ( this.isCurrentPlayerActive() ) 
+                this.ship.prepareContentChoice('goods', args.args.subtype, args.args.nbGoods, true);
+            break;
+        case 'loseCells':
+            if ( this.isCurrentPlayerActive() ) 
+                this.ship.prepareContentChoice('cell', null, args.args.nbCells, true);
             break;
         case 'chooseCrew':
             if ( this.isCurrentPlayerActive() ) 
-                this.ship.prepareContentChoice('crew', args.args.nbCrewMembers, true);
+                this.ship.prepareContentChoice('crew', null, args.args.nbCrewMembers, true);
             break;
         case 'choosePlanet':
             if ( this.isCurrentPlayerActive() ) 
@@ -449,18 +456,14 @@ function (dojo, declare) {
     onLeavingState: function( stateName ) {
         console.log( 'Leaving state: '+stateName );
 
-        let noLeaving = ['drawCard', 'notImpl', 'gameEnd', 
-            'openspace', 'abandoned', 'planet', 'stardust',
+        let noLeaving = ['drawCard', 'gameEnd', 'notImpl',
+            'abandoned', 'enemy', 'enemyResults', 'openspace', 'planet',
         ];
         if (noLeaving.includes(stateName))
             return;
 
         switch( stateName ) {
         case 'buildPhase':
-//            for( var i=1 ; i<=3 ; i++ )
-//            {
-//                this.removeTooltip( 'card_pile_'+i );// TODO either change this or destroy the face down piles
-//            }
             this.removeTooltip( 'clickable_pile' ); // sure? It can always stay, for other rounds (not displayed outside of buildPhase anyway)
             this.removeTooltip( 'revealed_pile_wrap' ); // idem
             this.removeTooltip( 'turn' ); // idem  // does this work? turn is a class, not an id
@@ -488,13 +491,13 @@ function (dojo, declare) {
             dojo.query('.ship_part_nb, .tile_error').forEach(dojo.destroy);
             break;
          
-        // Not implemented
-        case 'meteoric':
         case 'shipDamage':
             break;
         case 'exploreAbandoned':
             this.wholeCrewWillLeave = false;
             break;
+        case 'loseGoods':
+        case 'loseCells':
         case 'powerEngines':
         case 'powerCannons': 
         case 'powerShields': 
@@ -507,6 +510,10 @@ function (dojo, declare) {
         case 'placeGoods':
             let goods = new GTFE_Goods(this);
             goods.onLeavingPlaceGoods();
+            break;
+        case 'meteoric':
+        case 'cannonBlasts':
+            dojo.style( 'dice_box', 'display', 'none' );
             break;
         case 'dummmy':
             this.throw_bug_report("Unknown leaving state: " + stateName);
@@ -549,7 +556,8 @@ function (dojo, declare) {
             this.addActionButton( 'button_explore_0', _('No'), 'onExploreChoice' );
             break;
         case 'chooseCrew' :
-            this.addActionButton( 'button_cancelExplore', _('Cancel'), 'onCancelExplore' );
+        case 'loseCells' :
+        case 'loseGoods' :
             this.addActionButton( 'button_contentChoice', _('Validate'), 'onValidateContentChoice' );
             break;
         case 'notImpl' :
@@ -1341,14 +1349,6 @@ function (dojo, declare) {
             this.ajaxAction( 'exploreChoice', { explChoice: choice } );
     },
 
-    onCancelExplore: function( evt ) {
-        console.log( 'onCancelExplore' );
-        dojo.stopEvent( evt );
-        if(! this.checkAction( 'contentChoice' ) )
-            return;
-        this.ajaxAction( 'cancelExplore', {} );
-    },
-
     onConfirmPlanet: function (evt) {
         console.log('onConfirmPlanet', evt.currentTarget);
         dojo.stopEvent(evt);
@@ -1847,8 +1847,12 @@ function (dojo, declare) {
           dojo.query('.selected', 'my_ship').removeClass('selected');
       }
       for ( var i in notif.args.content ) {
+          // never loseContent to card if not active player
           tile = new GTFE_Tile(this, notif.args.content[i].tile_id);
-          tile.loseContent(notif.args.content[i], i*200);
+          if (notif.args.player_id == this.player_id)
+              tile.loseContent(notif.args.content[i], i*200);
+          else
+              tile.loseContent(notif.args.content[i], i*200, false);
       }
     },
 
@@ -1865,7 +1869,10 @@ function (dojo, declare) {
 
     notif_hazardDiceRoll: function(notif) {
         console.log("notif_hazardDiceRoll", notif.args);
-        this.card.notif_hazardDiceRoll(notif.args, this.playerGaveUp);
+        // if there's not a player_id then this applies to all players
+        // if there is a player_id, only use this for the active player
+        let isCurPlayer = notif.args.player_id === undefined || notif.args.player_id == this.player_id; 
+        this.card.notif_hazardDiceRoll(notif.args, isCurPlayer, this.playerGaveUp);
     },
 
     notif_hazardMissed: function(notif) {

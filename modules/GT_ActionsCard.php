@@ -3,6 +3,7 @@
 /* Collection of function to handle player actions in response to cards */
 
 require_once('GT_DBPlayer.php');
+require_once('GT_Enemy.php');
 require_once('GT_Hazards.php');
 
 class GT_ActionsCard extends APP_GameClass {
@@ -26,15 +27,15 @@ class GT_ActionsCard extends APP_GameClass {
         }
         elseif ( $game->card[$cardId]['type'] == 'abship' ) {
             if ( $player['nb_crew'] > $game->card[$cardId]['crew'] ) {
+                $game->setGameStateValue('cardArg2', $game->card[$cardId]['crew']);
                 return 'chooseCrew';
             }
             elseif ( $player['nb_crew'] == $game->card[$cardId]['crew'] ) {
                 // This player sends ALL their remaining crew members
                 // Remove all crew members:
                 $plyrContent = $game->newPlayerContent($plId);
-                $crewIds= array_map(function($i) { return $i['content_id']; },
-                    $plyrContent->getContent('crew'));
-                $plyrContent->loseContent($crewIds, 'crew', true);
+                $crewIds= $plyrContent->getContentIds('crew');
+                $plyrContent->loseContent($crewIds, 'crew', null, true);
 
                 $flBrd = $game->newFlightBoard();
                 $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
@@ -58,6 +59,55 @@ class GT_ActionsCard extends APP_GameClass {
             $game->throw_bug_report("Explore choice: wrong value for card type ({$game->card[$cardId]['type']}).");
     }
 
+    function loseContentChoice($game, $plId, $card, $type, $ids) {
+        # Validate $ids is correct size, get $subtype for validation
+        # $type is also validated against $card (pulled from DB) below
+        
+        # Required count is stored in cardArg2
+        $req_cnt = $game->getGameStateValue('cardArg2');
+        if (count($ids) != $req_cnt)
+            $game->throw_bug_report_dump("loseContentChoice: wrong number of ids expected $req_cnt", $ids);
+
+        # Required content type is stored in cardArg3. If -1 or NULL, assume cell
+        $expTypeInt = $game->getGameStateValue('cardArg3');
+        if (is_null($expTypeInt) or $expTypeInt < 0)
+            $expType = 'cell';
+        else
+            $expType = GT_Constants::$CONTENT_INT_TYPE_MAP[$expTypeInt]; 
+
+        if ($expType != $type)
+            $game->throw_bug_report("loseContentChoice: type ($type) does not match expected type ($expType)");
+
+        # Required subtype, if applicable, is stored in cardArg1
+        $idx = $game->getGameStateValue('cardArg1');
+        $subtype = $type == 'goods' ? GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$idx] : NULL;
+
+        $plyrContent = $game->newPlayerContent( $plId );
+        $bToCard = true; // Will be set to false only for Combat Zone
+        $plyrContent->loseContent($ids, $type, $subtype, $bToCard);
+
+        $nextState = NULL;
+        if ($card['type'] == 'slavers' && $type == 'crew') {
+            $nextState = 'nextPlayerEnemy';
+        }
+        elseif ($card['type'] == 'smugglers' && ($type == 'cell' || $type == 'goods')) {
+            $nextState = 'nextPlayerEnemy';
+        }
+        elseif ($card['type'] == 'abship' && $type == 'crew') {
+            $flBrd = $game->newFlightBoard();
+            $flBrd->addCredits($plId, $card['reward']);
+            $nbDays = -($card['days_loss']);
+            $flBrd->moveShip($plId, $nbDays);
+            $nextState = 'nextCard';
+        }
+        else {
+            $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
+        }
+
+        GT_DBPlayer::setCardDone($game, $plId);
+        return $nextState;
+    }
+
     function crewChoice($game, $plId, $cardId, $crewChoices) {
         $plyrContent = $game->newPlayerContent( $plId );
         // Hey, wait. We need orientation for batteries, but not for crew members, right?
@@ -73,19 +123,31 @@ class GT_ActionsCard extends APP_GameClass {
         //  number of batteries consistent with number of cannons, moveShip (forward)
         //  vs gainCredits and moveShip backwards, ...)
 
-        $plyrContent->loseContent($crewChoices, 'crew', $bToCard);
+        $plyrContent->loseContent($crewChoices, 'crew', null, $bToCard);
 
         $flBrd = $game->newFlightBoard();
-        $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
+        $card = $game->card[$cardId];
+        $nextState = NULL;
+        if ($card['type'] == 'slavers') {
+            GT_DBPlayer::setCardDone($game, $plId);
+            $nextState = 'nextPlayerEnemy';
+        }
+        elseif ($card['type'] == 'abship') {
+            $flBrd->addCredits($plId, $card['reward']);
+            $nbDays = -($card['days_loss']);
+            $flBrd->moveShip($plId, $nbDays);
+            $nextState = 'nextCard';
+        }
+        else {
+            $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
+        }
 
         // if no humans remain, giveUp
         if (!$plyrContent->getContent('crew', 'human')) {
             $flBrd->giveUp($plId, 'lost all humans');
         }
-        else {
-            $nbDays = -($game->card[$cardId]['days_loss']);
-            $flBrd->moveShip($plId, $nbDays);
-        }
+
+        return $nextState;
     }
 
 
@@ -109,7 +171,7 @@ class GT_ActionsCard extends APP_GameClass {
         }
         else {
             if ( $nbBatt > 0 )
-                $plyrContent->loseContent($battChoices, 'cell', false);
+                $plyrContent->loseContent($battChoices, 'cell');
 
             ( $game->newFlightBoard() )->moveShip( $plId, $nbDays );
         }
@@ -117,7 +179,7 @@ class GT_ActionsCard extends APP_GameClass {
 
 
     function powerDefense($game, $plId, $card, $battChoices, $defenseType) {
-        // Powering shields or cannons against incoming laser or meteors
+        // Powering shields or cannons against incoming cannon or meteors
         if (count($battChoices) == 0) {
             GT_Hazards::hazardDamage($game, $plId, $card);
         }
@@ -127,7 +189,7 @@ class GT_ActionsCard extends APP_GameClass {
                 if ($card['type'] == 'meteoric')
                     $msg = clienttranslate( 'Meteor deflected by ${player_name}\'s shield');
                 else
-                    $msg = clienttranslate( 'Laser blast deflected by ${player_name}\'s shield');
+                    $msg = clienttranslate( 'Cannon blast deflected by ${player_name}\'s shield');
             }
             elseif ($defenseType == 'cannons') {
                 $msg = clienttranslate( 'Meteor blasted by ${player_name}\'s cannon');
@@ -135,12 +197,45 @@ class GT_ActionsCard extends APP_GameClass {
             else
                 $game->throw_bug_report("Invalid defenseType ($defenseType) for powerDefense");
 
-            GT_Hazards::hazardHarmless($game, $player, $msg, $card);
-
             $plyrContent = $game->newPlayerContent($plId);
             $plyrContent->checkBattChoices($battChoices, 1);
-            $plyrContent->loseContent($battChoices, 'cell', false);
+            $plyrContent->loseContent($battChoices, 'cell');
+
+            GT_Hazards::hazardHarmless($game, $player, $msg, $card);
         }
+    }
+
+    function powerCannonsEnemy($game, $plId, $card, $battChoices) {
+        // powering cannons against an enemy
+
+        $player = GT_DBPlayer::getPlayer($game, $plId);
+        $brd = $game->newPlayerBoard($plId);
+        $plyrContent = $game->newPlayerContent($plId);
+        $nbBatt = count($battChoices);
+        $nbDblCannons = $brd->countDoubleCannons();
+        $nbFwdDblCannons = $brd->countTileType('cannon', 2, 0);
+
+        // Checks
+        if ($nbBatt > $nbDblCannons) 
+            $game->throw_bug_report_dump("Too many batteries selected for fightPlayer", $battChoices);
+
+        $plyrContent->checkBattChoices($battChoices, $nbDblCannons);
+        $plyrContent->loseContent($battChoices, 'cell');
+
+        // Assume forward-facing double-cannons are activated first
+        $str = $player['min_cann_x2'] / 2;
+        if ($nbBatt > $nbFwdDblCannons) {
+            $str += $nbFwdDblCannons * 2;
+            $nbBatt -= $nbFwdDblCannons;
+            $str += $nbBatt; // remaining batteries power side-facing cannons, which give 1 each
+        }
+        else {
+            // all batteries power forward-facing double cannons
+            $str += $nbBatt * 2;
+        }
+
+        $game->setGameStateValue('cardArg1', $str);
+        return 'enemyResults';
     }
     
     function planetChoice($game, $plId, $cardId, $choice) {
@@ -184,8 +279,7 @@ class GT_ActionsCard extends APP_GameClass {
         $plyrContent = $game->newPlayerContent($plId);
 
         // note original content ids to remove those not chosen
-        $origContentIds = array_map(function($i) { return $i['content_id']; },
-            $plyrContent->getContent('goods'));
+        $origContentIds = $plyrContent->getContentIds('goods');
 
         // $goodsOnTile is all goods on the ship. Clear places in preparation
         // This allows us to not care about order of moving stuff around
@@ -239,7 +333,7 @@ class GT_ActionsCard extends APP_GameClass {
 
         // remove existing goods not "moved". They went to the trash
         $toDel = array_diff($origContentIds, $allMovedGoodsIds);
-        $plyrContent->loseContent($toDel, 'goods', FALSE);
+        $plyrContent->loseContent($toDel, 'goods');
 
         // Do a final consistency check/validation on the database 
         $plyrContent_refresh = $game->newPlayerContent($plId);
