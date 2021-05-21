@@ -12,9 +12,9 @@
  * gameoptions.inc.php
  *
  * GalaxyTrucker game options description
- * 
+ *
  * In this file, you can define your game options (= game variants).
- *   
+ *
  * Note: If your game has no variant, you don't have to modify this file.
  *
  * Note²: All options defined in this file should have a corresponding "game state labels"
@@ -24,20 +24,19 @@
  *
  */
 
-$game_options = array(
+$game_options = [
+  100 => [
+    'name' => totranslate('flight variants'),
+    'values' => [
+      1 => ['name' => totranslate('standard')],
+      2 => ['name' => totranslate('short - initiation (I, II)')],
+      3 => ['name' => 'I, II, IIIa', 'nobeginner' => true],
+      4 => ['name' => totranslate('short (II, III)')],
+      5 => ['name' => totranslate('short with IIIa (II, IIIa)'), 'nobeginner' => true],
+    ],
+  ],
 
-    100 => array(
-                'name' => totranslate('flight variants'),
-                'values' => array(
-                            1 => array( 'name' => totranslate('standard') ),
-                            2 => array( 'name' => totranslate('short - initiation (I, II)') ),
-                            3 => array( 'name' => 'I, II, IIIa',  'nobeginner' => true ),
-                            4 => array( 'name' => totranslate('short (II, III)') ),
-                            5 => array( 'name' => totranslate('short with IIIa (II, IIIa)'), 'nobeginner' => true ),
-                        )
-            )
-
-    /* Example of game variant:
+  /* Example of game variant:
     
     
     // note: game variant ID should start at 100 (ie: 100, 101, 102, ...). The maximum is 199.
@@ -60,7 +59,4 @@ $game_options = array(
             )
 
     */
-
-);
-
-
+];
