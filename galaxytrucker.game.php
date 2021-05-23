@@ -714,10 +714,10 @@ class Galaxytrucker extends Table
     $cardId = self::getGameStateValue('currentCard');
     $card = $this->card[$cardId];
 
-    if ($this->card[$cardId]['type'] == 'meteoric') {
+    if ($this->card[$cardId]['type'] == CARD_METEORIC_SWARM) {
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields');
       $this->gamestate->nextState('nextMeteor');
-    } elseif ($this->card[$cardId]['type'] == 'pirates') {
+    } elseif ($this->card[$cardId]['type'] == CARD_PIRATES) {
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields');
       $this->gamestate->nextState('nextCannon');
     } else {
@@ -733,11 +733,11 @@ class Galaxytrucker extends Table
     $card = $this->card[$cardId];
     $type = $card['type'];
 
-    if ($type == 'meteoric') {
+    if ($type == CARD_METEORIC_SWARM) {
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons');
       $this->gamestate->nextState('nextMeteor');
     }
-    if (in_array($type, ['slavers', 'smugglers', 'pirates'])) {
+    if (in_array($type, [CARD_SLAVERS, CARD_SMUGGLERS, CARD_PIRATES])) {
       $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
       $this->gamestate->nextState($nextState);
     } else {
@@ -794,7 +794,7 @@ class Galaxytrucker extends Table
     $plId = self::getActivePlayerId();
     $cardId = self::getGameStateValue('currentCard');
     GT_ActionsCard::cargoChoice($this, $plId, $cardId, $goodsOnTile);
-    if ($this->card[$cardId]['type'] == 'planets') {
+    if ($this->card[$cardId]['type'] == CARD_PLANETS) {
       $this->gamestate->nextState('cargoChoicePlanet');
     } else {
       $this->gamestate->nextState('nextCard');
@@ -806,7 +806,7 @@ class Galaxytrucker extends Table
     self::checkAction('goOn');
     $cardId = self::getGameStateValue('currentCard');
     $this->dump_var("card $cardId is neteoric", $this->card[$cardId]);
-    if ($cardId && $this->card[$cardId]['type'] == 'meteoric') {
+    if ($cardId && $this->card[$cardId]['type'] == CARD_METEORIC_SWARM) {
       $this->log('card is meteoric');
       $this->gamestate->nextState('nextMeteor');
     } else {
@@ -939,7 +939,7 @@ class Galaxytrucker extends Table
     $plId = self::getActivePlayerId();
     $currentCard = self::getGameStateValue('currentCard');
     if (
-      $this->card[$currentCard]['type'] == 'abship' &&
+      $this->card[$currentCard]['type'] == CARD_ABANDONED_SHIP &&
       self::getNbOfCrewMembers($plId) == $this->card[$currentCard]['crew']
     ) {
       $wholeCrewWillLeave = true;
@@ -997,7 +997,7 @@ class Galaxytrucker extends Table
     $currentCard = self::getGameStateValue('currentCard');
 
     $allPlayerChoices = null;
-    if ($this->card[$currentCard]['type'] == 'planets') {
+    if ($this->card[$currentCard]['type'] == CARD_PLANETS) {
       $args = $this->argChoosePlanet();
       $allPlayerChoices = $args['planetIdxs'];
     }

@@ -70,12 +70,12 @@ class GT_Enemy extends APP_GameClass
     $flBrd = $this->game->newFlightBoard();
     $flBrd->moveShip($this->player['player_id'], -$this->card['days_loss']);
     switch ($type) {
-      case 'slavers':
-      case 'pirates':
+      case CARD_SLAVERS:
+      case CARD_PIRATES:
         $flBrd->addCredits($this->player['player_id'], $this->card['reward']);
         GT_DBPlayer::setCardAllDone($this->game, $this->player['player_id']);
         break;
-      case 'smugglers':
+      case CARD_SMUGGLERS:
         $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} must place new cargo'), [
           'player_name' => $this->player['player_name'],
         ]);
@@ -100,7 +100,7 @@ class GT_Enemy extends APP_GameClass
     $type = $this->card['type'];
     $flBrd = $game->newFlightBoard();
     switch ($type) {
-      case 'slavers':
+      case CARD_SLAVERS:
         if ($this->player['nb_crew'] <= $this->card['enemy_penalty']) {
           $game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} loses all crew to ${type}'), [
             'player_name' => $this->player['player_name'],
@@ -123,9 +123,9 @@ class GT_Enemy extends APP_GameClass
           return 'chooseCrew';
         }
         break;
-      case 'pirates':
+      case CARD_PIRATES:
         return 'cannonBlasts';
-      case 'smugglers':
+      case CARD_SMUGGLERS:
         $penalty = $this->card['enemy_penalty'];
         $plyrContent = $game->newPlayerContent($this->player['player_id']);
         $goodsIds = $plyrContent->getContentIds('goods');

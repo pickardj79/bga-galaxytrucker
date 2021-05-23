@@ -32,11 +32,11 @@ class GT_Hazards extends APP_GameClass
     }
 
     // get the type of hazard and split to size / orientation
-    if ($card['type'] == 'pirates') {
+    if ($card['type'] == CARD_PIRATES) {
       $cur_hazard = $card['enemy_penalty'][$progress];
-    } elseif ($card['type'] == 'meteoric') {
+    } elseif ($card['type'] == CARD_METEORIC_SWARM) {
       $cur_hazard = $card['meteors'][$progress];
-    } elseif ($card['type'] == 'combatzone') {
+    } elseif ($card['type'] == CARD_COMBAT_ZONE) {
       $cur_hazard = $card['lines'][3]['penalty_value'][$progress];
     } else {
       $cur_hazard = null;
@@ -72,7 +72,7 @@ class GT_Hazards extends APP_GameClass
       'die1' => $die1,
       'die2' => $die2,
       'row_col' => $row_col,
-      'type' => $card['type'] == 'meteoric' ? 'meteor' : 'cannon',
+      'type' => $card['type'] == CARD_METEORIC_SWARM ? 'meteor' : 'cannon',
       'size' => $size,
       'orient' => $orient,
       'missed' => $missed,

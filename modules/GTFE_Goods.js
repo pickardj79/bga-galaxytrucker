@@ -45,7 +45,8 @@ class GTFE_Goods {
     let classPrefix = undefined;
     let goods = undefined;
     let tgtNodeId = undefined;
-    if (cardType['type'] == 'planets') {
+    const CARD_PLANETS = 8;
+    if (cardType['type'] === CARD_PLANETS) {
       if (!planetIdx in cardType['planets'])
         game.throw_bug_report('planetIdx invalid in GTFE_Card.placeGoods: ' + planetIdx);
 
