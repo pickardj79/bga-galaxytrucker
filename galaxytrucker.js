@@ -27,7 +27,7 @@ define([
   g_gamethemeurl + 'modules/GTFE_Ship.js',
   g_gamethemeurl + 'modules/GTFE_Tile.js',
 ], function (dojo, declare) {
-  return declare('bgagame.galaxytruckerkw', ebg.core.gamegui, {
+  return declare('bgagame.galaxytrucker', ebg.core.gamegui, {
     constructor: function () {
       console.log('galaxytrucker constructor');
       // Here, you can init the global variables of your user interface

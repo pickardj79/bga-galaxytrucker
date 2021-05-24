@@ -79,7 +79,7 @@ class Galaxytrucker extends Table
   protected function getGameName()
   {
     // Used for translations and stuff. Please do not modify.
-    return 'galaxytruckerkw';
+    return 'galaxytrucker';
   }
 
   /*
