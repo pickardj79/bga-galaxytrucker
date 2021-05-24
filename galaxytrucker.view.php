@@ -30,7 +30,7 @@ class view_galaxytrucker_galaxytrucker extends game_view
 {
   function getGameName()
   {
-    return 'galaxytruckerkw';
+    return 'galaxytrucker';
   }
   function build_page($viewArgs)
   {
