@@ -30,7 +30,7 @@ require_once 'modules/GT_StatesCard.php';
 require_once 'modules/GT_StatesSetup.php';
 require_once 'modules/GT_TestGameState.php';
 
-class Galaxytrucker extends Table
+class galaxytrucker extends Table
 {
   public static $instance = null;
 
