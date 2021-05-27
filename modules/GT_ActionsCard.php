@@ -2,10 +2,6 @@
 
 /* Collection of function to handle player actions in response to cards */
 
-require_once 'GT_DBPlayer.php';
-require_once 'GT_Enemy.php';
-require_once 'GT_Hazards.php';
-
 class GT_ActionsCard extends APP_GameClass
 {
   public function __construct()

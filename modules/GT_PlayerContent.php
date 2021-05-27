@@ -1,10 +1,5 @@
 <?php
 
-require_once 'GT_Constants.php';
-require_once 'GT_DBComponent.php';
-require_once 'GT_DBContent.php';
-require_once 'GT_DBPlayer.php';
-
 class GT_PlayerContent extends APP_GameClass
 {
   public function __construct($game, $plContent, $player_id)
