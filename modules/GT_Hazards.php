@@ -2,10 +2,6 @@
 
 /* Collection of functions to handle resolving hazards (cannon and meteors) */
 
-require_once 'GT_DBComponent.php';
-require_once 'GT_DBContent.php';
-require_once 'GT_DBPlayer.php';
-
 class GT_Hazards extends APP_GameClass
 {
   function nextHazard($game, $idx)

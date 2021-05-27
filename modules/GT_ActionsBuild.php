@@ -1,7 +1,5 @@
 <?php
 
-require_once 'GT_DBContent.php';
-
 class GT_ActionsBuild extends APP_GameClass
 {
   public function __construct($game, $plId)

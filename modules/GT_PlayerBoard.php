@@ -1,8 +1,5 @@
 <?php
 
-require_once 'GT_DBComponent.php';
-require_once 'GT_DBContent.php';
-
 class GT_PlayerBoard extends APP_GameClass
 {
   public function __construct($game, $plTiles, $player_id)

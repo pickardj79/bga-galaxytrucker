@@ -3,10 +3,6 @@
  *
  */
 
-require_once 'GT_DBComponent.php';
-require_once 'GT_DBContent.php';
-require_once 'GT_DBCard.php';
-
 class GT_TestGameState
 {
   public function __construct($game, $players)

@@ -1,11 +1,6 @@
 <?php
 
 /* Collection of functions to handle states associated with setting up the game /round */
-
-require_once 'GT_Constants.php';
-require_once 'GT_DBCard.php';
-require_once 'GT_DBContent.php';
-
 class GT_StatesSetup extends APP_GameClass
 {
   public function __construct()
