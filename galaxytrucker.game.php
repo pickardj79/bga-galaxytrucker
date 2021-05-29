@@ -45,6 +45,9 @@ function autoload($class) {
   }
 }
 
+use GT\Managers\CardsManager;
+use GT\Models\HazardCard;
+
 class galaxytrucker extends Table
 {
   public static $instance = null;
@@ -727,12 +730,13 @@ class galaxytrucker extends Table
     self::checkAction('contentChoice');
     $plId = self::getActivePlayerId();
     $cardId = self::getGameStateValue('currentCard');
-    $card = $this->card[$cardId];
+    $card = CardsManager::get($cardId);
+    $cardType = $card->getType();
 
-    if ($this->card[$cardId]['type'] == CARD_METEORIC_SWARM) {
+    if ($cardType == CARD_METEORIC_SWARM) {
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields');
       $this->gamestate->nextState('nextMeteor');
-    } elseif ($this->card[$cardId]['type'] == CARD_PIRATES) {
+    } elseif ($cardType == CARD_PIRATES) {
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'shields');
       $this->gamestate->nextState('nextCannon');
     } else {
@@ -745,14 +749,14 @@ class galaxytrucker extends Table
     self::checkAction('contentChoice');
     $plId = self::getActivePlayerId();
     $cardId = self::getGameStateValue('currentCard');
-    $card = $this->card[$cardId];
-    $type = $card['type'];
+    $card = CardsManager::get($cardId);
+    $type = $card->getType();
 
     if ($type == CARD_METEORIC_SWARM) {
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons');
       $this->gamestate->nextState('nextMeteor');
     }
-    if (in_array($type, [CARD_SLAVERS, CARD_SMUGGLERS, CARD_PIRATES])) {
+    if ($type instanceof HazardCard) {
       $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
       $this->gamestate->nextState($nextState);
     } else {
@@ -776,7 +780,7 @@ class galaxytrucker extends Table
     self::dump_var("Action contentChoice type $type", $ids);
     $plId = self::getActivePlayerId();
     $cardId = self::getGameStateValue('currentCard');
-    $card = $this->card[$cardId];
+    $card = CardsManager::get($cardId);
     $nextState = GT_ActionsCard::loseContentChoice($this, $plId, $card, $type, $ids);
 
     $this->gamestate->nextState($nextState);
@@ -809,7 +813,7 @@ class galaxytrucker extends Table
     $plId = self::getActivePlayerId();
     $cardId = self::getGameStateValue('currentCard');
     GT_ActionsCard::cargoChoice($this, $plId, $cardId, $goodsOnTile);
-    if ($this->card[$cardId]['type'] == CARD_PLANETS) {
+    if (CardsManager::get($cardId)->getType() == CARD_PLANETS) {
       $this->gamestate->nextState('cargoChoicePlanet');
     } else {
       $this->gamestate->nextState('nextCard');
@@ -820,8 +824,8 @@ class galaxytrucker extends Table
   {
     self::checkAction('goOn');
     $cardId = self::getGameStateValue('currentCard');
-    $this->dump_var("card $cardId is meteoric", $this->card[$cardId]);
-    if ($cardId && $this->card[$cardId]['type'] == CARD_METEORIC_SWARM) {
+    $this->dump_var("card $cardId is meteoric", CardsManager::get($cardId));
+    if ($cardId && CardsManager::get($cardId)->getType() == CARD_METEORIC_SWARM) {
       $this->log('card is meteoric');
       $this->gamestate->nextState('nextMeteor');
     } else {
@@ -952,15 +956,9 @@ class galaxytrucker extends Table
   function argExploreAbandoned()
   {
     $plId = self::getActivePlayerId();
-    $currentCard = self::getGameStateValue('currentCard');
-    if (
-      $this->card[$currentCard]['type'] == CARD_ABANDONED_SHIP &&
-      self::getNbOfCrewMembers($plId) == $this->card[$currentCard]['crew']
-    ) {
-      $wholeCrewWillLeave = true;
-    } else {
-      $wholeCrewWillLeave = false;
-    }
+    $currentCardId = self::getGameStateValue('currentCard');
+    $card = CardsManager::get($currentCardId);
+    $wholeCrewWillLeave = $card->getType() == CARD_ABANDONED_SHIP && self::getNbOfCrewMembers($plId) == $card->getCrew();
     return ['wholeCrewWillLeave' => $wholeCrewWillLeave];
   }
 
@@ -989,12 +987,12 @@ class galaxytrucker extends Table
     // Find which planet indexes are available from the planet card
     //    and remove those that have already been chosen by another player
     $currentCard = self::getGameStateValue('currentCard');
-    $card = $this->card[$currentCard];
+    $card = CardsManager::get($currentCard);
     $alreadyChosen = GT_DBPlayer::getCardChoices($this);
 
     $availIdx = [];
     $planetIdxs = [];
-    foreach (array_keys($card['planets']) as $idx) {
+    foreach (array_keys($card->getPlanets()) as $idx) {
       if ($idx < 1 or $idx > 4) {
         $this->throw_bug_report("planet $currentCard has invalid index $idx");
       }
@@ -1009,10 +1007,11 @@ class galaxytrucker extends Table
 
   function argPlaceGoods()
   {
-    $currentCard = self::getGameStateValue('currentCard');
+    $currentCardId = self::getGameStateValue('currentCard');
+    $currentCard = CardsManager::get($currentCardId);
 
     $allPlayerChoices = null;
-    if ($this->card[$currentCard]['type'] == CARD_PLANETS) {
+    if ($currentCard->getType() == CARD_PLANETS) {
       $args = $this->argChoosePlanet();
       $allPlayerChoices = $args['planetIdxs'];
     }
@@ -1022,7 +1021,7 @@ class galaxytrucker extends Table
     return [
       'playerChoice' => $player['card_action_choice'],
       'allPlayerChoices' => $allPlayerChoices,
-      'cardType' => $this->card[$currentCard],
+      'cardType' => $currentCard,
     ];
   }
 
@@ -1251,7 +1250,7 @@ class galaxytrucker extends Table
   {
     $player = GT_DBPlayer::getPlayerCardInProgress($this);
     $cardId = $this->getGameStateValue('currentCard');
-    $card = $this->card[$cardId];
+    $card = CardsManager::get($cardId);
     $str = $this->getGameStateValue('cardArg1');
 
     $enemy = new GT_Enemy($this, $card, $player);
