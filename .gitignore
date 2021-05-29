@@ -5,6 +5,8 @@
 # composer (PHP dependency management)
 vendor/
 
+node_modules/
+
 # backup files
 *.php~
 *.sql~

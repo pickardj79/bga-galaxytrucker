@@ -17,20 +17,35 @@
  */
 
 require_once APP_GAMEMODULE_PATH . 'module/table/table.game.php';
-require_once 'modules/GT_ActionsBuild.php';
-require_once 'modules/GT_ActionsCard.php';
-require_once 'modules/GT_DBCard.php';
-require_once 'modules/GT_DBComponent.php';
-require_once 'modules/GT_DBPlayer.php';
-require_once 'modules/GT_Enemy.php';
-require_once 'modules/GT_FlightBoard.php';
-require_once 'modules/GT_PlayerBoard.php';
-require_once 'modules/GT_PlayerContent.php';
-require_once 'modules/GT_StatesCard.php';
-require_once 'modules/GT_StatesSetup.php';
-require_once 'modules/GT_TestGameState.php';
 
-class Galaxytrucker extends Table
+// TODO: Assign namespaces to all files and remove this first autoload block
+$swdNamespaceAutoloadNonNamespace = function ($class) {
+  $classParts = explode('_', $class);
+  if ($classParts[0] == 'GT') {
+    autoload($class);
+  }
+};
+spl_autoload_register($swdNamespaceAutoloadNonNamespace, true, true);
+
+$swdNamespaceAutoloadNamespace = function ($class) {
+  $classParts = explode('\\', $class);
+  if ($classParts[0] == 'GT') {
+    array_shift($classParts);
+    autoload(implode(DIRECTORY_SEPARATOR, $classParts));
+  }
+};
+spl_autoload_register($swdNamespaceAutoloadNamespace, true, true);
+
+function autoload($class) {
+  $file = dirname(__FILE__) . '/modules/' . $class . '.php';
+  if (file_exists($file)) {
+    require_once $file;
+  } else {
+    var_dump("Impossible to load GalaxyTrucker class : $class");
+  }
+}
+
+class galaxytrucker extends Table
 {
   public static $instance = null;
 
@@ -805,7 +820,7 @@ class Galaxytrucker extends Table
   {
     self::checkAction('goOn');
     $cardId = self::getGameStateValue('currentCard');
-    $this->dump_var("card $cardId is neteoric", $this->card[$cardId]);
+    $this->dump_var("card $cardId is meteoric", $this->card[$cardId]);
     if ($cardId && $this->card[$cardId]['type'] == CARD_METEORIC_SWARM) {
       $this->log('card is meteoric');
       $this->gamestate->nextState('nextMeteor');

@@ -1,8 +1,5 @@
 <?php
 
-require_once 'GT_DBPlayer.php';
-require_once 'GT_Constants.php';
-
 class GT_Enemy extends APP_GameClass
 {
   public function __construct($game, $card, $player)

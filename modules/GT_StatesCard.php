@@ -2,11 +2,6 @@
 
 /* Collection of functions to handle states associated with cards */
 
-require_once 'GT_Constants.php';
-require_once 'GT_DBPlayer.php';
-require_once 'GT_Enemy.php';
-require_once 'GT_Hazards.php';
-
 class GT_StatesCard extends APP_GameClass
 {
   public function __construct()

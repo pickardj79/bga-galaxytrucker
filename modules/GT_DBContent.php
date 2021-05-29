@@ -1,8 +1,6 @@
 <?php
 /* Collection of utilities to interface with content table */
 
-require_once 'GT_Constants.php';
-
 class GT_DBContent
 {
   public function __construct()
