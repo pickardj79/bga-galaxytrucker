@@ -50,5 +50,4 @@ class EventCard implements \JsonSerializable
 
   public function getCurrentHazard($progress) {}
   public function loseContent($game, $playerId, $typeToLose) {}
-  public function crewChoice($game, $playerId) {}
 }

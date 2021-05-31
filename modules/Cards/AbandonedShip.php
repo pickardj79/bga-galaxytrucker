@@ -48,15 +48,6 @@ class AbandonedShip extends AbandonedCard
     }
   }
 
-  public function crewChoice($game, $playerId)
-  {
-    $flBrd = $game->newFlightBoard();
-    $flBrd->addCredits($playerId, $this->reward);
-    $nbDays = -$this->days_loss;
-    $flBrd->moveShip($playerId, $nbDays);
-    return 'nextCard';
-  }
-
   static $instances = [
     ['round' => 1, 'id' => 16, 'crew' => 3, 'reward' => 4, 'days_loss' => 1],
     ['round' => 1, 'id' => 17, 'crew' => 2, 'reward' => 3, 'days_loss' => 1],

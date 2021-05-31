@@ -69,44 +69,10 @@ class GT_ActionsCard extends APP_GameClass
 
     $nextState = $card->loseContent($game, $playerId, $typeToLose);
     if ($nextState == null) {
-      $game->throw_bug_report_dump("crewChoice wrong card type for cardId {$card->getId()}, type to lose - {$typeToLose}", $card);
+      $game->throw_bug_report_dump("loseContentChoice wrong card type for cardId {$card->getId()}, type to lose - {$typeToLose}", $card);
     }
 
     GT_DBPlayer::setCardDone($game, $playerId);
-    return $nextState;
-  }
-
-  function crewChoice($game, $playerId, $cardId, $crewChoices)
-  {
-    $plyrContent = $game->newPlayerContent($playerId);
-    // Hey, wait. We need orientation for batteries, but not for crew members, right?
-    // Since they're in a non-rotated overlay tile, they'll always be slided correctly.
-    //$orientNeeded = false; // Will be set to true only for Slavers (sure?) and Combat Zone
-    $bToCard = true; // Will be set to false only for Combat Zone
-    //$tileOrient = ( ! $orientNeeded ) ? null
-    //                                : self::getCollectionFromDB( "SELECT component_id, ".
-    //                "orientation FROM component WHERE component_player=$plId", true );
-
-    // TODO see if it's possible to have a common function with battChoice()
-    //  and slavers and combat zones (maybe only one or two things will differ:
-    //  number of batteries consistent with number of cannons, moveShip (forward)
-    //  vs gainCredits and moveShip backwards, ...)
-
-    $plyrContent->loseContent($crewChoices, 'crew', null, $bToCard);
-
-    $flBrd = $game->newFlightBoard();
-    $card = CardsManager::get($cardId);
-
-    $nextState = $card->crewChoice($game, $playerId);
-    if ($nextState == null) {
-      $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
-    }
-
-    // if no humans remain, giveUp
-    if (!$plyrContent->getContent('crew', 'human')) {
-      $flBrd->giveUp($playerId, 'lost all humans');
-    }
-
     return $nextState;
   }
 

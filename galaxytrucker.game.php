@@ -756,7 +756,7 @@ class galaxytrucker extends Table
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons');
       $this->gamestate->nextState('nextMeteor');
     }
-    if ($type instanceof HazardCard) {
+    if ($card instanceof HazardCard) {
       $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
       $this->gamestate->nextState($nextState);
     } else {
@@ -782,17 +782,6 @@ class galaxytrucker extends Table
     $cardId = self::getGameStateValue('currentCard');
     $card = CardsManager::get($cardId);
     $nextState = GT_ActionsCard::loseContentChoice($this, $plId, $card, $type, $ids);
-
-    $this->gamestate->nextState($nextState);
-  }
-
-  function crewChoice($crewChoices)
-  {
-    self::checkAction('contentChoice');
-    self::dump_var('Action contentChoice ', $crewChoices);
-    $plId = self::getActivePlayerId();
-    $cardId = self::getGameStateValue('currentCard');
-    $nextState = GT_ActionsCard::crewChoice($this, $plId, $cardId, $crewChoices);
 
     $this->gamestate->nextState($nextState);
   }

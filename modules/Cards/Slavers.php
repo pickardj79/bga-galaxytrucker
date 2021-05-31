@@ -48,12 +48,6 @@ class Slavers extends HazardCard
     return $typeToLose == 'crew' ? 'nextPlayerEnemy' : null;
   }
 
-  public function crewChoice($game, $playerId)
-  {
-    \GT_DBPlayer::setCardDone($game, $playerId);
-    return 'nextPlayerEnemy';
-  }
-
   static $instances = [
     [
       'id' => 0,
