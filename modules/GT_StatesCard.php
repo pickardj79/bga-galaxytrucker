@@ -2,6 +2,8 @@
 
 /* Collection of functions to handle states associated with cards */
 
+use GT\Managers\CardsManager;
+
 class GT_StatesCard extends APP_GameClass
 {
   public function __construct()
@@ -15,11 +17,11 @@ class GT_StatesCard extends APP_GameClass
       return ['id' => $cardId];
     }
 
-    $card = $game->card[$cardId];
+    $card = CardsManager::get($cardId);
 
     return [
       'id' => $cardId,
-      'type' => $card['type'],
+      'type' => $card->getType(),
       'curHazard' => GT_Hazards::getHazardRoll($game, $card),
       'card_line_done' => GT_DBPlayer::getCardProgress($game),
     ];
@@ -32,18 +34,18 @@ class GT_StatesCard extends APP_GameClass
     $cardOrderInFlight = $game->getGameStateValue('cardOrderInFlight');
     $cardOrderInFlight++;
     $game->setGameStateValue('cardOrderInFlight', $cardOrderInFlight);
-    $currentCard = $game->getUniqueValueFromDB('SELECT card_id id FROM card ' . "WHERE card_order=$cardOrderInFlight");
+    $currentCardId = $game->getUniqueValueFromDB('SELECT card_id id FROM card ' . "WHERE card_order=$cardOrderInFlight");
 
     $game->setGameStateValue('cardArg1', -1);
     $game->setGameStateValue('cardArg2', -1);
     $game->setGameStateValue('cardArg3', -1);
 
-    if (is_null($currentCard)) {
+    if (is_null($currentCardId)) {
       // no more cards, this flight is done
-      $nextState = 'cardsDone';
-      $game->setGameStateValue('currentCard', -1);
+      $cardType = NO_CARD;
+      $game->setGameStateValue('currentCard', NO_CARD);
     } else {
-      $game->setGameStateValue('currentCard', $currentCard);
+      $game->setGameStateValue('currentCard', $currentCardId);
       GT_Hazards::resetHazardProgress($game);
 
       // temp, so that there is an active player when going to notImpl state
@@ -52,26 +54,19 @@ class GT_StatesCard extends APP_GameClass
         $game->myActiveNextPlayer();
       } // temp
 
-      $cardType = $game->card[$currentCard]['type'];
-
-      if (in_array($cardType, ['slavers', 'smugglers', 'pirates'])) {
-        $nextState = 'enemy';
-      } elseif (in_array($cardType, ['abship', 'abstation'])) {
-        $nextState = 'abandoned';
-      } else {
-        $nextState = $cardType;
-      }
+      $card = CardsManager::get($currentCardId);
+      $cardType = $card->getType();
 
       $game->notifyAllPlayers('cardDrawn', clienttranslate('New card drawn: ${cardTypeStr}'), [
         'i18n' => ['cardTypeStr'],
-        'cardTypeStr' => $game->cardNames[$cardType],
-        'cardRound' => $game->card[$currentCard]['round'],
-        'cardId' => $currentCard,
+        'cardTypeStr' => $card->getName(),
+        'cardRound' => $card->getRound(),
+        'cardId' => $currentCardId,
         'cardData' => self::currentCardData($game),
       ]);
     }
 
-    return $nextState;
+    return $cardType;
   }
 
   function stStardust($game)
@@ -127,7 +122,7 @@ class GT_StatesCard extends APP_GameClass
     $players = GT_DBPlayer::getPlayersForCard($game);
 
     foreach ($players as $plId => $player) {
-      if ($player['nb_crew'] < $game->card[$cardId]['crew']) {
+      if ($player['nb_crew'] < CardsManager::get($cardId)->getCrew()) {
         $game->notifyAllPlayers(
           'onlyLogMessage',
           clienttranslate('${player_name} ' . 'doesn\'t have a big enough crew to benefit from this card'),
@@ -165,7 +160,7 @@ class GT_StatesCard extends APP_GameClass
     $players = GT_DBPlayer::getPlayersInFlight($game, '', $order = 'ASC');
     $flBrd = $game->newFlightBoard($players);
 
-    $nbDays = -$game->card[$cardId]['days_loss'];
+    $nbDays = -CardsManager::get($cardId)->getDaysLoss();
     foreach ($players as $plId => $player) {
       if ($player['card_action_choice'] == '0') {
         continue;
@@ -179,7 +174,7 @@ class GT_StatesCard extends APP_GameClass
   function stMeteoric($game)
   {
     $cardId = $game->getGameStateValue('currentCard');
-    $card = $game->card[$cardId];
+    $card = CardsManager::get($cardId);
 
     $idx = $game->getGameStateValue('currentCardProgress');
     if ($idx < 0) {
@@ -188,7 +183,7 @@ class GT_StatesCard extends APP_GameClass
     }
 
     $game->dump_var("Entering meteor with current card $cardId Meteor $idx.", $card);
-    while ($idx < count($card['meteors'])) {
+    while ($idx < count($card->getCurrentHazard())) {
       $game->log("Running meteor $idx.");
 
       // Get previous dice roll, if available. If not roll and notif
@@ -231,7 +226,7 @@ class GT_StatesCard extends APP_GameClass
     // If no cannon choice needs to be made, set cannon power and move to enemy_results
     // Otherwise, move to ask player to use power cannons
     $cardId = $game->getGameStateValue('currentCard');
-    $card = $game->card[$cardId];
+    $card = CardsManager::get($cardId);
 
     $players = GT_DBPlayer::getPlayersForCard($game);
     foreach ($players as $plId => $player) {
@@ -243,7 +238,7 @@ class GT_StatesCard extends APP_GameClass
         $game->notifyAllPlayers(
           'onlyLogMessage',
           clienttranslate('${player_name} must decide whether to activate a cannon against ${type}'),
-          ['player_name' => $player['player_name'], 'type' => $card['type']]
+          ['player_name' => $player['player_name'], 'type' => $card->getType()]
         );
         $nextState = 'powerCannons';
       } else {
@@ -264,7 +259,7 @@ class GT_StatesCard extends APP_GameClass
   {
     // In process of looping over all cannon blasts from combat or pirates card
     $cardId = $game->getGameStateValue('currentCard');
-    $card = $game->card[$cardId];
+    $card = CardsManager::get($cardId);
 
     $player = GT_DBPlayer::getPlayerCardInProgress($game);
 
@@ -279,7 +274,7 @@ class GT_StatesCard extends APP_GameClass
     }
 
     $game->dump_var("Entering cannon blasts with current card $cardId blast $idx.", $card);
-    $blasts = $card['type'] == 'pirates' ? $card['enemy_penalty'] : $card['lines'][3]['penalty_value'];
+    $blasts = $card->getCurrentHazard();
 
     while ($idx < count($blasts)) {
       $game->dump_var("Running cannon blast $idx on player.", $player);

@@ -1,5 +1,7 @@
 <?php
 
+use GT\Models\HazardCard;
+
 class GT_Enemy extends APP_GameClass
 {
   public function __construct($game, $card, $player)
@@ -18,7 +20,7 @@ class GT_Enemy extends APP_GameClass
       return $pl['min_cann_x2'] / 2;
     }
 
-    $enemy_str = $this->card['enemy_strength'];
+    $enemy_str = $this->card->getEnemyStrength();
 
     if ($enemy_str < $pl['min_cann_x2'] / 2) {
       return $pl['min_cann_x2'] / 2;
@@ -35,7 +37,7 @@ class GT_Enemy extends APP_GameClass
       $this->game->throw_bug_report_dump("playerCannon less than zero: $playerCannon");
     }
 
-    $enemy_str = $this->card['enemy_strength'];
+    $enemy_str = $this->card->getEnemyStrength();
     if ($enemy_str < $playerCannon) {
       return $this->giveReward();
     } elseif ($enemy_str > $playerCannon) {
@@ -49,37 +51,25 @@ class GT_Enemy extends APP_GameClass
   {
     $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} fights ${type} to a draw'), [
       'player_name' => $this->player['player_name'],
-      'type' => $this->card['type'],
+      'type' => $this->card->getType(),
     ]);
-    return;
+    return null;
   }
 
   function giveReward()
   {
+    $cardType = $this->card->getType();
     // based on type of card give the correct reward and return the needed state
     $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} defeats ${type} in battle'), [
       'player_name' => $this->player['player_name'],
-      'type' => $this->card['type'],
+      'type' => $cardType,
     ]);
 
-    $type = $this->card['type'];
     $nextState = null;
-    $flBrd = $this->game->newFlightBoard();
-    $flBrd->moveShip($this->player['player_id'], -$this->card['days_loss']);
-    switch ($type) {
-      case 'slavers':
-      case 'pirates':
-        $flBrd->addCredits($this->player['player_id'], $this->card['reward']);
-        GT_DBPlayer::setCardAllDone($this->game, $this->player['player_id']);
-        break;
-      case 'smugglers':
-        $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} must place new cargo'), [
-          'player_name' => $this->player['player_name'],
-        ]);
-        $nextState = 'placeGoods';
-        break;
-      default:
-        $this->game->throw_bug_report("Unknown card type ($type) in GT_Enemy::giveReward");
+    if ($this->card instanceof HazardCard) {
+      $nextState = $this->card->giveReward($this->game, $this->player);
+    } else {
+      $this->game->throw_bug_report("Unknown card type ($cardType) in GT_Enemy::giveReward");
     }
     return $nextState;
   }
@@ -90,94 +80,15 @@ class GT_Enemy extends APP_GameClass
     $this->game->notifyAllPlayers(
       'onlyLogMessage',
       clienttranslate('${player_name} is defeated by ${type} in battle'),
-      ['player_name' => $this->player['player_name'], 'type' => $this->card['type']]
+      ['player_name' => $this->player['player_name'], 'type' => $this->card->getType()]
     );
 
     $game = $this->game;
-    $type = $this->card['type'];
-    $flBrd = $game->newFlightBoard();
-    switch ($type) {
-      case 'slavers':
-        if ($this->player['nb_crew'] <= $this->card['enemy_penalty']) {
-          $game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} loses all crew to ${type}'), [
-            'player_name' => $this->player['player_name'],
-            'type' => $type,
-          ]);
-          $plyrContent = $game->newPlayerContent($this->player['player_id']);
-          $allCrewIds = $plyrContent->getContentIds('crew');
 
-          // loseContent handles players giving up
-          $plyrContent->loseContent($allCrewIds, 'crew', null, true);
-          return;
-        } else {
-          $game->setGameStateValue('cardArg2', $this->card['enemy_penalty']);
-          $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['crew']);
-          $game->notifyAllPlayers(
-            'onlyLogMessage',
-            clienttranslate('${player_name} must choose crew to lose to ${type}'),
-            ['player_name' => $this->player['player_name'], 'type' => $type]
-          );
-          return 'chooseCrew';
-        }
-        break;
-      case 'pirates':
-        return 'cannonBlasts';
-      case 'smugglers':
-        $penalty = $this->card['enemy_penalty'];
-        $plyrContent = $game->newPlayerContent($this->player['player_id']);
-        $goodsIds = $plyrContent->getContentIds('goods');
-
-        if (count($goodsIds) == $penalty) {
-          $plyrContent->loseContent($goodsIds, 'goods', null, true);
-          return;
-        }
-
-        // lose more valuable goods first. If a tie, let player choose
-        if (count($goodsIds) > $penalty) {
-          $toloseIds = [];
-          $left_to_lose = $penalty;
-          foreach (GT_Constants::$ALLOWABLE_SUBTYPES['goods'] as $idx => $subtype) {
-            $cur = $plyrContent->getContentIds('goods', $subtype);
-            if (count($cur) <= $left_to_lose) {
-              // haven't lost enough yet or lost exact amount. Lose them all
-              $toloseIds = array_merge($toloseIds, $cur);
-              $left_to_lose = $left_to_lose - count($cur);
-              if ($left_to_lose == 0) {
-                // lost exact amount, done with player
-                $plyrContent->loseContent($toloseIds, 'goods', null, true);
-                return;
-              }
-            } else {
-              // TODO: MUST STORE IN DB COLOR AND NUMBER LEFT TO LOSE
-              // lost enough and there are excess
-              // player must choose which goods to lose
-              $plyrContent->loseContent($toloseIds, 'goods', null, true);
-              $game->setGameStateValue('cardArg1', $idx);
-              $game->setGameStateValue('cardArg2', $left_to_lose);
-              $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['goods']);
-              return 'loseGoods';
-            }
-          }
-          $game->throw_bug_report_dump("Should not get here. Left: $left_to_lose", $toloseIds);
-        }
-
-        // not enough cargo, lose it all then, need to lose batteries
-        $plyrContent->loseContent($goodsIds, 'goods', null, true);
-
-        $reqCell = $penalty - count($goodsIds);
-        $cellIds = $plyrContent->getContentIds('cell');
-        if (count($cellIds) > $reqCell) {
-          $game->setGameStateValue('cardArg2', $reqCell);
-          $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['cell']);
-          return 'loseCells';
-        } else {
-          // lose all cells
-          $plyrContent->loseContent($cellIds, 'cell', null, true);
-          return;
-        }
-
-      default:
-        $game->throw_bug_report("Unknown card type ($type) in GT_Enemy::applyPenalty");
+    if ($this->card instanceof HazardCard) {
+      return $this->card->applyPenalty($game, $this->player);
+    } else {
+      $game->throw_bug_report("Unknown card type ({$this->card->getType()}) in GT_Enemy::applyPenalty");
     }
   }
 }

@@ -28,16 +28,7 @@ class GT_Hazards extends APP_GameClass
     }
 
     // get the type of hazard and split to size / orientation
-    if ($card['type'] == 'pirates') {
-      $cur_hazard = $card['enemy_penalty'][$progress];
-    } elseif ($card['type'] == 'meteoric') {
-      $cur_hazard = $card['meteors'][$progress];
-    } elseif ($card['type'] == 'combatzone') {
-      $cur_hazard = $card['lines'][3]['penalty_value'][$progress];
-    } else {
-      $cur_hazard = null;
-    }
-
+    $cur_hazard = $card->getCurrentHazard($progress);
     if (!$cur_hazard) {
       return;
     }
@@ -68,7 +59,7 @@ class GT_Hazards extends APP_GameClass
       'die1' => $die1,
       'die2' => $die2,
       'row_col' => $row_col,
-      'type' => $card['type'] == 'meteoric' ? 'meteor' : 'cannon',
+      'type' => $card->getType() == CARD_METEORIC_SWARM ? 'meteor' : 'cannon',
       'size' => $size,
       'orient' => $orient,
       'missed' => $missed,
@@ -253,7 +244,7 @@ class GT_Hazards extends APP_GameClass
   function hazardDamage($game, $plId, $card)
   {
     // Wrapper for _hazardDamage to collect hazard-related DB information
-    $game->log("hazardDamage for player $plId card {$card['id']}");
+    $game->log("hazardDamage for player $plId card {$card->getId()}");
     $player = GT_DBPlayer::getPlayer($game, $plId);
     $brd = $game->newPlayerBoard($player['player_id']);
     $hazResults = self::getHazardRoll($game, $card);

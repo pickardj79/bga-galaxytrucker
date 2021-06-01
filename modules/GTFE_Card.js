@@ -72,6 +72,7 @@ class GTFE_Card {
 
   /// ################# MISC #########################
   processContentChoice(payload) {
+    const CARD_METEORIC_SWARM = 7;
     payload['ids_str'] = payload['ids'].join();
 
     // Returns false if payload was not processed
@@ -84,7 +85,7 @@ class GTFE_Card {
       this.game.giveUpDialog(msg, 'contentChoice.html', payload);
       return true;
     }
-    if (payload['contentType'] == 'cannon' && payload['strength'] == 0 && this.type == 'meteoric') {
+    if (payload['contentType'] == 'cannon' && payload['strength'] == 0 && this.type == CARD_METEORIC_SWARM) {
       let msg = 'Are you sure you do not want to power cannons. Your ship will be damaged!';
       this.game.confirmDialog(msg, 'contentChoice.html', payload);
       return true;

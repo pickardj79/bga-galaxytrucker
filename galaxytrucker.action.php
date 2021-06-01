@@ -171,7 +171,6 @@ class action_galaxytrucker extends APP_GameAction
       case 'crew':
         $this->game->loseContentChoice('crew', $contChoices);
         break;
-      //   $this->game->crewChoice( $contChoices ); break;
       default:
         $this->game->throw_bug_report("Unknown contentType `$contType` in action.php contentChoice");
     }

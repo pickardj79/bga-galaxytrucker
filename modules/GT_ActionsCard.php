@@ -1,6 +1,8 @@
 <?php
 
 /* Collection of function to handle player actions in response to cards */
+use GT\Managers\CardsManager;
+use GT\Models\AbandonedCard;
 
 class GT_ActionsCard extends APP_GameClass
 {
@@ -20,44 +22,21 @@ class GT_ActionsCard extends APP_GameClass
     if (!in_array($choice, [0, 1])) {
       $game->throw_bug_report("Explore choice: wrong value for choice ($choice)");
     }
+    $card = CardsManager::get($cardId);
 
     if ($choice == 0) {
       GT_DBPlayer::setCardDone($game, $plId);
       self::noStopMsg($game);
       return 'nextPlayer';
-    } elseif ($game->card[$cardId]['type'] == 'abship') {
-      if ($player['nb_crew'] > $game->card[$cardId]['crew']) {
-        $game->setGameStateValue('cardArg2', $game->card[$cardId]['crew']);
-        return 'chooseCrew';
-      } elseif ($player['nb_crew'] == $game->card[$cardId]['crew']) {
-        // This player sends ALL their remaining crew members
-        // Remove all crew members:
-        $plyrContent = $game->newPlayerContent($plId);
-        $crewIds = $plyrContent->getContentIds('crew');
-        $plyrContent->loseContent($crewIds, 'crew', null, true);
-
-        $flBrd = $game->newFlightBoard();
-        $flBrd->addCredits($plId, $game->card[$cardId]['reward']);
-        $flBrd->giveUp($plId, 'sent whole crew to the abandoned ship');
-
-        return 'nextCard';
-      } else {
-        $game->throw_bug_report_dump('Explore choice: not enough crew members', $player);
-      }
-    } elseif ($game->card[$cardId]['type'] == 'abstation') {
-      if ($player['nb_crew'] < $game->card[$cardId]['crew']) {
-        $game->throw_bug_report_dump('Explore choice: not enough crew members', $player);
-      }
-
-      $nbDays = -$game->card[$cardId]['days_loss'];
-      $game->newFlightBoard()->moveShip($plId, $nbDays);
-      return 'placeGoods';
+    } elseif ($card instanceof AbandonedCard) {
+      return $card->exploreChoice($game, $plId);
     } else {
-      $game->throw_bug_report("Explore choice: wrong value for card type ({$game->card[$cardId]['type']}).");
+      $game->throw_bug_report("Explore choice: wrong value for card type ({$card->getType()}).");
+      return null;
     }
   }
 
-  function loseContentChoice($game, $plId, $card, $type, $ids)
+  function loseContentChoice($game, $playerId, $card, $typeToLose, $ids)
   {
     # Validate $ids is correct size, get $subtype for validation
     # $type is also validated against $card (pulled from DB) below
@@ -76,75 +55,24 @@ class GT_ActionsCard extends APP_GameClass
       $expType = GT_Constants::$CONTENT_INT_TYPE_MAP[$expTypeInt];
     }
 
-    if ($expType != $type) {
-      $game->throw_bug_report("loseContentChoice: type ($type) does not match expected type ($expType)");
+    if ($expType != $typeToLose) {
+      $game->throw_bug_report("loseContentChoice: type ($typeToLose) does not match expected type ($expType)");
     }
 
     # Required subtype, if applicable, is stored in cardArg1
     $idx = $game->getGameStateValue('cardArg1');
-    $subtype = $type == 'goods' ? GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$idx] : null;
+    $subtype = $typeToLose == 'goods' ? GT_Constants::$ALLOWABLE_SUBTYPES['goods'][$idx] : null;
 
-    $plyrContent = $game->newPlayerContent($plId);
+    $plyrContent = $game->newPlayerContent($playerId);
     $bToCard = true; // Will be set to false only for Combat Zone
-    $plyrContent->loseContent($ids, $type, $subtype, $bToCard);
+    $plyrContent->loseContent($ids, $typeToLose, $subtype, $bToCard);
 
-    $nextState = null;
-    if ($card['type'] == 'slavers' && $type == 'crew') {
-      $nextState = 'nextPlayerEnemy';
-    } elseif ($card['type'] == 'smugglers' && ($type == 'cell' || $type == 'goods')) {
-      $nextState = 'nextPlayerEnemy';
-    } elseif ($card['type'] == 'abship' && $type == 'crew') {
-      $flBrd = $game->newFlightBoard();
-      $flBrd->addCredits($plId, $card['reward']);
-      $nbDays = -$card['days_loss'];
-      $flBrd->moveShip($plId, $nbDays);
-      $nextState = 'nextCard';
-    } else {
-      $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
+    $nextState = $card->loseContent($game, $playerId, $typeToLose);
+    if ($nextState == null) {
+      $game->throw_bug_report_dump("loseContentChoice wrong card type for cardId {$card->getId()}, type to lose - {$typeToLose}", $card);
     }
 
-    GT_DBPlayer::setCardDone($game, $plId);
-    return $nextState;
-  }
-
-  function crewChoice($game, $plId, $cardId, $crewChoices)
-  {
-    $plyrContent = $game->newPlayerContent($plId);
-    // Hey, wait. We need orientation for batteries, but not for crew members, right?
-    // Since they're in a non-rotated overlay tile, they'll always be slided correctly.
-    //$orientNeeded = false; // Will be set to true only for Slavers (sure?) and Combat Zone
-    $bToCard = true; // Will be set to false only for Combat Zone
-    //$tileOrient = ( ! $orientNeeded ) ? null
-    //                                : self::getCollectionFromDB( "SELECT component_id, ".
-    //                "orientation FROM component WHERE component_player=$plId", true );
-
-    // TODO see if it's possible to have a common function with battChoice()
-    //  and slavers and combat zones (maybe only one or two things will differ:
-    //  number of batteries consistent with number of cannons, moveShip (forward)
-    //  vs gainCredits and moveShip backwards, ...)
-
-    $plyrContent->loseContent($crewChoices, 'crew', null, $bToCard);
-
-    $flBrd = $game->newFlightBoard();
-    $card = $game->card[$cardId];
-    $nextState = null;
-    if ($card['type'] == 'slavers') {
-      GT_DBPlayer::setCardDone($game, $plId);
-      $nextState = 'nextPlayerEnemy';
-    } elseif ($card['type'] == 'abship') {
-      $flBrd->addCredits($plId, $card['reward']);
-      $nbDays = -$card['days_loss'];
-      $flBrd->moveShip($plId, $nbDays);
-      $nextState = 'nextCard';
-    } else {
-      $game->throw_bug_report_dump("crewChoice wrong card type for cardId $cardId", $card);
-    }
-
-    // if no humans remain, giveUp
-    if (!$plyrContent->getContent('crew', 'human')) {
-      $flBrd->giveUp($plId, 'lost all humans');
-    }
-
+    GT_DBPlayer::setCardDone($game, $playerId);
     return $nextState;
   }
 
@@ -184,7 +112,7 @@ class GT_ActionsCard extends APP_GameClass
     } else {
       $player = GT_DBPlayer::getPlayer($game, $plId);
       if ($defenseType == 'shields') {
-        if ($card['type'] == 'meteoric') {
+        if ($card->getType() == CARD_METEORIC_SWARM) {
           $msg = clienttranslate('Meteor deflected by ${player_name}\'s shield');
         } else {
           $msg = clienttranslate('Cannon blast deflected by ${player_name}\'s shield');
@@ -252,7 +180,7 @@ class GT_ActionsCard extends APP_GameClass
 
     $choice = (int) $choice;
 
-    $allIdx = array_keys($game->card[$cardId]['planets']);
+    $allIdx = array_keys(CardsManager::get($cardId)->getPlanets());
     $chosenIdx = array_filter(
       array_map(function ($row) {
         return $row['card_action_choice'];
@@ -303,7 +231,7 @@ class GT_ActionsCard extends APP_GameClass
       foreach ($goods as $goodId) {
         if (strpos($goodId, 'cardgoods')) {
           $idx = null;
-          if ($game->card[$cardId]['type'] == 'planets') {
+          if (CardsManager::get($cardId)->getType() == CARD_PLANETS) {
             // goodId on card: cargo_planetcargo_X_Y: X is planet #, Y is goods #
             list($t1, $t2, $planet, $idx) = explode('_', $goodId);
             if ($planet != $player['card_action_choice']) {
@@ -312,10 +240,10 @@ class GT_ActionsCard extends APP_GameClass
                 $goodsOnTile
               );
             }
-            $newGoods[] = $game->card[$cardId]['planets'][$planet][$idx - 1];
+            $newGoods[] = CardsManager::get($cardId)->getPlanets()[$planet][$idx - 1];
           } else {
             $idx = explode('_', $goodId)[2];
-            $newGoods[] = $game->card[$cardId]['reward'][$idx - 1];
+            $newGoods[] = CardsManager::get($cardId)->getReward()[$idx - 1];
           }
 
           if (in_array($idx, $seenGoodsIdx)) {
@@ -350,18 +278,18 @@ class GT_ActionsCard extends APP_GameClass
     GT_DBPlayer::setCardDone($game, $plId);
 
     // notifyAllPlayers
-    switch ($game->card[$cardId]['type']) {
-      case 'planets':
+    switch (CardsManager::get($cardId)->getType()) {
+      case CARD_PLANETS:
         $desc = "planet number {$player['card_action_choice']}";
         break;
-      case 'abstation':
+      case CARD_ABANDONED_STATION:
         $desc = 'abandoned station';
         break;
-      case 'smugglers':
+      case CARD_SMUGGLERS:
         $desc = 'defeated smugglers';
         break;
       default:
-        $game->throw_bug_report("Unknown cardtype in cargoChoice for card $cardId");
+        $game->throw_bug_report("Unknown cardtype in cargoChoice for card id $cardId");
     }
 
     $plyrContent->newContentNotif($newTileContent, $player['player_name']);
