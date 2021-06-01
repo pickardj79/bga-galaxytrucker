@@ -35,7 +35,23 @@ class CombatZone extends EventCard
         3 => ['criterion' => 'cannons', 'penalty_type' => 'shot', 'penalty_value' => ['s180', 'b180']],
       ],
     ],
-    ['round' => 2, 'id' => 35],
-    ['round' => 3, 'id' => 55],
+    [
+      'round' => 2,
+      'id' => 35,
+      'lines' => [
+        1 => ['criterion' => 'cannons', 'penalty_type' => 'days', 'penalty_value' => 4],
+        2 => ['criterion' => 'engines', 'penalty_type' => 'goods', 'penalty_value' => 3],
+        3 => ['criterion' => 'crew', 'penalty_type' => 'shot', 'penalty_value' => ['s90', 's270', 's0', 'b180']],
+      ],
+    ],
+    [
+      'round' => 3,
+      'id' => 55,
+      'lines' => [
+        1 => ['criterion' => 'crew', 'penalty_type' => 'goods', 'penalty_value' => 4],
+        2 => ['criterion' => 'cannons', 'penalty_type' => 'crew', 'penalty_value' => 4],
+        3 => ['criterion' => 'engines', 'penalty_type' => 'shot', 'penalty_value' => ['s90', 's270', 's0', 's0', 'b180', 'b180']],
+      ],
+    ],
   ];
 }

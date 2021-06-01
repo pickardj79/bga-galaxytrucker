@@ -3,12 +3,28 @@
  *
  */
 
+use GT\Managers\CardsManager;
+
 class GT_TestGameState
 {
   public function __construct($game, $players)
   {
     $this->game = $game;
     $this->players = $players;
+    $this->cardsCount = [
+      CARD_SLAVERS => 0,
+      CARD_SMUGGLERS => 0,
+      CARD_PIRATES => 0,
+      CARD_STARDUST => 0,
+      CARD_EPIDEMIC => 0,
+      CARD_SABOTAGE => 0,
+      CARD_OPEN_SPACE => 0,
+      CARD_METEORIC_SWARM => 0,
+      CARD_PLANETS => 0,
+      CARD_COMBAT_ZONE => 0,
+      CARD_ABANDONED_SHIP => 0,
+      CARD_ABANDONED_STATION => 0,
+      ];
   }
 
   function log($msg)
@@ -62,17 +78,12 @@ class GT_TestGameState
   {
     $this->log('Running prepareFlight for Test GameState');
 
-    // Set cards - put planet card id 11 first
-    // $this->setCardOrder(8,1); // meteor card
-    // $this->setCardOrder(11,1); // planet card
-    // $this->setCardOrder(3,1); // stardust card
-    // $this->setCardOrder(4,1); // openspace card
-    // $this->setCardOrder(17,1); // abship card
-    // $this->setCardOrder(18,1); // abstation card
-    // $this->setCardOrder(0,1); // slavers card
-    $this->setCardOrder(1, 1); // smugglers card
-    $this->setCardOrder(2, 1); // pirates card
-    $this->setCardOrder(15, 1); // combat zone card
+    // Usage: [CARD_PIRATES, CARD_PLANETS, CARD_SMUGGLERS] - they will appear in this order in the game
+    // Unfortunately works a bit problematic with the same type given 2+ times
+    $cards = [CARD_COMBAT_ZONE, CARD_PIRATES, CARD_SMUGGLERS];
+    foreach (array_reverse($cards) as $card) {
+      $this->setCardOrder($card);
+    }
 
     // Add cargo to ships
     $sql =
@@ -121,8 +132,10 @@ class GT_TestGameState
     return [$all_tiles, $all_content];
   }
 
-  function setCardOrder($card_id, $order)
+  function setCardOrder($cardType, $order = 1)
   {
+    $card_id = CardsManager::getInstanceIdByType($cardType, $this->cardsCount[$cardType]);
+    $this->cardsCount[$cardType] += 1;
     $this->log("Setting card $card_id to order $order");
 
     if ($order != 1) {

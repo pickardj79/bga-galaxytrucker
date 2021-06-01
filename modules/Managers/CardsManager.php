@@ -22,10 +22,8 @@ class CardsManager {
   public static function getTypeById($id) {
     $keyValuePair = array_filter(self::$classes, function ($name) use ($id) {
       $className = 'GT\Cards\\'.$name;
-      return self::getInstance($className, $id);
+      return self::getInstanceById($className, $id);
     });
-
-
 
     // Sanity checks
     if (count($keyValuePair) > 1) {
@@ -37,14 +35,20 @@ class CardsManager {
     return array_keys($keyValuePair)[0];
   }
 
-  public static function getInstance($className, $id) {
+  private static function getInstanceById($className, $id) {
     return Utils::array_find($className::$instances, function($instance) use ($id) { return $instance['id'] == $id; });
   }
 
   public static function get($id) {
     $cardType = self::getTypeById($id);
     $className = 'GT\Cards\\'.self::$classes[$cardType];
-    $params = self::getInstance($className, $id);
+    $params = self::getInstanceById($className, $id);
     return new $className($params);
+  }
+
+  // Used for TestGameState only at the moment
+  public static function getInstanceIdByType($cardType, $count = 0) {
+    $className = 'GT\Cards\\'.self::$classes[$cardType];
+    return $className::$instances[$count]['id'];
   }
 }
