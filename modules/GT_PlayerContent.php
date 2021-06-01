@@ -208,8 +208,12 @@ class GT_PlayerContent extends APP_GameClass
     // Moves content ids $goodsIds to tile $tileId (both are numbers)
     $tile = GT_DBComponent::getActiveComponent($this->game, $tileId);
 
-    if ($tile['component_player'] != $this->player_id) {
-      $this->game->throw_bug_report_dump('Wrong player for tile', $tile);
+    if ((int)$tile['component_player'] != $this->player_id) {
+      var_dump('$tileId');
+      var_dump($tileId);
+      var_dump('player_id');
+      var_dump($this->player_id);
+      $this->game->throw_bug_report_dump('Wrong player for tile ', $tile);
     }
 
     $rows = [];

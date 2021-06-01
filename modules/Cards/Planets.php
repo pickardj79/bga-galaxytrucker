@@ -26,6 +26,13 @@ class Planets extends EventCard
     return $this->days_loss;
   }
 
+  public function jsonSerialize()
+  {
+    $params = parent::jsonSerialize();
+    $params['planets'] = $this->planets;
+    return $params;
+  }
+
   static $instances = [
     [
       'round' => 1,

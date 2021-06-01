@@ -20,10 +20,12 @@ class EventCard implements \JsonSerializable
     $this->round = $params['round'];
   }
 
+  // Method for frontend to get all params
   public function jsonSerialize()
   {
     return [
       'id' => $this->id,
+      'type' => $this->type,
     ];
   }
 
