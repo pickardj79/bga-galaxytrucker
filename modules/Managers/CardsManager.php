@@ -47,8 +47,8 @@ class CardsManager {
   }
 
   // Used for TestGameState only at the moment
-  public static function getInstanceIdByType($cardType, $count = 0) {
+  public static function getInstanceIdByType($cardType, $index = 0) {
     $className = 'GT\Cards\\'.self::$classes[$cardType];
-    return $className::$instances[$count]['id'];
+    return $className::$instances[$index]['id'];
   }
 }
