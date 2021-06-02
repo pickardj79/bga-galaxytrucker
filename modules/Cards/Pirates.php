@@ -33,6 +33,11 @@ class Pirates extends HazardCard
     \GT_DBPlayer::setCardAllDone($game, $player['player_id']);
   }
 
+  public function finishCard($game)
+  {
+    return 'cannonBlasts';
+  }
+
   static $instances = [
     [
       'id' => 2,

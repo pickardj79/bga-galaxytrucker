@@ -265,12 +265,7 @@ class GT_StatesCard extends APP_GameClass
       return $nextState;
     }
 
-    if ($card['type'] == 'pirates') {
-      return 'cannonBlasts';
-    } else {
-      GT_DBPlayer::setCardAllDone($game);
-      return 'nextCard';
-    }
+    $card->finishCard($game);
   }
 
   function stCannonBlasts($game)
