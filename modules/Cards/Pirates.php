@@ -22,7 +22,8 @@ class Pirates extends HazardCard
 
   public function applyPenalty($game, $player)
   {
-    return 'cannonBlasts';
+    GT_DBPlayer::setCardChoice($game, $player['player_id'], CARD_CHOICE_APPLY_HAZARD);
+    return;
   }
 
   public function giveReward($game, $player)

@@ -83,12 +83,10 @@ class GT_Enemy extends APP_GameClass
       ['player_name' => $this->player['player_name'], 'type' => $this->card->getType()]
     );
 
-    $game = $this->game;
-
     if ($this->card instanceof HazardCard) {
-      return $this->card->applyPenalty($game, $this->player);
+      return $this->card->applyPenalty($ths->game, $this->player);
     } else {
-      $game->throw_bug_report("Unknown card type ({$this->card->getType()}) in GT_Enemy::applyPenalty");
+      $this->game->throw_bug_report("Unknown card type ({$this->card->getType()}) in GT_Enemy::applyPenalty");
     }
   }
 }

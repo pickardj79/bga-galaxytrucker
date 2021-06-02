@@ -29,7 +29,7 @@ class GT_StatesCard extends APP_GameClass
 
   function stDrawCard($game)
   {
-    GT_DBPlayer::clearCardProgress($game);
+    GT_DBPlayer::resetCard($game);
 
     $cardOrderInFlight = $game->getGameStateValue('cardOrderInFlight');
     $cardOrderInFlight++;
@@ -171,7 +171,22 @@ class GT_StatesCard extends APP_GameClass
     return 'nextCard';
   }
 
-  function stMeteoric($game)
+  function stMeteoric($game) {
+    $cardId = $game->getGameStateValue('currentCard');
+    $card = $game->card[$cardId];
+    $players = GT_DBPlayer::getPlayersInFlight($game);
+
+    for ($players as $plId => $player) {
+      GT_DBPlayer::setCardChoice($game, $plId, CARD_CHOICE_APPLY_HAZARD);
+    }
+
+    $hazards = new GT_Hazards($game, $card);
+    $hazards->applyHazards();
+
+    return 'nextCard';
+  }
+
+  function stMeteoric_old($game)
   {
     $cardId = $game->getGameStateValue('currentCard');
     $card = CardsManager::get($cardId);
@@ -213,7 +228,6 @@ class GT_StatesCard extends APP_GameClass
       $game->log("Finished index $idx");
       // no players left to act for this hazard, go to next hazard
       GT_Hazards::nextHazard($game, ++$idx);
-      GT_DBPlayer::clearCardProgress($game);
     }
 
     // TODO hide dice (see how we're hiding cards)
@@ -251,8 +265,12 @@ class GT_StatesCard extends APP_GameClass
       return $nextState;
     }
 
-    GT_DBPlayer::setCardAllDone($game);
-    return 'nextCard';
+    if ($card['type'] == 'pirates') {
+      return 'cannonBlasts';
+    } else {
+      GT_DBPlayer::setCardAllDone($game);
+      return 'nextCard';
+    }
   }
 
   function stCannonBlasts($game)
@@ -260,6 +278,9 @@ class GT_StatesCard extends APP_GameClass
     // In process of looping over all cannon blasts from combat or pirates card
     $cardId = $game->getGameStateValue('currentCard');
     $card = CardsManager::get($cardId);
+
+    $hazards = new GT_Hazard($game, $card);
+    $players = GT_DBPlayer::getPlayersForCard($game);
 
     $player = GT_DBPlayer::getPlayerCardInProgress($game);
 

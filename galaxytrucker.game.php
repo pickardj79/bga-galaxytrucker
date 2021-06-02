@@ -36,7 +36,8 @@ $swdNamespaceAutoloadNamespace = function ($class) {
 };
 spl_autoload_register($swdNamespaceAutoloadNamespace, true, true);
 
-function autoload($class) {
+function autoload($class)
+{
   $file = dirname(__FILE__) . '/modules/' . $class . '.php';
   if (file_exists($file)) {
     require_once $file;

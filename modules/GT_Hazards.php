@@ -4,8 +4,87 @@
 
 class GT_Hazards extends APP_GameClass
 {
+  public function __construct($game, $card)
+  {
+    $this->game = $game;
+    $this->card = $card;
+  }
+
+  function resetCardProgressForNextHazard($game) {
+    $players = array_filter(GT_DBPlayer::getPlayersInFlight($game), function ($p) {
+      return $p['card_action_choice'] == CARD_CHOICE_APPLY_HAZARD;
+    });
+    for ($players as $plId => $player) {
+      GT_DBPlayer::resetCardProgress($game, $plId);
+    }
+  }
+
+  function applyHazards()
+  {
+    // Runs through all players in flight with card choice APPLY_HAZARD, for all hazards
+    // Marks each player done for a hazard as cardDone
+    // When first entering this method (resetCardProgressForNextHazard):
+    //  * appropriate players card choice as APPLY_HAZARD
+    //  * card not done (card_line_done) for those players
+    $game = $this->game;
+
+    $idx = $game->getGameStateValue('currentCardProgress');
+    if ($idx < 0) {
+      $idx = 0; // start of the card
+      self::nextHazard($game, 0);
+    }
+
+    $game->dump_var("Entering applyHazards with current card $cardId Hazard $idx.", $card);
+
+    if ($card['type'] == 'pirates') {
+      $hazards = $card['enemy_penalty'];
+    } elseif ($card['type'] == 'meteoric') {
+      $hazards = $card['meteors'];
+    } else {
+      $hazards = $card['lines'][3]['penalty_value'];
+    }
+
+    while ($idx < count($hazards)) {
+      $game->log("Running hazard $idx.");
+
+      // Get previous dice roll, if available. If not roll and notif
+      $hazResults = GT_Hazards::getHazardRoll($game, $card, $idx);
+
+      if ($hazResults['missed']) {
+        $game->notifyAllPlayers('hazardMissed', clienttranslate('${type} missed all ships'), [
+          'hazResults' => $hazResults,
+          'type' => ucfirst($hazResults['type']),
+        ]);
+        GT_Hazards::nextHazard($game, ++$idx);
+        continue;
+      }
+
+      // Go through players until finding one that has to act
+      $players = GT_DBPlayer::getPlayersForCard($game);
+      foreach ($players as $plId => $player) {
+        $game->log("applyHazards for player $plId, index $idx.");
+        $nextState = GT_Hazards::applyHazardToShip($game, $hazResults, $player);
+        $game->log("Got $nextState");
+        if ($nextState) {
+          GT_DBPlayer::setCardInProgress($game, $plId);
+          $game->gamestate->changeActivePlayer($plId);
+          return $nextState;
+        }
+      }
+
+      $game->log("Finished index $idx");
+      // no players left to act for this hazard, go to next hazard
+      GT_Hazards::nextHazard($game, ++$idx);
+      GT_DBPlayer::resetCardProgressForNextHazard($game);
+    }
+
+    // TODO hide dice (see how we're hiding cards)
+    return 'nextCard';
+  }
+
   function nextHazard($game, $idx)
   {
+    self::resetCardProgressForNextHazard($game);
     self::resetHazardProgress($game);
     $game->setGameStateValue('currentCardProgress', $idx);
   }
