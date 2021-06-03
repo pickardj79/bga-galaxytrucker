@@ -2,6 +2,7 @@
 *.swp
 .idea
 .tags
+.tags_swap
 
 # composer (PHP dependency management)
 vendor/
