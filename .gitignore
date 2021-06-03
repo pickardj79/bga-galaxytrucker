@@ -1,6 +1,7 @@
 .DS_Store
 *.swp
 .idea
+.tags
 
 # composer (PHP dependency management)
 vendor/
