@@ -81,10 +81,16 @@ class GT_StatesCard extends APP_GameClass
       foreach($crewContent as $curCrew){
           $tilesWithCrew[$curCrew['tile_id']] = $curCrew;
       }
-      # TODO currently every cabin loses one crew, make it dependent on joined cabins as described in the rules #demmerichs
       $lostCrewIds = array();
       foreach($tilesWithCrew as $tid => $curCrew){
-          $lostCrewIds[] = $curCrew['content_id'];
+          $tile = $plyrBoard->getTileById($tid);
+          $connected_tiles = $plyrBoard->getConnectedTiles($tile);
+          foreach($connected_tiles as $conn_tile){
+              if(array_key_exists($conn_tile['id'], $tilesWithCrew)){
+                  $lostCrewIds[] = $curCrew['content_id'];
+                  break;
+              }
+          }
       }
       $plyrContent->loseContent($lostCrewIds, 'crew', null, true);
     }
