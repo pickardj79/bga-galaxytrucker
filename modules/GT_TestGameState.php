@@ -80,7 +80,7 @@ class GT_TestGameState
 
     // Usage: [CARD_PIRATES, CARD_PLANETS, CARD_SMUGGLERS] - they will appear in this order in the game
     // Unfortunately works a bit problematic with the same type given 2+ times
-    $cardsTypes = [CARD_COMBAT_ZONE, CARD_PIRATES, CARD_SMUGGLERS];
+    $cardsTypes = [CARD_COMBAT_ZONE, CARD_EPIDEMIC, CARD_PIRATES, CARD_SMUGGLERS];
     foreach (array_reverse($cardsTypes) as $card) {
       $this->setCardOrder($card);
     }
@@ -227,6 +227,10 @@ class GT_TestGameState
       array_push($content, self::newContent($cargo2, 'goods', 'blue', 1, 2));
     } elseif ($variant == 2) {
       array_push($tiles, self::newTile(85, 7, 8, 0)); // double engine directly south
+      array_push($tiles, self::newTile(41, 8, 7, 90)); // cabin east
+      array_push($tiles, self::newTile(19*6, 8, 6, 0)); // purple alien life support
+      array_push($tiles, self::newTile(40, 6, 8, 180)); // cabin south west
+      array_push($tiles, self::newTile(45, 6, 7, 90)); // cabin west
       $cargo = self::newTile(58, 7, 6, 0); // hazard cargo north
       array_push($tiles, $cargo);
       array_push($tiles, self::newTile(88, 7, 5, 0)); // cannon above that
