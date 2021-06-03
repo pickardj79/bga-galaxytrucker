@@ -1199,6 +1199,12 @@ class galaxytrucker extends Table
     $this->gamestate->nextState($nextState);
   }
 
+  function stEpidemic()
+  {
+    $nextState = GT_StatesCard::stEpidemic($this);
+    $this->gamestate->nextState($nextState);
+  }
+
   function stStardust()
   {
     $nextState = GT_StatesCard::stStardust($this);

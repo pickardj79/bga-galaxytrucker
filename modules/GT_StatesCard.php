@@ -69,6 +69,29 @@ class GT_StatesCard extends APP_GameClass
     return $cardType;
   }
 
+  function stEpidemic($game)
+  {
+    $players = GT_DBPlayer::getPlayersInFlight($game, '', $order = 'DESC');
+
+    foreach ($players as $plId => $player) {
+      $plyrBoard = $game->newPlayerBoard($plId);
+      $plyrContent = $game->newPlayerContent($plId);
+      $crewContent = $plyrContent->getContent("crew");
+      $tilesWithCrew = array();
+      foreach($crewContent as $curCrew){
+          $tilesWithCrew[$curCrew['tile_id']] = $curCrew;
+      }
+      # TODO currently every cabin loses one crew, make it dependent on joined cabins as described in the rules #demmerichs
+      $lostCrewIds = array();
+      foreach($tilesWithCrew as $tid => $curCrew){
+          $lostCrewIds[] = $curCrew['content_id'];
+      }
+      $plyrContent->loseContent($lostCrewIds, 'crew', null, true);
+    }
+
+    return 'nextCard';
+  }
+
   function stStardust($game)
   {
     $players = GT_DBPlayer::getPlayersInFlight($game, '', $order = 'ASC');
