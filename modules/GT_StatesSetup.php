@@ -326,7 +326,7 @@ class GT_StatesSetup extends APP_GameClass
       // think (give up before start)
 
       // Get content to notify players (with auto-incremented content_id)
-      $plContent = $game->getPlContent($plId);
+      $plContent = $game->getPlayerContent($plId);
 
       if ($alienChoices) {
         // We could still display something in this player's side player board, even

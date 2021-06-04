@@ -437,7 +437,7 @@ class galaxytrucker extends Table
     );
   }
 
-  function getPlContent($plId)
+  function getPlayerContent($plId)
   {
     return self::getCollectionFromDB("SELECT * FROM content WHERE player_id=$plId");
   }
@@ -456,7 +456,7 @@ class galaxytrucker extends Table
     if ($plContent) {
       return new GT_PlayerContent($this, $plContent, $player_id);
     } else {
-      return new GT_PlayerContent($this, self::getPlContent($player_id), $player_id);
+      return new GT_PlayerContent($this, self::getPlayerContent($player_id), $player_id);
     }
   }
 
@@ -1199,6 +1199,12 @@ class galaxytrucker extends Table
   function stDrawCard()
   {
     $nextState = GT_StatesCard::stDrawCard($this);
+    $this->gamestate->nextState($nextState);
+  }
+
+  function stEpidemic()
+  {
+    $nextState = GT_StatesCard::stEpidemic($this);
     $this->gamestate->nextState($nextState);
   }
 

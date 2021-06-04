@@ -69,6 +69,35 @@ class GT_StatesCard extends APP_GameClass
     return $cardType;
   }
 
+  function stEpidemic($game)
+  {
+    $players = GT_DBPlayer::getPlayersInFlight($game, '', $order = 'DESC');
+
+    foreach ($players as $plId => $player) {
+      $plyrBoard = $game->newPlayerBoard($plId);
+      $plyrContent = $game->newPlayerContent($plId);
+      $crewContent = $plyrContent->getContent("crew");
+      $tilesWithCrew = array();
+      foreach($crewContent as $curCrew){
+          $tilesWithCrew[$curCrew['tile_id']] = $curCrew;
+      }
+      $lostCrewIds = array();
+      foreach($tilesWithCrew as $tid => $curCrew){
+          $tile = $plyrBoard->getTileById($tid);
+          $connected_tiles = $plyrBoard->getConnectedTiles($tile);
+          foreach($connected_tiles as $conn_tile){
+              if(array_key_exists($conn_tile['id'], $tilesWithCrew)){
+                  $lostCrewIds[] = $curCrew['content_id'];
+                  break;
+              }
+          }
+      }
+      $plyrContent->loseContent($lostCrewIds, 'crew', null, true);
+    }
+
+    return 'nextCard';
+  }
+
   function stStardust($game)
   {
     $players = GT_DBPlayer::getPlayersInFlight($game, '', $order = 'ASC');

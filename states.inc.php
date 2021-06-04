@@ -64,12 +64,13 @@ if (!defined('STATE_END_GAME')) {
   define('STATE_DRAW_CARD', 30);
   define('STATE_NOT_IMPL', 35);
   // Cards
-  define('STATE_STARDUST', 40);
-  define('STATE_OPEN_SPACE', 41);
-  define('STATE_ABANDONED', 42);
-  define('STATE_METEORIC', 43);
-  define('STATE_ENEMY', 44); // Loop over players, determine if powering cannons might matter
-  define('STATE_ENEMY_RESULTS', 45); // Cannons chosen, apply results
+  define('STATE_EPIDEMIC', 40);
+  define('STATE_STARDUST', 41);
+  define('STATE_OPEN_SPACE', 42);
+  define('STATE_ABANDONED', 43);
+  define('STATE_METEORIC', 44);
+  define('STATE_ENEMY', 45); // Loop over players, determine if powering cannons might matter
+  define('STATE_ENEMY_RESULTS', 46); // Cannons chosen, apply results
   define('STATE_PLANETS', 49);
   define('STATE_CANNON_BLASTS', 51); // damage from enemy or combat
   define('STATE_EXPLORE_ABANDONED', 52);
@@ -225,6 +226,7 @@ $machinestates = [
     'updateGameProgression' => true,
     'transitions' => [
       CARD_STARDUST => STATE_STARDUST,
+      CARD_EPIDEMIC => STATE_EPIDEMIC,
       CARD_OPEN_SPACE => STATE_OPEN_SPACE,
       CARD_ABANDONED_SHIP => STATE_ABANDONED,
       CARD_ABANDONED_STATION => STATE_ABANDONED,
@@ -234,7 +236,6 @@ $machinestates = [
       CARD_SMUGGLERS => STATE_ENEMY,
       CARD_METEORIC_SWARM => STATE_METEORIC,
       CARD_COMBAT_ZONE => STATE_NOT_IMPL,
-      CARD_EPIDEMIC => STATE_NOT_IMPL,
       CARD_SABOTAGE => STATE_NOT_IMPL,
       NO_CARD => STATE_JOURNEYS_END,
     ],
@@ -250,6 +251,15 @@ $machinestates = [
       'nextMeteor' => STATE_METEORIC,
       'nextCard' => STATE_DRAW_CARD,
     ],
+  ],
+
+  STATE_EPIDEMIC => [
+    'name' => 'epidemic',
+    'description' => '',
+    'type' => 'game',
+    'action' => 'stEpidemic',
+    'updateGameProgression' => false,
+    'transitions' => ['nextCard' => STATE_DRAW_CARD],
   ],
 
   STATE_STARDUST => [
