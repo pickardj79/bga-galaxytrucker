@@ -113,12 +113,7 @@ class GT_TestGameState
     $all_content = [];
     $i = 1;
     foreach ($this->players as $player_id => $player) {
-      if ($i == 1) {
-        // list($tiles, $content) = $this->repairShipTiles($player['player_color'], $i);
-        list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
-      } else {
-        list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
-      }
+      list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
       $i++;
       foreach ($tiles as &$tile) {
         $tile['component_player'] = $player_id;
