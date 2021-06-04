@@ -232,7 +232,8 @@ class GT_TestGameState
       array_push($tiles, self::newTile(3, 6, 6, 270)); // battery to west of cargo
       array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
     } elseif ($variant == 3) {
-      array_push($tiles, self::newTile(36, 7, 6, 0));
+      array_push($tiles, self::newTile(36, 7, 6, 0)); // cabin north
+      array_push($tiles, self::newTile(22*6, 8, 6, 0)); // brown alien life support north-east
     }
 
     // confirm no tiles are used more than once
