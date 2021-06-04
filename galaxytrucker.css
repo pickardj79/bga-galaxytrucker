@@ -656,10 +656,14 @@ html {
 .square .human {
   top: 15px;
 }
+.content.crew.purple,
+.content.crew.brown,
 .alien,
 .alien_choice {
   height: 22px;
 }
+.content.crew.purple,
+.content.crew.brown,
 .alien {
   width: 19px;
 }
@@ -677,11 +681,13 @@ html {
 .alien_choice.chosen {
   width: 19px;
 }
+.content.crew.purple,
 .alien.purple,
 .notouch-device .alien_choice.purple.available:hover,
 .alien_choice.purple.chosen {
   background-position: -25px 0px;
 }
+.content.crew.brown,
 .alien.brown,
 .notouch-device .alien_choice.brown.available:hover,
 .alien_choice.brown.chosen {
