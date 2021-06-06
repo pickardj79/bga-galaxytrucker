@@ -337,8 +337,7 @@ $machinestates = [
     'action' => 'stCannonBlasts',
     'updateGameProgression' => false,
     'transitions' => [
-      // "nextCard" => STATE_DRAW_CARD,
-      'nextCard' => STATE_NOT_IMPL,
+      'nextCard' => STATE_DRAW_CARD,
       'shipDamage' => STATE_SHIP_DAMAGE,
       'powerShields' => STATE_POWER_SHIELDS,
     ],

@@ -14,9 +14,9 @@ class GT_Hazards extends APP_GameClass
   {
     // Runs through all players in flight with card choice APPLY_HAZARD, for all hazards
     // Marks each player done for a hazard as cardDone
-    // When first entering this method (run resetCardProgressForNextHazard()):
-    //  * appropriate players card choice as APPLY_HAZARD
-    //  * card not done (card_line_done) for those players
+    // When first entering this method:
+    //  * set appropriate players card choice as APPLY_HAZARD
+    //  * set card not done (card_line_done) for those players (run resetCardProgressForNextHazard())
     $game = $this->game;
     $card = $this->card;
 
