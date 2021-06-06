@@ -69,7 +69,10 @@ class GT_ActionsCard extends APP_GameClass
 
     $nextState = $card->loseContent($game, $playerId, $typeToLose);
     if ($nextState == null) {
-      $game->throw_bug_report_dump("loseContentChoice wrong card type for cardId {$card->getId()}, type to lose - {$typeToLose}", $card);
+      $game->throw_bug_report_dump(
+        "loseContentChoice wrong card type for cardId {$card->getId()}, type to lose - {$typeToLose}",
+        $card
+      );
     }
 
     GT_DBPlayer::setCardDone($game, $playerId);
@@ -106,9 +109,13 @@ class GT_ActionsCard extends APP_GameClass
 
   function powerDefense($game, $plId, $card, $battChoices, $defenseType)
   {
+    $game->dump_var(
+      "powerDefense ($defenseType) for player $plId against card {$card->getId()} with choices",
+      $battChoices
+    );
     // Powering shields or cannons against incoming cannon or meteors
     if (count($battChoices) == 0) {
-      GT_Hazards::hazardDamage($game, $plId, $card);
+      (new GT_Hazards($game, $card))->hazardDamage($plId);
     } else {
       $player = GT_DBPlayer::getPlayer($game, $plId);
       if ($defenseType == 'shields') {
@@ -127,8 +134,10 @@ class GT_ActionsCard extends APP_GameClass
       $plyrContent->checkBattChoices($battChoices, 1);
       $plyrContent->loseContent($battChoices, 'cell');
 
-      GT_Hazards::hazardHarmless($game, $player, $msg, $card);
+      (new GT_Hazards($game, $card))->hazardHarmless($player, $msg);
     }
+
+    GT_DBPlayer::setCardDone($game, $plId);
   }
 
   function powerCannonsEnemy($game, $plId, $card, $battChoices)

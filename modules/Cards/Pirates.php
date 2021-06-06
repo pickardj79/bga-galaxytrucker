@@ -1,9 +1,10 @@
 <?php
 namespace GT\Cards;
 
+use GT\Models\EnemyCard;
 use GT\Models\HazardCard;
 
-class Pirates extends HazardCard
+class Pirates extends EnemyCard implements HazardCard
 {
   public function __construct($params)
   {
@@ -12,17 +13,18 @@ class Pirates extends HazardCard
     $this->name = clienttranslate('Pirates');
   }
 
-  public function getCurrentHazard($progress = null)
+  public function getCurrentHazard($idx = null)
   {
-    if ($progress === null) {
+    if ($idx === null) {
       return $this->enemy_penalty;
     }
-    return $this->enemy_penalty[$progress];
+
+    return array_key_exists($idx, $this->enemy_penalty) ? $this->enemy_penalty[$idx] : null;
   }
 
   public function applyPenalty($game, $player)
   {
-    GT_DBPlayer::setCardChoice($game, $player['player_id'], CARD_CHOICE_APPLY_HAZARD);
+    \GT_DBPlayer::setCardChoice($game, $player['player_id'], CARD_CHOICE_APPLY_HAZARD);
     return;
   }
 

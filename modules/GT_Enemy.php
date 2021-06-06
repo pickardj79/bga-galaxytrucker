@@ -1,6 +1,6 @@
 <?php
 
-use GT\Models\HazardCard;
+use GT\Models\EnemyCard;
 
 class GT_Enemy extends APP_GameClass
 {
@@ -49,27 +49,26 @@ class GT_Enemy extends APP_GameClass
 
   function fightIsTie()
   {
-    $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} fights ${type} to a draw'), [
+    $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} fights ${name} to a draw'), [
       'player_name' => $this->player['player_name'],
-      'type' => $this->card->getType(),
+      'name' => $this->card->getName(),
     ]);
     return null;
   }
 
   function giveReward()
   {
-    $cardType = $this->card->getType();
     // based on type of card give the correct reward and return the needed state
-    $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} defeats ${type} in battle'), [
+    $this->game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} defeats ${name} in battle'), [
       'player_name' => $this->player['player_name'],
-      'type' => $cardType,
+      'name' => $this->card->getName(),
     ]);
 
     $nextState = null;
-    if ($this->card instanceof HazardCard) {
+    if ($this->card instanceof EnemyCard) {
       $nextState = $this->card->giveReward($this->game, $this->player);
     } else {
-      $this->game->throw_bug_report("Unknown card type ($cardType) in GT_Enemy::giveReward");
+      $this->game->throw_bug_report("Unknown card type ({$this->card->getType()}) in GT_Enemy::giveReward");
     }
     return $nextState;
   }
@@ -79,12 +78,12 @@ class GT_Enemy extends APP_GameClass
     // based on type of card, apply the penalty and return needed state
     $this->game->notifyAllPlayers(
       'onlyLogMessage',
-      clienttranslate('${player_name} is defeated by ${type} in battle'),
-      ['player_name' => $this->player['player_name'], 'type' => $this->card->getType()]
+      clienttranslate('${player_name} is defeated by ${name} in battle'),
+      ['player_name' => $this->player['player_name'], 'name' => $this->card->getName()]
     );
 
-    if ($this->card instanceof HazardCard) {
-      return $this->card->applyPenalty($ths->game, $this->player);
+    if ($this->card instanceof EnemyCard) {
+      return $this->card->applyPenalty($this->game, $this->player);
     } else {
       $this->game->throw_bug_report("Unknown card type ({$this->card->getType()}) in GT_Enemy::applyPenalty");
     }

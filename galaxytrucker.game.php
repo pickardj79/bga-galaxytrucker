@@ -47,7 +47,7 @@ function autoload($class)
 }
 
 use GT\Managers\CardsManager;
-use GT\Models\HazardCard;
+use GT\Models\EnemyCard;
 
 class galaxytrucker extends Table
 {
@@ -757,7 +757,7 @@ class galaxytrucker extends Table
       GT_ActionsCard::powerDefense($this, $plId, $card, $battChoices, 'cannons');
       $this->gamestate->nextState('nextMeteor');
     }
-    if ($card instanceof HazardCard) {
+    elseif ($card instanceof EnemyCard) {
       $nextState = GT_ActionsCard::powerCannonsEnemy($this, $plId, $card, $battChoices);
       $this->gamestate->nextState($nextState);
     } else {
@@ -817,7 +817,7 @@ class galaxytrucker extends Table
     $this->dump_var("card $cardId is meteoric", CardsManager::get($cardId));
     if ($cardId && CardsManager::get($cardId)->getType() == CARD_METEORIC_SWARM) {
       $this->log('card is meteoric');
-      $this->gamestate->nextState('nextMeteor');
+      $this->gamestate->nextState('nextCard');
     } else {
       $this->log('drawing card');
       $this->gamestate->nextState('nextCard');
@@ -948,7 +948,8 @@ class galaxytrucker extends Table
     $plId = self::getActivePlayerId();
     $currentCardId = self::getGameStateValue('currentCard');
     $card = CardsManager::get($currentCardId);
-    $wholeCrewWillLeave = $card->getType() == CARD_ABANDONED_SHIP && self::getNbOfCrewMembers($plId) == $card->getCrew();
+    $wholeCrewWillLeave =
+      $card->getType() == CARD_ABANDONED_SHIP && self::getNbOfCrewMembers($plId) == $card->getCrew();
     return ['wholeCrewWillLeave' => $wholeCrewWillLeave];
   }
 
@@ -1256,7 +1257,9 @@ class galaxytrucker extends Table
 
   function stCannonBlasts()
   {
-    $nextState = GT_StatesCard::stCannonBlasts($this);
+    $cardId = $this->getGameStateValue('currentCard');
+    $card = CardsManager::get($cardId);
+    $nextState = (new GT_Hazards($this, $card))->applyHazards();
     $this->gamestate->nextState($nextState);
   }
 
