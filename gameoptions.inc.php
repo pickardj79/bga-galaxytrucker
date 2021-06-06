@@ -35,6 +35,13 @@ $game_options = [
       5 => ['name' => totranslate('short with IIIa (II, IIIa)'), 'nobeginner' => true],
     ],
   ],
+  101 => [
+    'name' => 'developer teststate',
+    'values' => [
+      0 => ['name' => 'off'],
+      1 => ['name' => 'on', 'beta' => true, 'nobeginner' => true],
+    ],
+  ],
 
   /* Example of game variant:
     

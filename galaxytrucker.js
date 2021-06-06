@@ -497,6 +497,7 @@ define([
           break;
 
         case 'shipDamage':
+        case 'epidemic':
           break;
         case 'exploreAbandoned':
           this.wholeCrewWillLeave = false;

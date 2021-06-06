@@ -92,6 +92,7 @@ class galaxytrucker extends Table
       // flight_variants is a game option (gameoptions.inc.php)
       // if gameoptions.inc.php changes, they must be reloaded through BGA control panel: https://boardgamearena.com/doc/Game_options_and_preferences:_gameoptions.inc.php
       'flight_variants' => 100,
+      'developer_teststate' => 101,
     ]);
   }
 
@@ -202,7 +203,9 @@ class galaxytrucker extends Table
     self::DbQuery($sql);
 
     self::log('Game initialized');
-    self::setGameStateInitialValue('testGameState', 1);
+    $developer_teststate = self::getGameStateValue('developer_teststate');
+    self::log($developer_teststate);
+    self::setGameStateInitialValue('testGameState', $developer_teststate);
 
     /************ End of the game initialization *****/
   }
@@ -435,7 +438,7 @@ class galaxytrucker extends Table
     );
   }
 
-  function getPlContent($plId)
+  function getPlayerContent($plId)
   {
     return self::getCollectionFromDB("SELECT * FROM content WHERE player_id=$plId");
   }
@@ -454,7 +457,7 @@ class galaxytrucker extends Table
     if ($plContent) {
       return new GT_PlayerContent($this, $plContent, $player_id);
     } else {
-      return new GT_PlayerContent($this, self::getPlContent($player_id), $player_id);
+      return new GT_PlayerContent($this, self::getPlayerContent($player_id), $player_id);
     }
   }
 
@@ -1198,6 +1201,12 @@ class galaxytrucker extends Table
   function stDrawCard()
   {
     $nextState = GT_StatesCard::stDrawCard($this);
+    $this->gamestate->nextState($nextState);
+  }
+
+  function stEpidemic()
+  {
+    $nextState = GT_StatesCard::stEpidemic($this);
     $this->gamestate->nextState($nextState);
   }
 

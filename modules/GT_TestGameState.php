@@ -113,12 +113,7 @@ class GT_TestGameState
     $all_content = [];
     $i = 1;
     foreach ($this->players as $player_id => $player) {
-      if ($i == 1) {
-        // list($tiles, $content) = $this->repairShipTiles($player['player_color'], $i);
-        list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
-      } else {
-        list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
-      }
+      list($tiles, $content) = $this->basicShipTiles($player['player_color'], $i);
       $i++;
       foreach ($tiles as &$tile) {
         $tile['component_player'] = $player_id;
@@ -227,11 +222,18 @@ class GT_TestGameState
       array_push($content, self::newContent($cargo2, 'goods', 'blue', 1, 2));
     } elseif ($variant == 2) {
       array_push($tiles, self::newTile(85, 7, 8, 0)); // double engine directly south
+      array_push($tiles, self::newTile(41, 8, 7, 90)); // cabin east
+      array_push($tiles, self::newTile(19 * 6, 8, 6, 0)); // purple alien life support
+      array_push($tiles, self::newTile(40, 6, 8, 180)); // cabin south west
+      array_push($tiles, self::newTile(45, 6, 7, 90)); // cabin west
       $cargo = self::newTile(58, 7, 6, 0); // hazard cargo north
       array_push($tiles, $cargo);
       array_push($tiles, self::newTile(88, 7, 5, 0)); // cannon above that
       array_push($tiles, self::newTile(3, 6, 6, 270)); // battery to west of cargo
       array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
+    } elseif ($variant == 3) {
+      array_push($tiles, self::newTile(36, 7, 6, 0)); // cabin north
+      array_push($tiles, self::newTile(22 * 6, 8, 6, 0)); // brown alien life support north-east
     }
 
     // confirm no tiles are used more than once

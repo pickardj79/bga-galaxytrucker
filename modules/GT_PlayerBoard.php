@@ -47,6 +47,13 @@ class GT_PlayerBoard extends APP_GameClass
     $this->removeTiles($tiles);
   }
 
+  function getTileById($tileId)
+  {
+    foreach ($this->plTiles as $plBoard_x)
+      foreach ($plBoard_x as $tile)
+        if ($tile['id'] == $tileId) return $tile;
+  }
+
   function getAdjacentTile($tile, $side)
   {
     $x = (int) $tile['x'];
