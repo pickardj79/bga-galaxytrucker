@@ -27,7 +27,7 @@ class Slavers extends HazardCard
       return null;
     } else {
       $game->setGameStateValue('cardArg2', $this->enemy_penalty);
-      $game->setGameStateValue('cardArg3', GT_Constants::$CONTENT_TYPE_INT_MAP['crew']);
+      $game->setGameStateValue('cardArg3', \GT_Constants::$CONTENT_TYPE_INT_MAP['crew']);
       $game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} must choose crew to lose to ${type}'), [
         'player_name' => $player['player_name'],
         'type' => $this->type,
