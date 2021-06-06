@@ -80,7 +80,7 @@ class GT_TestGameState
 
     // Usage: [CARD_PIRATES, CARD_PLANETS, CARD_SMUGGLERS] - they will appear in this order in the game
     // Unfortunately works a bit problematic with the same type given 2+ times
-    $cardsTypes = [CARD_COMBAT_ZONE, CARD_EPIDEMIC, CARD_EPIDEMIC, CARD_PIRATES, CARD_SMUGGLERS];
+    $cardsTypes = [CARD_COMBAT_ZONE, CARD_SLAVERS, CARD_ABANDONED_SHIP, CARD_EPIDEMIC, CARD_EPIDEMIC, CARD_PIRATES, CARD_SMUGGLERS];
     foreach (array_reverse($cardsTypes) as $card) {
       $this->setCardOrder($card);
     }

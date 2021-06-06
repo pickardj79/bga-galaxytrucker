@@ -154,7 +154,7 @@ class galaxytrucker extends Table
     self::setGameStateInitialValue('currentHazardPlayerTile', null); // Tile of current player threatened by the hazard
     self::setGameStateInitialValue('cardArg1', null); // Used for subtype of content to lose
     self::setGameStateInitialValue('cardArg2', null); // Used for number of content to lose
-    self::setGameStateInitialValue('cardArg3', null); // Used for number of content to lose
+    self::setGameStateInitialValue('cardArg3', null); // Used for type of content to lose
     self::setGameStateInitialValue('currentCardDie2', null);
     self::setGameStateInitialValue('round', 1); // will be changed in stPrepareRound
     // in case of a short flight variant that begins with a level 2 flight
