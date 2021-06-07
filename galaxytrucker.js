@@ -1847,7 +1847,8 @@ define([
         'overall_player_board_' + notif.args.player_id,
         1500,
       );
-      this.playerGaveUp = true;
+      if (this.player_id == notif.args.player_id)
+        this.playerGaveUp = true;
     },
 
     notif_gainContent: function (notif) {
@@ -1881,9 +1882,16 @@ define([
 
     notif_hazardDiceRoll: function (notif) {
       console.log('notif_hazardDiceRoll', notif.args);
-      // if there's not a player_id then this applies to all players
-      // if there is a player_id, only use this for the active player
-      let isCurPlayer = notif.args.player_id === undefined || notif.args.player_id == this.player_id;
+      // if there's no player_ids then this applies to all players
+      // if there is a player_ids, only place hazard if the active player is in player_ids 
+      let isCurPlayer = false;
+      if (notif.args.player_ids === null || notif.args.player_ids === undefined) {
+        console.log('null/undefined player_id, not rendering hazard sprite');
+      }
+      else if (notif.args.player_ids.includes(this.player_id)) {
+        isCurPlayer = true;
+      }
+
       this.card.notif_hazardDiceRoll(notif.args, isCurPlayer, this.playerGaveUp);
     },
 

@@ -2,7 +2,7 @@
 namespace GT\Models;
 
 /*
- * HazardCard: base class to describe event cards containing hazards
+ * AbandonedCard: base class to describe event cards containing abanonded events
  */
 class AbandonedCard extends EventCard
 {
@@ -10,20 +10,25 @@ class AbandonedCard extends EventCard
   protected $reward;
   protected $days_loss;
 
-  public function __construct($params) {
+  public function __construct($params)
+  {
     parent::__construct($params);
     $this->reward = $params['reward'];
     $this->crew = $params['crew'];
     $this->days_loss = $params['days_loss'];
   }
 
-  public function getCrew() {
+  public function getCrew()
+  {
     return $this->crew;
   }
 
-  public function getReward() {
+  public function getReward()
+  {
     return $this->reward;
   }
 
-  public function exploreChoice($game, $playerId) {}
+  public function exploreChoice($game, $playerId)
+  {
+  }
 }

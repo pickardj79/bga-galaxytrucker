@@ -2,8 +2,9 @@
 namespace GT\Cards;
 
 use GT\Models\EventCard;
+use GT\Models\HazardCard;
 
-class MeteoricSwarm extends EventCard
+class MeteoricSwarm extends EventCard implements HazardCard
 {
   private $meteors;
 
@@ -15,12 +16,12 @@ class MeteoricSwarm extends EventCard
     $this->meteors = $params['meteors'];
   }
 
-  public function getCurrentHazard($progress = null)
+  public function getCurrentHazard($idx = null)
   {
-    if ($progress === null) {
+    if ($idx === null) {
       return $this->meteors;
     }
-    return $this->meteors[$progress];
+    return array_key_exists($idx, $this->meteors) ? $this->meteors[$idx] : null;
   }
 
   static $instances = [

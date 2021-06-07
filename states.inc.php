@@ -320,6 +320,7 @@ $machinestates = [
       'nextCard' => STATE_NOT_IMPL,
       'powerCannons' => STATE_POWER_CANNONS,
       'enemyResults' => STATE_ENEMY_RESULTS,
+      'cannonBlasts' => STATE_CANNON_BLASTS,
     ],
   ],
 
@@ -334,7 +335,6 @@ $machinestates = [
       'chooseCrew' => STATE_CHOOSE_CREW,
       'loseGoods' => STATE_LOSE_GOODS,
       'loseCells' => STATE_LOSE_CELLS,
-      'cannonBlasts' => STATE_CANNON_BLASTS,
       'placeGoods' => STATE_PLACE_GOODS,
       'nextPlayerEnemy' => STATE_ENEMY,
     ],
@@ -347,9 +347,9 @@ $machinestates = [
     'action' => 'stCannonBlasts',
     'updateGameProgression' => false,
     'transitions' => [
+      'nextCard' => STATE_DRAW_CARD,
       'shipDamage' => STATE_SHIP_DAMAGE,
       'powerShields' => STATE_POWER_SHIELDS,
-      'nextPlayerEnemy' => STATE_ENEMY,
     ],
   ],
 

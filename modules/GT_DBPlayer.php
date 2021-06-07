@@ -65,9 +65,16 @@ class GT_DBPlayer extends APP_GameClass
     $game->DbQuery("UPDATE player SET still_flying = 0, player_position = null WHERE player_id = $plId");
   }
 
-  function clearCardProgress($game)
+  function resetCard($game)
   {
     $game->DbQuery('UPDATE player SET card_line_done=0, card_action_choice=0');
+  }
+
+  function resetCardProgress($game, $plId = null)
+  {
+    $where = $plId ? "WHERE player_id = $plId" : '';
+
+    $game->DbQuery("UPDATE player SET card_line_done=0 $where");
   }
 
   function setCardChoice($game, $plId, $choice)
@@ -94,7 +101,7 @@ class GT_DBPlayer extends APP_GameClass
 
   function setCardAllDone($game)
   {
-    $game->DbQuery('UPDATE player SET card_line_done=2');
+    $game->DbQuery('UPDATE player SET card_line_done=2, card_action_choice=0');
   }
 
   function setCardInProgress($game, $plId)

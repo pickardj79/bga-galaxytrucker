@@ -2,8 +2,9 @@
 namespace GT\Cards;
 
 use GT\Models\EventCard;
+use GT\Models\HazardCard;
 
-class CombatZone extends EventCard
+class CombatZone extends EventCard implements HazardCard
 {
   private $lines;
 
@@ -15,14 +16,15 @@ class CombatZone extends EventCard
     $this->lines = $params['lines'];
   }
 
-  public function getCurrentHazard($progress)
+  public function getCurrentHazard($idx = null)
   {
     // TODO: Remove hardcoded value. Maybe introduce a parameter isPenaltyShot and rely on it. Anyway hardcode is evil
     $penalty = $this->lines[3]['penalty_value'];
-    if ($progress) {
-      return $penalty[$progress];
+    if ($idx === null) {
+      return $penalty;
     }
-    return $penalty;
+
+    return array_key_exists($idx, $penalty) ? $penalty[$idx] : null;
   }
 
   static $instances = [
@@ -50,7 +52,11 @@ class CombatZone extends EventCard
       'lines' => [
         1 => ['criterion' => 'crew', 'penalty_type' => 'goods', 'penalty_value' => 4],
         2 => ['criterion' => 'cannons', 'penalty_type' => 'crew', 'penalty_value' => 4],
-        3 => ['criterion' => 'engines', 'penalty_type' => 'shot', 'penalty_value' => ['s90', 's270', 's0', 's0', 'b180', 'b180']],
+        3 => [
+          'criterion' => 'engines',
+          'penalty_type' => 'shot',
+          'penalty_value' => ['s90', 's270', 's0', 's0', 'b180', 'b180'],
+        ],
       ],
     ],
   ];

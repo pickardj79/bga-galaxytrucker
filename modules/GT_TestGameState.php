@@ -24,7 +24,7 @@ class GT_TestGameState
       CARD_COMBAT_ZONE => 0,
       CARD_ABANDONED_SHIP => 0,
       CARD_ABANDONED_STATION => 0,
-      ];
+    ];
   }
 
   function log($msg)
@@ -223,7 +223,7 @@ class GT_TestGameState
     } elseif ($variant == 2) {
       array_push($tiles, self::newTile(85, 7, 8, 0)); // double engine directly south
       array_push($tiles, self::newTile(41, 8, 7, 90)); // cabin east
-      array_push($tiles, self::newTile(19*6, 8, 6, 0)); // purple alien life support
+      array_push($tiles, self::newTile(19 * 6, 8, 6, 0)); // purple alien life support
       array_push($tiles, self::newTile(40, 6, 8, 180)); // cabin south west
       array_push($tiles, self::newTile(45, 6, 7, 90)); // cabin west
       $cargo = self::newTile(58, 7, 6, 0); // hazard cargo north
@@ -233,7 +233,7 @@ class GT_TestGameState
       array_push($content, self::newContent($cargo, 'goods', 'red', 1, 1));
     } elseif ($variant == 3) {
       array_push($tiles, self::newTile(36, 7, 6, 0)); // cabin north
-      array_push($tiles, self::newTile(22*6, 8, 6, 0)); // brown alien life support north-east
+      array_push($tiles, self::newTile(22 * 6, 8, 6, 0)); // brown alien life support north-east
     }
 
     // confirm no tiles are used more than once

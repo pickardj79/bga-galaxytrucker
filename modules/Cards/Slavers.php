@@ -1,9 +1,9 @@
 <?php
 
 namespace GT\Cards;
-use GT\Models\HazardCard;
+use GT\Models\EnemyCard;
 
-class Slavers extends HazardCard
+class Slavers extends EnemyCard
 {
   public function __construct($params)
   {
