@@ -17,6 +17,7 @@ class AbandonedShip extends AbandonedCard
     $player = \GT_DBPlayer::getPlayer($game, $playerId);
     if ($player['nb_crew'] > $this->crew) {
       $game->setGameStateValue('cardArg2', $this->crew);
+      $game->setGameStateValue('cardArg3', \GT_Constants::$CONTENT_TYPE_INT_MAP['crew']);
       return 'chooseCrew';
     } elseif ($player['nb_crew'] == $this->crew) {
       // This player sends ALL their remaining crew members
