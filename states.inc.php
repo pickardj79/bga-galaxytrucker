@@ -83,6 +83,7 @@ if (!defined('STATE_END_GAME')) {
   define('STATE_LOSE_GOODS', 68);
   define('STATE_LOSE_CELLS', 69);
   define('STATE_SHIP_DAMAGE', 70);
+  define('STATE_SABOTAGE', 71);
   define('STATE_JOURNEYS_END', 80);
   define('STATE_END_GAME', 99);
 }
@@ -236,7 +237,7 @@ $machinestates = [
       CARD_SMUGGLERS => STATE_ENEMY,
       CARD_METEORIC_SWARM => STATE_METEORIC,
       CARD_COMBAT_ZONE => STATE_NOT_IMPL,
-      CARD_SABOTAGE => STATE_NOT_IMPL,
+      CARD_SABOTAGE => STATE_SABOTAGE,
       NO_CARD => STATE_JOURNEYS_END,
     ],
   ],
@@ -485,6 +486,17 @@ $machinestates = [
     'updateGameProgression' => false,
     'transitions' => [
       'notImpl' => STATE_NOT_IMPL,
+    ],
+  ],
+
+  STATE_SABOTAGE => [
+    'name' => 'shipDamage',
+    'description' => '',
+    'type' => 'game',
+    'action' => 'stSabotage',
+    'updateGameProgression' => false,
+    'transitions' => [
+      'nextCard' => STATE_DRAW_CARD,
     ],
   ],
 

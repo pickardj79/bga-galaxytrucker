@@ -50,7 +50,6 @@ class GTFE_Card {
     }
 
     if (!this.type) return this;
-
     if (this.curHazard && this.curHazard.die1 != '0') {
       this._placeDice(this.curHazard.die1, this.curHazard.die2);
       if (this.card_line_done[game.player_id]['card_line_done'] != 2) this._placeHazard(this.curHazard);

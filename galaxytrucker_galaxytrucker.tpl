@@ -100,8 +100,6 @@
     <div id="info_box" class="darkblock"></div>
     <div id="trash_box" class="darkblock"><h3>{AIR_LOCK}</h3></div>
     <div id="dice_box" class="darkblock"></div>
-
-
   </div>
 
 </div>
