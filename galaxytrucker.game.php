@@ -1279,6 +1279,11 @@ class galaxytrucker extends Table
     $this->gamestate->nextState('notImpl');
   }
 
+  function stSabotage() {
+    $nextState = GT_StatesCard::stSabotage($this);
+    $this->gamestate->nextState($nextState);
+  }
+
   // ########### FINAL CLEAN UP STATES ##############
   function stJourneysEnd()
   {

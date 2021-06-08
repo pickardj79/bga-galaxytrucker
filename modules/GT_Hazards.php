@@ -2,6 +2,9 @@
 
 /* Collection of functions to handle resolving hazards (cannon and meteors) */
 
+use GT\Managers\DiceManager;
+use GT\Models\HazardCard;
+
 class GT_Hazards extends APP_GameClass
 {
   public function __construct($game, $card = null)
@@ -20,7 +23,7 @@ class GT_Hazards extends APP_GameClass
     $game = $this->game;
     $card = $this->card;
 
-    if (!($card instanceof \GT\Models\HazardCard)) {
+    if (!($card instanceof HazardCard)) {
       $this->game->throw_bug_report("Unknown card type ({$card->getType()}) for card ({$card->getId()}) in GT_Hazards");
       return;
     }
@@ -135,18 +138,10 @@ class GT_Hazards extends APP_GameClass
     $row_col = $orient == 0 || $orient == 180 ? 'column' : 'row';
 
     // get the dice roll
-    $die1 = $game->getGameStateValue('currentCardDie1');
-    $die2 = $game->getGameStateValue('currentCardDie2');
-    $new_roll = $die1 ? false : true;
-    if ($new_roll) {
-      $die1 = bga_rand(1, 6);
-      $die2 = bga_rand(1, 6);
-      $game->setGameStateValue('currentCardDie1', $die1);
-      $game->setGameStateValue('currentCardDie2', $die2);
-      $game->log("New dice roll $die1 and $die2.");
-    } else {
-      $game->log("Reusing dice roll for hazard $cur_hazard");
-    }
+    $new_roll = !$game->getGameStateValue('currentCardDie1');
+    $dice = DiceManager::throwNewDice($game, $new_roll);
+    $die1 = $dice[0];
+    $die2 = $dice[1];
 
     // build final object and return
     $shipClassInt = $game->getGameStateValue('shipClass');
@@ -339,7 +334,7 @@ class GT_Hazards extends APP_GameClass
     return 'powerShields';
   }
 
-  function hazardDamage($plId)
+  function hazardDamage($plId, $hazResults = null)
   {
     // Wrapper for _hazardDamage to collect hazard-related DB information
     $game = $this->game;
@@ -347,7 +342,7 @@ class GT_Hazards extends APP_GameClass
     $game->log("hazardDamage for player $plId card {$this->card->getId()}");
     $player = GT_DBPlayer::getPlayer($game, $plId);
     $brd = $game->newPlayerBoard($player['player_id']);
-    $hazResults = $this->getHazardRoll();
+    $hazResults = $hazResults == null ? $this->getHazardRoll() : $hazResults;
     $tileId = $game->getGameStateValue('currentHazardPlayerTile');
     return $this->_hazardDamage($player, $brd, $tileId, $hazResults);
   }
@@ -360,18 +355,24 @@ class GT_Hazards extends APP_GameClass
     GT_DBComponent::removeComponents($game, $player['player_id'], [$tileId]);
     GT_DBContent::removeContentByTileIds($game, [$tileId]);
     $brd->removeTilesById([$tileId]);
+    $params = [
+      'player_name' => $player['player_name'],
+      'haztype' => $hazResults['type'],
+      'tiletype' => $game->getTileTypeName($tileId),
+      'plId' => $player['player_id'],
+      'numbComp' => 1,
+      'tileIds' => array_values([$tileId]),
+    ];
+    if ($hazResults['type'] === 'sabotage') {
+      $params['tileCoordsText'] = $hazResults['tileCoordsText'];
+    } else {
+      $params['hazResults'] = $hazResults;
+      $params['tileCoordsText'] = '';
+    }
     $game->notifyAllPlayers(
       'loseComponent',
-      clienttranslate('${player_name} loses ${tiletype} tile from ${haztype} strike'),
-      [
-        'player_name' => $player['player_name'],
-        'haztype' => $hazResults['type'],
-        'tiletype' => $game->getTileTypeName($tileId),
-        'plId' => $player['player_id'],
-        'numbComp' => 1,
-        'tileIds' => array_values([$tileId]),
-        'hazResults' => $hazResults,
-      ]
+      clienttranslate('${player_name} loses ${tiletype} tile${tileCoordsText} because of ${haztype}'),
+      $params
     );
 
     $shipParts = $brd->checkShipIntegrity();

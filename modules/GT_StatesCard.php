@@ -3,6 +3,8 @@
 /* Collection of functions to handle states associated with cards */
 
 use GT\Managers\CardsManager;
+use GT\Managers\DiceManager;
+use GT\Managers\PlayersManager;
 
 class GT_StatesCard extends APP_GameClass
 {
@@ -229,7 +231,6 @@ class GT_StatesCard extends APP_GameClass
     foreach ($players as $plId => $player) {
       $game->log("stEnemy for player $plId");
       $enemy = new GT_Enemy($game, $card, $player);
-      $nextState = '';
       $cannonPower = $enemy->playerCannonValue();
       if (is_null($cannonPower)) {
         $game->notifyAllPlayers(
@@ -253,7 +254,57 @@ class GT_StatesCard extends APP_GameClass
     return $card->finishCard($game);
   }
 
+  function stSabotage($game)
+  {
+    $players = GT_DBPlayer::getPlayersForCard($game);
+    $player = PlayersManager::getPlayerWithLowestCrew($players);
+    $game->notifyAllPlayers('onlyLogMessage', clienttranslate('${player_name} has the lowest crew and is a target of Sabotage'), [
+      'player_name' => $player['player_name'],
+    ]);
 
+    $hit = false;
+    $columnResult = null;
+    for ($i = 0; $i <= 5; $i++) {
+      $dice = DiceManager::throwNewDice($game, true);
+      $die1 = $dice[0];
+      $die2 = $dice[1];
+      $dieSum = $die1 + $die2;
+      $board = $game->newPlayerBoard($player['player_id']);
+
+      $rowColType = $i % 2 ? 'row' : 'column';
+      $rowColTranslated = $i % 2 ? clienttranslate('row') : clienttranslate('column');
+      $message = clienttranslate('Identifying a ${rowColTranslated} for Sabotage card... the result is ${throwResult}');
+      $game->notifyAllPlayers('sabotageResults', $message, [
+        'die1' => $die1,
+        'die2' => $die2,
+        'rowColType' => $rowColType,
+        'rowColTranslated' => $rowColTranslated,
+        'throwResult' => $dieSum,
+        'player_id' => $player['player_id'],
+      ]);
+
+      if ($columnResult != null && isset($columnResult[$dieSum])) {
+        $hit = true;
+        // We have a single Sabotage card, lol! Pretty ugly way to get the card though...
+        $card = CardsManager::get(\GT\Cards\Sabotage::$instances[0]['id']);
+        $tile = $columnResult[$dieSum];
+        $game->setGameStateValue('currentHazardPlayerTile', $tile['id']);
+        $hazResults = [
+          'type' => 'sabotage',
+          'tileCoordsText' => " ({$tile['x']}, {$tile['y']})",
+        ];
+        (new GT_Hazards($game, $card))->hazardDamage($player['player_id'], $hazResults);
+        break;
+      }
+      $columnResult = $i % 2 ? null : $board->getLine($dieSum, 0);
+    }
+    if (!$hit) {
+      $game->notifyAllPlayers('onlyLogMessage', clienttranslate('Saboteurs gave up, nothing happened to ${player_name}'), [
+        'player_name' => $player['player_name'],
+      ]);
+    }
+    return 'nextCard';
+  }
 }
 
 ?>

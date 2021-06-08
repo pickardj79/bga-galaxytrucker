@@ -1467,6 +1467,8 @@ define([
       this.notifqueue.setSynchronous('hazardMissed', 2000);
       dojo.subscribe('hazardHarmless', this, 'notif_hazardHarmless');
       this.notifqueue.setSynchronous('hazardHarmless', 2000);
+      dojo.subscribe('sabotageResults', this, 'notif_sabotageResults');
+      this.notifqueue.setSynchronous('sabotageResults', 300);
 
       dojo.subscribe('newRound', this, 'notif_newRound');
 
@@ -1908,6 +1910,11 @@ define([
     notif_hazardHarmless: function (notif) {
       console.log('notif_hazardHarmless', notif.args);
       if (this.player_id == notif.args.player_id) this.card.hazardHit(notif.args.tileId, notif.args.hazResults);
+    },
+
+    notif_sabotageResults: function (notif) {
+      console.log('notif_sabotageResults', notif.args);
+      // TODO: Add line to visually show where Sabotage happened after this throw - line or column
     },
 
     notif_newRound: function (notif) {
